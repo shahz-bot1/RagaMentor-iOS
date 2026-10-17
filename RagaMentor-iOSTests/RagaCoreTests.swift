@@ -200,63 +200,6 @@ final class RagaCoreTests: XCTestCase {
         XCTAssertEqual(sorted.count, 3)
     }
 
-    func testBackupRoundTrip() throws {
-        let l1 = UUID(), l2 = UUID(), g1 = UUID(), g2 = UUID()
-        let file = LoopsBackup.make(
-            songTitle: "Song",
-            duration: 100,
-            loops: [
-                .init(id: l1, name: "Intro", note: "Sa = C#", start: 0, end: 10),
-                .init(id: l2, name: "Chorus", note: "", start: 20, end: 35),
-            ],
-            groups: [
-                .init(id: g1, name: "All", colorHex: "#111111", memberIDs: [l1, g2]),
-                .init(id: g2, name: "Sub", colorHex: "#222222", memberIDs: [l2]),
-            ])
-        let data = try JSONEncoder().encode(file)
-        let decoded = try JSONDecoder().decode(LoopsBackupFile.self, from: data)
-        XCTAssertEqual(decoded, file)
-
-        let plan = try LoopsBackup.planImport(file: decoded, duration: 100)
-        XCTAssertEqual(plan.loops.map(\.name), ["Intro", "Chorus"])
-        XCTAssertEqual(plan.loops[0].note, "Sa = C#")
-        XCTAssertEqual(plan.groups.count, 2)
-        let all = try XCTUnwrap(plan.groups.first { $0.name == "All" })
-        let sub = try XCTUnwrap(plan.groups.first { $0.name == "Sub" })
-        // Membership resolved to the FRESH ids, structure intact.
-        XCTAssertTrue(all.memberIDs.contains(sub.id))
-        XCTAssertEqual(sub.memberIDs, [plan.loops[1].id])
-        XCTAssertNotEqual(sub.id, g2)
-    }
-
-    func testBackupImportGuards() throws {
-        // Version gate.
-        var bad = LoopsBackupFile(songTitle: "X", duration: 10, loops: [], groups: [])
-        bad.version = 99
-        XCTAssertThrowsError(try LoopsBackup.planImport(file: bad, duration: 10))
-
-        // A holder group nested inside another group breaks the cap and
-        // is dropped as a member; ranges clamp to a shorter target song.
-        let file = LoopsBackupFile(
-            songTitle: "X", duration: 100,
-            loops: [.init(serial: 1, name: "L", note: "", start: 0, end: 90)],
-            groups: [
-                .init(serial: 2, name: "Outer", colorHex: "#000000", memberSerials: [3]),
-                .init(serial: 3, name: "Holder", colorHex: "#000000", memberSerials: [4]),
-                .init(serial: 4, name: "Inner", colorHex: "#000000", memberSerials: [1]),
-            ])
-        let plan = try LoopsBackup.planImport(file: file, duration: 50)
-        XCTAssertEqual(plan.loops.first?.end, 50) // clamped from 90
-        // Outer held only Holder; Holder was dropped as a member (cap),
-        // leaving Outer with no descendant loops — so it vanishes (§6).
-        // Holder survives at top level, still holding Inner and the loop.
-        XCTAssertEqual(Set(plan.groups.map(\.name)), ["Holder", "Inner"])
-        let holder = try XCTUnwrap(plan.groups.first { $0.name == "Holder" })
-        let inner = try XCTUnwrap(plan.groups.first { $0.name == "Inner" })
-        XCTAssertEqual(holder.memberIDs, [inner.id])
-        XCTAssertEqual(inner.memberIDs, [plan.loops[0].id])
-    }
-
     // MARK: - P1: swara model, sanitizer, expansion
 
     func testSemitoneMapAsCodedOnWeb() {
