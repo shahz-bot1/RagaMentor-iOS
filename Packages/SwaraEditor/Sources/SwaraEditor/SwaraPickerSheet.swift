@@ -46,13 +46,10 @@ public struct SwaraPickerSheet: View {
                 Text(current).foregroundStyle(.secondary).font(.callout)
             }
 
-            Picker("Octave", selection: Binding(
-                get: { picker.octave }, set: { model.pickerSetOctave($0) })) {
-                Text("low (˙S)").tag(-1)
-                Text("middle").tag(0)
-                Text("high (S˙)").tag(1)
-            }
-            .pickerStyle(.segmented)
+            StudioSegmented(
+                items: [(-1, "low (˙S)"), (0, "middle"), (1, "high (S˙)")],
+                selection: Binding(
+                    get: { picker.octave }, set: { model.pickerSetOctave($0) }))
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 62), spacing: 8)], spacing: 8) {
                 ForEach(model.pickerSthanas, id: \.self) { st in
@@ -60,9 +57,15 @@ public struct SwaraPickerSheet: View {
                         !$0.isHold && $0.st == st && $0.oct == picker.octave
                     }
                     Button(st) { model.pickerTapSthana(st) }
-                        .buttonStyle(.bordered)
-                        .tint(picked ? DesignTokens.accent : .secondary)
                         .font(.callout.weight(.medium))
+                        .foregroundStyle(Studio.text)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(picked ? Studio.accentSoft : Studio.panel2,
+                                    in: RoundedRectangle(cornerRadius: 9))
+                        .overlay(RoundedRectangle(cornerRadius: 9)
+                            .strokeBorder(picked ? Studio.accent : Studio.border, lineWidth: 1))
+                        .buttonStyle(.plain)
                 }
             }
 
@@ -128,6 +131,7 @@ public struct SwaraPickerSheet: View {
             Spacer(minLength: 0)
         }
         .padding()
+        .background(Studio.bg.ignoresSafeArea())
         .presentationDetents([.medium, .large])
     }
 
