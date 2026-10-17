@@ -30,6 +30,8 @@
 		C0FFEE000000000000000301 /* LoopLab in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000201 /* LoopLab */; };
 		C0FFEE000000000000000302 /* PersistenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000202 /* PersistenceKit */; };
 		C0FFEE000000000000000303 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000203 /* DesignSystem */; };
+		C0FFEE000000000000000304 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000204 /* AudioKit */; };
+		C0FFEE000000000000000305 /* RagaCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000205 /* RagaCore */; };
 		C0FFEE000000000000000311 /* RagaCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000211 /* RagaCore */; };
 		C0FFEE000000000000000312 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000212 /* AudioKit */; };
 		C0FFEE000000000000000313 /* PersistenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000213 /* PersistenceKit */; };
@@ -63,6 +65,8 @@
 				C0FFEE000000000000000301 /* LoopLab in Frameworks */,
 				C0FFEE000000000000000302 /* PersistenceKit in Frameworks */,
 				C0FFEE000000000000000303 /* DesignSystem in Frameworks */,
+				C0FFEE000000000000000304 /* AudioKit in Frameworks */,
+				C0FFEE000000000000000305 /* RagaCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +137,8 @@
 				C0FFEE000000000000000201 /* LoopLab */,
 				C0FFEE000000000000000202 /* PersistenceKit */,
 				C0FFEE000000000000000203 /* DesignSystem */,
+				C0FFEE000000000000000204 /* AudioKit */,
+				C0FFEE000000000000000205 /* RagaCore */,
 			);
 			productName = "RagaMentor-iOS";
 			productReference = 666666666666666666666666 /* RagaMentor-iOS.app */;
@@ -312,6 +318,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0FFEE000000000000000105 /* XCLocalSwiftPackageReference "LoopLab" */;
 			productName = "LoopLab";
+		};
+		C0FFEE000000000000000204 /* AudioKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000102 /* XCLocalSwiftPackageReference "AudioKit" */;
+			productName = "AudioKit";
+		};
+		C0FFEE000000000000000205 /* RagaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000101 /* XCLocalSwiftPackageReference "RagaCore" */;
+			productName = "RagaCore";
 		};
 /* End XCSwiftPackageProductDependency section */
 
