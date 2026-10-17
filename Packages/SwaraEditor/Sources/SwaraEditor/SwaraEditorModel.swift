@@ -195,15 +195,28 @@ public final class SwaraEditorModel: ObservableObject {
             lines.append("  \"chips\": []")
         } else {
             lines.append("  \"chips\": [")
-            let chipLines = phrase.chips.map { chip -> String in
-                let data = (try? JSONEncoder().encode(chip)) ?? Data()
-                return "    " + (String(data: data, encoding: .utf8) ?? "{}")
-            }
+            let chipLines = phrase.chips.map { "    " + chipText($0) }
             lines.append(chipLines.joined(separator: ",\n"))
             lines.append("  ]")
         }
         lines.append("}")
         return lines.joined(separator: "\n")
+    }
+
+    /// One chip as compact JSON with the web key order (k, stack,
+    /// beats). Built by hand: JSONEncoder does not guarantee key
+    /// order, and the raw text format is exact.
+    public static func chipText(_ chip: Chip) -> String {
+        switch chip.kind {
+        case .note:
+            let stack = chip.stack.map { entry -> String in
+                entry.isHold ? "{\"hold\":true}"
+                    : "{\"st\":\"\(entry.st ?? \"\")\",\"oct\":\(entry.oct)}"
+            }.joined(separator: ",")
+            return "{\"k\":\"note\",\"stack\":[\(stack)],\"beats\":\(JSJSON.formatNumber(chip.beats))}"
+        case .hold, .gap:
+            return "{\"k\":\"\(chip.kind.rawValue)\",\"beats\":\(JSJSON.formatNumber(chip.beats))}"
+        }
     }
 
     // MARK: - Picker flows
