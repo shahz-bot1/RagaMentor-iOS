@@ -538,7 +538,7 @@ public final class PlaybackController: ObservableObject {
 
     /// Serialise the current song's loops/groups to backup JSON.
     /// P1: writes the web-compatible v3 format (loops carry their swara
-    /// phrases); import still reads native v1 files.
+    /// phrases); import reads the same v3 format.
     public func backupJSON() -> Data? {
         guard let song = currentSong else { return nil }
         return LoopsBackupV3.makeData(
@@ -550,22 +550,16 @@ public final class PlaybackController: ObservableObject {
             isKnownRaga: { [ragaLibrary] id in ragaLibrary.raga(id: id) != nil })
     }
 
-    /// Replace ALL loops/groups of the current song from backup data
-    /// (PLAN §11: import replaces; fresh DB ids are minted).
-    /// Returns false (changing nothing) when the file is not a valid
-    /// v1 backup.
+    /// Replace ALL loops/groups of the current song from backup data.
+    /// The format is the platform-independent v3 (identical to the web
+    /// export); import replaces and mints fresh DB ids. Returns false
+    /// (changing nothing) when the data is not a usable v3 file.
     @discardableResult
     public func importBackup(data: Data, context: ModelContext) -> Bool {
-        guard let song = currentSong else { return false }
-        let plan: (loops: [LoopsBackup.PlannedLoop], groups: [LoopsBackup.PlannedGroup])
-        if let file = try? JSONDecoder().decode(LoopsBackupFile.self, from: data),
-           let v1 = try? LoopsBackup.planImport(file: file, duration: song.duration) {
-            plan = v1
-        } else if let v3 = LoopsBackupV3.planImport(
-            data: data, duration: song.duration,
-            isKnownRaga: { [ragaLibrary] id in ragaLibrary.raga(id: id) != nil }) {
-            plan = v3
-        } else {
+        guard let song = currentSong,
+              let plan = LoopsBackupV3.planImport(
+                data: data, duration: song.duration,
+                isKnownRaga: { [ragaLibrary] id in ragaLibrary.raga(id: id) != nil }) else {
             return false
         }
         // Disarm playback selection first (records are about to vanish).
