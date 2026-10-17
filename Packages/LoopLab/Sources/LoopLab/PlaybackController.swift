@@ -3,6 +3,7 @@ import SwiftData
 import RagaCore
 import AudioKit
 import PersistenceKit
+import SwaraEditor
 import Combine
 import AVFoundation
 import MediaPlayer
@@ -47,12 +48,20 @@ public final class PlaybackController: ObservableObject {
     }
 
     let engine: any FilePlaybackEngine
+    /// The shared raga-selection service (P1).
+    public let ragaLibrary: any RagaLibrary
+    /// Phrase playback shared by the Swaras section and the editor (P1).
+    public let phrasePlayer: PhrasePlayer
     private var positionTimer: Timer?
     private var notificationTokens: [NSObjectProtocol] = []
     private var resumeAfterInterruption = false
 
-    public init(engine: any FilePlaybackEngine = AudioEngine()) {
+    public init(engine: any FilePlaybackEngine = AudioEngine(),
+                library: (any RagaLibrary)? = nil,
+                tone: (any ToneEngine)? = nil) {
         self.engine = engine
+        self.ragaLibrary = library ?? DefaultRagaLibrary()
+        self.phrasePlayer = PhrasePlayer(tone: tone ?? HarmoniumToneEngine())
         engine.rate = speed
         observeSessionNotifications()
     }
@@ -187,6 +196,7 @@ public final class PlaybackController: ObservableObject {
 
     public func togglePlay() {
         guard currentSong != nil else { return }
+        phrasePlayer.stop()
         if isPlaying {
             engine.pause()
             isPlaying = false
@@ -373,6 +383,7 @@ public final class PlaybackController: ObservableObject {
         loop.end = position
         let second = LoopRegion(name: LoopRules.splitSecondName(originalName: loop.name,
                                                                  existingNames: song.loops.map(\.name)),
+                                note: loop.note,
                                 start: position,
                                 end: originalEnd,
                                 sortOrder: loop.sortOrder + 1,
@@ -525,17 +536,18 @@ public final class PlaybackController: ObservableObject {
 
     // MARK: - Loops backup (M4, PLAN §11)
 
-    /// Serialise the current song's loops/groups to backup JSON (v1).
+    /// Serialise the current song's loops/groups to backup JSON.
+    /// P1: writes the web-compatible v3 format (loops carry their swara
+    /// phrases); import still reads native v1 files.
     public func backupJSON() -> Data? {
         guard let song = currentSong else { return nil }
-        let file = LoopsBackup.make(
+        return LoopsBackupV3.makeData(
             songTitle: song.title,
-            duration: song.duration,
-            loops: song.loops.map { .init(id: $0.id, name: $0.name, note: $0.note, start: $0.start, end: $0.end) },
-            groups: song.groups.map { .init(id: $0.id, name: $0.name, colorHex: $0.colorHex, memberIDs: $0.memberIDs) })
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try? encoder.encode(file)
+            loops: song.loops.map { .init(id: $0.id, name: $0.name, note: $0.note,
+                                          start: $0.start, end: $0.end,
+                                          phrase: phrase(for: $0)) },
+            groups: song.groups.map { .init(id: $0.id, name: $0.name, colorHex: $0.colorHex, memberIDs: $0.memberIDs) },
+            isKnownRaga: { [ragaLibrary] id in ragaLibrary.raga(id: id) != nil })
     }
 
     /// Replace ALL loops/groups of the current song from backup data
@@ -544,9 +556,16 @@ public final class PlaybackController: ObservableObject {
     /// v1 backup.
     @discardableResult
     public func importBackup(data: Data, context: ModelContext) -> Bool {
-        guard let song = currentSong,
-              let file = try? JSONDecoder().decode(LoopsBackupFile.self, from: data),
-              let plan = try? LoopsBackup.planImport(file: file, duration: song.duration) else {
+        guard let song = currentSong else { return false }
+        let plan: (loops: [LoopsBackup.PlannedLoop], groups: [LoopsBackup.PlannedGroup])
+        if let file = try? JSONDecoder().decode(LoopsBackupFile.self, from: data),
+           let v1 = try? LoopsBackup.planImport(file: file, duration: song.duration) {
+            plan = v1
+        } else if let v3 = LoopsBackupV3.planImport(
+            data: data, duration: song.duration,
+            isKnownRaga: { [ragaLibrary] id in ragaLibrary.raga(id: id) != nil }) {
+            plan = v3
+        } else {
             return false
         }
         // Disarm playback selection first (records are about to vanish).
@@ -560,9 +579,11 @@ public final class PlaybackController: ObservableObject {
         for group in song.groups { context.delete(group) }
         song.groups = []
 
+        phrasePlayer.stop()
         for planned in plan.loops {
             let loop = LoopRegion(id: planned.id, name: planned.name, note: planned.note,
-                                  start: planned.start, end: planned.end, song: song)
+                                  start: planned.start, end: planned.end,
+                                  swarasJSON: planned.phrase?.jsonString(), song: song)
             song.loops.append(loop)
         }
         resortLoops(song)
@@ -574,5 +595,78 @@ public final class PlaybackController: ObservableObject {
         }
         try? context.save()
         return true
+    }
+
+    // MARK: - Swara phrases (P1)
+
+    public func phrase(for loop: LoopRegion) -> Phrase? {
+        loop.swarasJSON.flatMap(Phrase.fromJSONString)
+    }
+
+    /// A loop "has" a phrase when it holds at least one chip (web
+    /// swHasPhrase).
+    public func hasPhrase(_ loop: LoopRegion) -> Bool {
+        phrase(for: loop).map { !$0.chips.isEmpty } ?? false
+    }
+
+    public func savePhrase(_ phrase: Phrase, for loop: LoopRegion, context: ModelContext) {
+        loop.swarasJSON = phrase.jsonString()
+        try? context.save()
+        objectWillChange.send()
+    }
+
+    public func clearPhrase(for loop: LoopRegion, context: ModelContext) {
+        if phrasePlayer.isPlaying(contextKey: sectionKey(for: loop))
+            || phrasePlayer.isPlaying(contextKey: editorKey(for: loop)) {
+            phrasePlayer.stop()
+        }
+        loop.swarasJSON = nil
+        try? context.save()
+        objectWillChange.send()
+    }
+
+    /// Per-song raga memory (web swNoteSongRaga).
+    public func noteSongRaga(_ id: String?, context: ModelContext) {
+        currentSong?.swRagaId = id
+        try? context.save()
+    }
+
+    /// The default phrase for a loop with none: the song's remembered
+    /// raga, else Mohanam; tempo 72 (web swDefaultPhrase).
+    public func defaultPhrase(for song: Song) -> Phrase {
+        let rid = song.swRagaId.flatMap { ragaLibrary.raga(id: $0) != nil ? $0 : nil } ?? "mohanam"
+        return Phrase(ragaId: rid, saOffset: 0, tempo: 72, loop: false, chips: [])
+    }
+
+    public func sectionKey(for loop: LoopRegion) -> String { "section:\(loop.id.uuidString)" }
+    public func editorKey(for loop: LoopRegion) -> String { "editor:\(loop.id.uuidString)" }
+
+    public func toggleSectionPhrase(for loop: LoopRegion) {
+        if phrasePlayer.isPlaying(contextKey: sectionKey(for: loop)) {
+            phrasePlayer.stop()
+            return
+        }
+        guard let phrase = phrase(for: loop), !phrase.chips.isEmpty else { return }
+        pause()
+        startSectionPhrase(phrase, for: loop)
+    }
+
+    private func startSectionPhrase(_ phrase: Phrase, for loop: LoopRegion) {
+        let songID = currentSong?.id
+        phrasePlayer.play(phrase: phrase, contextKey: sectionKey(for: loop)) { [weak self] in
+            // Web ctx validity: the fullscreen section for this loop.
+            self?.selectedLoopID == loop.id && self?.currentSong?.id == songID
+        }
+    }
+
+    /// Section tempo slider: writes the stored phrase's tempo and
+    /// restarts section playback when it is playing (web behaviour).
+    public func setSectionPhraseTempo(_ tempo: Int, for loop: LoopRegion, context: ModelContext) {
+        guard var phrase = phrase(for: loop) else { return }
+        phrase.tempo = min(120, max(30, tempo))
+        savePhrase(phrase, for: loop, context: context)
+        if phrasePlayer.isPlaying(contextKey: sectionKey(for: loop)) {
+            startSectionPhrase(phrase, for: loop)
+        }
     }
 }
