@@ -81,7 +81,7 @@
 			children = (
 				F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */,
 			);
-			path = RagaMentor_iOSTests;
+			path = "RagaMentor-iOSTests";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
