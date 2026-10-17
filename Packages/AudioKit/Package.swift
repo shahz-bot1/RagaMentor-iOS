@@ -9,5 +9,5 @@ let package = Package(
     dependencies: [
         .package(path: "../RagaCore")
     ],
-    targets: [.target(name: "AudioKit", dependencies: ["RagaCore"])]
+    targets: [.target(name: "AudioKit", dependencies: ["RagaCore"], resources: [.process("Resources")])]
 )
