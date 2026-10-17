@@ -1,6 +1,8 @@
 import Foundation
 import SwiftData
 import Combine
+import AVFoundation
+import MediaPlayer
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -14,7 +16,10 @@ final class PlaybackController: ObservableObject {
     @Published private(set) var isPlaying = false
     @Published private(set) var position: Double = 0
     @Published var speed: Float = 1.0 {
-        didSet { engine.rate = speed }
+        didSet {
+            engine.rate = speed
+            updateNowPlayingInfo()
+        }
     }
     @Published var importError: String?
     @Published var playbackError: String?
@@ -39,9 +44,88 @@ final class PlaybackController: ObservableObject {
 
     let engine = AudioEngine()
     private var positionTimer: Timer?
+    private var notificationTokens: [NSObjectProtocol] = []
+    private var resumeAfterInterruption = false
 
     init() {
         engine.rate = speed
+        observeSessionNotifications()
+    }
+
+    // MARK: - Interruptions & route changes (M6, PLAN §8.7)
+
+    private func observeSessionNotifications() {
+        let center = NotificationCenter.default
+        notificationTokens.append(center.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            self?.handleInterruption(note)
+        })
+        notificationTokens.append(center.addObserver(
+            forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            self?.handleRouteChange(note)
+        })
+        notificationTokens.append(center.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            // Media services reset: reload the current song from scratch.
+            Task { @MainActor in
+                guard let self, let song = self.currentSong else { return }
+                let wasPlaying = self.isPlaying
+                self.open(song)
+                if wasPlaying { self.play() }
+            }
+        })
+    }
+
+    private func handleInterruption(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        Task { @MainActor in
+            switch type {
+            case .began:
+                if self.isPlaying {
+                    self.resumeAfterInterruption = true
+                    self.pause()
+                }
+            case .ended:
+                let optionsRaw = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsRaw)
+                if self.resumeAfterInterruption && options.contains(.shouldResume) {
+                    self.play()
+                }
+                self.resumeAfterInterruption = false
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    private func handleRouteChange(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+              let reason = AVAudioSession.RouteChangeReason(rawValue: raw) else { return }
+        Task { @MainActor in
+            // Headphones unplugged / device removed: pause (standard).
+            if reason == .oldDeviceUnavailable && self.isPlaying {
+                self.pause()
+            }
+        }
+    }
+
+    // MARK: - Now Playing info (metadata only; remote commands are v1.1)
+
+    private func updateNowPlayingInfo() {
+        guard let song = currentSong else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+            MPMediaItemPropertyTitle: song.title,
+            MPMediaItemPropertyPlaybackDuration: song.duration,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? Double(speed) : 0.0,
+        ]
     }
 
     // MARK: - Song selection
@@ -75,6 +159,7 @@ final class PlaybackController: ObservableObject {
             loopOn = false
             engine.setLoop(start: nil, end: nil)
         }
+        updateNowPlayingInfo()
         startPositionTimer()
     }
 
@@ -89,6 +174,7 @@ final class PlaybackController: ObservableObject {
         loopOn = false
         pendingA = nil
         pendingB = nil
+        updateNowPlayingInfo()
         stopPositionTimer()
     }
 
@@ -109,6 +195,7 @@ final class PlaybackController: ObservableObject {
             // the schedule restarts from the published position.
             isPlaying = true
         }
+        updateNowPlayingInfo()
     }
 
     func play() {
@@ -125,6 +212,7 @@ final class PlaybackController: ObservableObject {
         engine.seek(to: position)
         if !isPlaying { engine.pause() }
         savePosition()
+        updateNowPlayingInfo()
     }
 
     func skip(by delta: Double) {
