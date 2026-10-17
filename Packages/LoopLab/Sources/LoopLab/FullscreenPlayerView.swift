@@ -116,7 +116,7 @@ struct FullscreenPlayerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             StudioSegmented(
-                items: PlaybackController.speedPresets.map { (preset: Float) in (preset, "\(preset, specifier: "%g")x") },
+                items: PlaybackController.speedPresets.map { (preset: Float) in (preset, String(format: "%gx", preset)) },
                 selection: $controller.speed)
         }
         .padding(.horizontal)
