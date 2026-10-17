@@ -366,4 +366,93 @@ final class RagaMentor_iOSTests: XCTestCase {
         XCTAssertEqual(sorted.last, l1)
         XCTAssertEqual(sorted.count, 3)
     }
+
+    // MARK: Loops backup v1 (M4, PLAN §11)
+
+    func testBackupRoundTrip() throws {
+        let l1 = UUID(), l2 = UUID(), g1 = UUID(), g2 = UUID()
+        let file = LoopsBackup.make(
+            songTitle: "Song",
+            duration: 100,
+            loops: [
+                .init(id: l1, name: "Intro", note: "Sa = C#", start: 0, end: 10),
+                .init(id: l2, name: "Chorus", note: "", start: 20, end: 35),
+            ],
+            groups: [
+                .init(id: g1, name: "All", colorHex: "#111111", memberIDs: [l1, g2]),
+                .init(id: g2, name: "Sub", colorHex: "#222222", memberIDs: [l2]),
+            ])
+        let data = try JSONEncoder().encode(file)
+        let decoded = try JSONDecoder().decode(LoopsBackupFile.self, from: data)
+        XCTAssertEqual(decoded, file)
+
+        let plan = try LoopsBackup.planImport(file: decoded, duration: 100)
+        XCTAssertEqual(plan.loops.map(\.name), ["Intro", "Chorus"])
+        XCTAssertEqual(plan.loops[0].note, "Sa = C#")
+        XCTAssertEqual(plan.groups.count, 2)
+        let all = try XCTUnwrap(plan.groups.first { $0.name == "All" })
+        let sub = try XCTUnwrap(plan.groups.first { $0.name == "Sub" })
+        // Membership resolved to the FRESH ids, structure intact.
+        XCTAssertTrue(all.memberIDs.contains(sub.id))
+        XCTAssertEqual(sub.memberIDs, [plan.loops[1].id])
+        XCTAssertNotEqual(sub.id, g2)
+    }
+
+    func testBackupImportGuards() throws {
+        // Version gate.
+        var bad = LoopsBackupFile(songTitle: "X", duration: 10, loops: [], groups: [])
+        bad.version = 99
+        XCTAssertThrowsError(try LoopsBackup.planImport(file: bad, duration: 10))
+
+        // A holder group nested inside another group breaks the cap and
+        // is dropped as a member; ranges clamp to a shorter target song.
+        let file = LoopsBackupFile(
+            songTitle: "X", duration: 100,
+            loops: [.init(serial: 1, name: "L", note: "", start: 0, end: 90)],
+            groups: [
+                .init(serial: 2, name: "Outer", colorHex: "#000000", memberSerials: [3]),
+                .init(serial: 3, name: "Holder", colorHex: "#000000", memberSerials: [4]),
+                .init(serial: 4, name: "Inner", colorHex: "#000000", memberSerials: [1]),
+            ])
+        let plan = try LoopsBackup.planImport(file: file, duration: 50)
+        XCTAssertEqual(plan.loops.first?.end, 50) // clamped from 90
+        let outer = try XCTUnwrap(plan.groups.first { $0.name == "Outer" })
+        XCTAssertTrue(outer.memberIDs.isEmpty) // Holder was dropped as a member
+    }
+
+    // MARK: Waveform geometry + peaks (M5, PLAN §9)
+
+    func testWaveformWindowMath() {
+        var w = WaveformWindow(duration: 100)
+        XCTAssertEqual(w.length, 100)
+        XCTAssertEqual(w.time(forX: 50, width: 200), 25)
+        XCTAssertEqual(w.x(forTime: 25, width: 200), 50)
+
+        // Zoom in around 50s to a 10s window, centred on the focal point.
+        w = w.zoomed(by: 0.1, around: 50)
+        XCTAssertEqual(w.length, 10, accuracy: 1e-9)
+        XCTAssertEqual(w.start, 45, accuracy: 1e-9)
+
+        // Cannot zoom past the 2s floor.
+        let floor = w.zoomed(by: 0.0001, around: 50)
+        XCTAssertEqual(floor.length, WaveformWindow.minLength, accuracy: 1e-9)
+
+        // Panning clamps at both ends.
+        XCTAssertEqual(w.panned(by: -1000).start, 0)
+        XCTAssertEqual(w.panned(by: 1000).start, 90, accuracy: 1e-9)
+
+        // Follow: no move while visible; minimal shift when outside.
+        XCTAssertEqual(w.following(47), w)
+        let shifted = w.following(80)
+        XCTAssertTrue(shifted.start <= 80 && shifted.end >= 80)
+    }
+
+    func testComputePeaksFromFile() throws {
+        let url = try makeSineFile(segments: [(440, 1.0)])
+        defer { try? FileManager.default.removeItem(at: url) }
+        let peaks = PeaksService.computePeaks(fileURL: url, buckets: 100)
+        XCTAssertEqual(peaks.count, 100)
+        // A 0.5-amplitude sine peaks near 0.5 in every bucket.
+        XCTAssertTrue(peaks.allSatisfy { $0 > 0.4 && $0 <= 0.51 })
+    }
 }
