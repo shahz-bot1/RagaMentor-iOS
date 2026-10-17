@@ -109,4 +109,87 @@ final class AudioKitTests: XCTestCase {
         // A 0.5-amplitude sine peaks near 0.5 in every bucket.
         XCTAssertTrue(peaks.allSatisfy { $0 > 0.4 && $0 <= 0.51 })
     }
+
+    // MARK: - P1: sample map + sustain renderer
+
+    func testSampleMapNearestAndRate() {
+        XCTAssertEqual(SampleMap.sample(forSemitone: 0).fileName, "C4.mp3")
+        XCTAssertEqual(SampleMap.sample(forSemitone: 0).rate, 1)
+        XCTAssertEqual(SampleMap.sample(forSemitone: 11).fileName, "B4.mp3")
+        XCTAssertEqual(SampleMap.sample(forSemitone: 12).fileName, "C5.mp3")
+        // F#4 has no sample: F4 shifted up a semitone (first wins the tie).
+        let fs = SampleMap.sample(forSemitone: 6)
+        XCTAssertEqual(fs.fileName, "F4.mp3")
+        XCTAssertEqual(fs.rate, pow(2, 1.0 / 12), accuracy: 1e-9)
+        // Below C4 and above C5 ride the edge samples.
+        XCTAssertEqual(SampleMap.sample(forSemitone: -1).fileName, "C4.mp3")
+        XCTAssertEqual(SampleMap.sample(forSemitone: -1).rate, pow(2, -1.0 / 12), accuracy: 1e-9)
+        XCTAssertEqual(SampleMap.sample(forSemitone: 13).fileName, "C5.mp3")
+        XCTAssertEqual(SampleMap.sample(forSemitone: 13).rate, pow(2, 1.0 / 12), accuracy: 1e-9)
+    }
+
+    func testCrossfadeGainsAreEqualPower() {
+        // The perceptual quantity the web suite asserts: fadeIn² + fadeOut²
+        // stays 1 across the whole crossfade (no dip, no swell).
+        for i in 0...20 {
+            let phase = Double(i) / 20
+            let g = SustainRenderer.crossfadeGains(phase: phase)
+            XCTAssertEqual(g.fadeIn * g.fadeIn + g.fadeOut * g.fadeOut, 1, accuracy: 1e-9,
+                           "phase \(phase)")
+        }
+    }
+
+    func testMasterEnvelopeShape() {
+        XCTAssertEqual(SustainRenderer.masterEnvelope(at: 0.02, duration: 2), 0.9, accuracy: 1e-6)
+        XCTAssertEqual(SustainRenderer.masterEnvelope(at: 1, duration: 2), 0.9, accuracy: 1e-6)
+        XCTAssertEqual(SustainRenderer.masterEnvelope(at: 2.15, duration: 2), 0.0001, accuracy: 1e-6)
+        XCTAssertLessThan(SustainRenderer.masterEnvelope(at: 0.01, duration: 2), 0.9)
+    }
+
+    private func sineBuffer(seconds: Double, freq: Double = 100,
+                            sampleRate: Double = 8000, amplitude: Double = 0.5) -> AVAudioPCMBuffer {
+        let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
+        let frames = AVAudioFrameCount(seconds * sampleRate)
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let data = buffer.floatChannelData![0]
+        for i in 0..<Int(frames) {
+            data[i] = Float(amplitude * sin(2 * Double.pi * freq * Double(i) / sampleRate))
+        }
+        return buffer
+    }
+
+    private func windowRMS(_ buffer: AVAudioPCMBuffer, from: Double, to: Double) -> Double {
+        let sr = buffer.format.sampleRate
+        let data = buffer.floatChannelData![0]
+        let a = Int(from * sr), b = min(Int(to * sr), Int(buffer.frameLength))
+        var sum = 0.0
+        for i in a..<b { sum += Double(data[i]) * Double(data[i]) }
+        return sqrt(sum / Double(max(1, b - a)))
+    }
+
+    func testSustainRenderHoldsLevelWithoutDip() {
+        // 4 s sample (chain path: bd > 2.5), note held 6 s. Segments are
+        // phase-aligned (sustain bounds are whole periods at 100 Hz), so
+        // the sustained region must hold the source level × the 0.9
+        // envelope — the no-dip property, measured on the audio itself.
+        let source = sineBuffer(seconds: 4)
+        let rendered = try! XCTUnwrap(SustainRenderer.render(source: source, rate: 1, duration: 6))
+        let expected = 0.5 / sqrt(2) * 0.9
+        for window in [(1.0, 2.0), (2.0, 3.0), (3.0, 4.0), (4.0, 5.0), (5.0, 5.8)] {
+            let rms = windowRMS(rendered, from: window.0, to: window.1)
+            XCTAssertEqual(rms, expected, accuracy: expected * 0.15,
+                           "window \(window) dipped or swelled: \(rms)")
+        }
+    }
+
+    func testSustainRenderSingleSourcePath() {
+        // A note that fits inside the sample plays as a single pass.
+        let source = sineBuffer(seconds: 4)
+        let rendered = try! XCTUnwrap(SustainRenderer.render(source: source, rate: 1, duration: 1))
+        let expected = 0.5 / sqrt(2) * 0.9
+        XCTAssertEqual(windowRMS(rendered, from: 0.2, to: 0.8), expected, accuracy: expected * 0.1)
+        // Output length follows the web stop time (dur + 0.2 s).
+        XCTAssertEqual(Double(rendered.frameLength) / 8000, 1.2, accuracy: 0.01)
+    }
 }
