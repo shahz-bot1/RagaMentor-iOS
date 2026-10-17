@@ -52,7 +52,8 @@ final class RagaLibraryTests: XCTestCase {
         XCTAssertEqual(id, "rb-desh")
         XCTAssertEqual(library.raga(id: "rb-desh")?.name, "Desh")
         // The stored scale is normalised (apostrophes stripped, trailing S dropped).
-        XCTAssertEqual(library.raga(id: "rb-desh")?.aro.last, "N2")
+        XCTAssertEqual(library.raga(id: "rb-desh")?.aro.last, "N3")
+        XCTAssertEqual(library.raga(id: "rb-desh")?.ava.last, "N2")
     }
 
     func testFavouriteBridgeAddsAndRemovesRegistryEntry() {
