@@ -13,6 +13,7 @@ public struct LibraryView: View {
     @EnvironmentObject private var controller: PlaybackController
     @Query(sort: \Song.dateAdded, order: .reverse) private var songs: [Song]
     @State private var showImporter = false
+    @State private var showSettings = false
 
     public var body: some View {
         List {
@@ -61,6 +62,13 @@ public struct LibraryView: View {
         .navigationTitle("RagaMentor")
         .onAppear { controller.modelContext = modelContext }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showImporter = true
@@ -68,6 +76,9 @@ public struct LibraryView: View {
                     Label("Import", systemImage: "plus")
                 }
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack { SettingsView() }
         }
         .fileImporter(isPresented: $showImporter,
                       allowedContentTypes: [.audio],
