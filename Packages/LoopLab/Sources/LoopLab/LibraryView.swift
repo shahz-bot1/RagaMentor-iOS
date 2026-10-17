@@ -176,7 +176,7 @@ struct NowPlayingCard: View {
             .frame(maxWidth: .infinity)
 
             StudioSegmented(
-                items: PlaybackController.speedPresets.map { ($0, "\($0, specifier: "%g")x") },
+                items: PlaybackController.speedPresets.map { (preset: Double) in (preset, "\(preset, specifier: "%g")x") },
                 selection: $controller.speed)
 
             HStack(spacing: 10) {
