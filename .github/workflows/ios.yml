@@ -37,6 +37,8 @@ jobs:
     name: Unsigned IPA artifact
     runs-on: macos-15
     timeout-minutes: 45
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -51,3 +53,10 @@ jobs:
           name: RagaMentor-iOS-unsigned-ipa
           path: RagaMentor-iOS-unsigned.ipa
           retention-days: 14
+      - name: Publish IPA to the 'latest' release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || gh release create latest --title "Latest build (unsigned)" --notes "Auto-published by CI on every green build of main. The IPA is unsigned; install with SideStore."
+          gh release upload latest RagaMentor-iOS-unsigned.ipa --clobber
