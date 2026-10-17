@@ -168,8 +168,8 @@ final class SwaraEditorTests: XCTestCase {
             .hold(beats: 1),
         ])
         let text = SwaraEditorModel.rawText(for: phrase)
-        XCTAssertTrue(text.hasPrefix("{\n  \"ragaId\": null,"))
-        XCTAssertTrue(text.contains("\"chips\": [\n    {\"k\":\"note\""))
-        XCTAssertTrue(text.contains("\"stack\":[{\"st\":\"R2\",\"oct\":-1}]"))
+        XCTAssertTrue(text.hasPrefix("{\n  \"ragaId\": null,"), "GOT:\n\(text)")
+        XCTAssertTrue(text.contains("\"chips\": [\n    {\"k\":\"note\""), "GOT:\n\(text)")
+        XCTAssertTrue(text.contains("\"stack\":[{\"st\":\"R2\",\"oct\":-1}]"), "GOT:\n\(text)")
     }
 }
