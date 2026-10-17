@@ -103,6 +103,19 @@ public final class SwaraEditorModel: ObservableObject {
 
     // MARK: - Setup changes
 
+    /// Apply a raga chosen in the browse sheet (the interim pick
+    /// flow until the real RagaBrowser lands in P3): the pick goes
+    /// through the library's adoption — a scale-signature or name
+    /// match resolves to the editor-table id, anything else is
+    /// registered personally (rb-…) — then becomes the phrase's raga.
+    public func applyBrowsedRaga(_ raga: Raga) {
+        let id = library.adoptPick(RagaPick(
+            sourceId: raga.id, name: raga.name,
+            aro: raga.aro.joined(separator: " "),
+            ava: raga.ava.joined(separator: " ")))
+        setRaga(id: id)
+    }
+
     public func setRaga(id: String?) {
         phrase.ragaId = id
         onSongRaga(id)
