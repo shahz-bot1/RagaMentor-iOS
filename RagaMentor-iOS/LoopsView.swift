@@ -117,11 +117,12 @@ struct LoopsView: View {
             case .group(let g): return g.id
             }
         }
-        var start: Double {
-            switch self {
-            case .loop(let l): return l.start
-            case .group(let g): return LoopsView.derivedRange(of: g, song: song)?.start ?? .greatestFiniteMagnitude
-            }
+    }
+
+    private func start(of item: TreeItem) -> Double {
+        switch item {
+        case .loop(let loop): return loop.start
+        case .group(let group): return LoopsView.derivedRange(of: group, song: song)?.start ?? .greatestFiniteMagnitude
         }
     }
 
@@ -136,7 +137,7 @@ struct LoopsView: View {
         for loop in song.loops where !groupedIDs.contains(loop.id) {
             items.append(.loop(loop))
         }
-        return items.sorted { ($0.start, $0.id.uuidString) < ($1.start, $1.id.uuidString) }
+        return items.sorted { (start(of: $0), $0.id.uuidString) < (start(of: $1), $1.id.uuidString) }
     }
 
     private func memberItems(of group: LoopGroup) -> [TreeItem] {
