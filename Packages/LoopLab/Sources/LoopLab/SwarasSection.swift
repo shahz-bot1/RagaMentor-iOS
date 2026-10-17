@@ -26,6 +26,7 @@ struct SwarasSectionView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button("＋ Add swaras") { onEdit(loop) }
+                        .buttonStyle(StudioSecondaryButtonStyle())
                 }
             }
         } else {
@@ -38,16 +39,10 @@ struct SwarasSectionView: View {
         let playing = player.isPlaying(contextKey: controller.sectionKey(for: loop))
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                Button {
+                StudioRoundButton(systemImage: playing ? "stop.fill" : "play.fill",
+                                  diameter: 44) {
                     controller.toggleSectionPhrase(for: loop)
-                } label: {
-                    Text(playing ? "■" : "▶")
-                        .font(.title3)
-                        .frame(width: 40, height: 40)
                 }
-                .buttonStyle(.bordered)
-                .clipShape(Circle())
-                .tint(playing ? .red : DesignTokens.accent)
 
                 PhraseChipsView(
                     chips: phrase.chips,
@@ -61,6 +56,7 @@ struct SwarasSectionView: View {
                     set: { controller.setSectionPhraseTempo(
                         Int($0.rounded()), for: loop, context: modelContext) }),
                        in: 30...120, step: 1)
+                .tint(Studio.accent)
                 Text("\(phrase.tempo) bpm")
                     .font(.callout.monospacedDigit())
                     .frame(width: 64, alignment: .trailing)
@@ -72,6 +68,7 @@ struct SwarasSectionView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("✎ Edit") { onEdit(loop) }
+                    .buttonStyle(StudioSecondaryButtonStyle())
             }
         }
     }
