@@ -159,9 +159,9 @@ final class AudioKitTests: XCTestCase {
         return buffer
     }
 
-    private func windowRMS(_ buffer: AVAudioPCMBuffer, from: Double, to: Double) -> Double {
+    private func windowRMS(_ buffer: AVAudioPCMBuffer, from: Double, to: Double, channel: Int = 0) -> Double {
         let sr = buffer.format.sampleRate
-        let data = buffer.floatChannelData![0]
+        let data = buffer.floatChannelData![channel]
         let a = Int(from * sr), b = min(Int(to * sr), Int(buffer.frameLength))
         var sum = 0.0
         for i in a..<b { sum += Double(data[i]) * Double(data[i]) }
@@ -185,6 +185,25 @@ final class AudioKitTests: XCTestCase {
             XCTAssertTrue(rms > expected * 0.75 && rms < expected * 1.45,
                           "window \(window) out of bounds: \(rms) vs \(expected)")
         }
+    }
+
+    func testSustainRenderConvertsToNodeFormat() {
+        // The device crash this guards (v0.8.0): the samples are
+        // 44.1 kHz mono, the player node's connection format is the
+        // hardware format (48 kHz stereo here) — a scheduled buffer
+        // MUST be rendered in the node format or scheduleBuffer
+        // crashes. Render an 8 kHz mono source into 48 kHz stereo.
+        let source = sineBuffer(seconds: 4)
+        let rendered = try! XCTUnwrap(SustainRenderer.render(
+            source: source, rate: 1, duration: 1,
+            outputSampleRate: 48000, outputChannels: 2))
+        XCTAssertEqual(rendered.format.sampleRate, 48000)
+        XCTAssertEqual(rendered.format.channelCount, 2)
+        XCTAssertEqual(Double(rendered.frameLength) / 48000, 1.2, accuracy: 0.01)
+        // The mono source feeds BOTH channels with real signal.
+        let expected = 0.5 / sqrt(2) * 0.9
+        XCTAssertEqual(windowRMS(rendered, from: 0.2, to: 0.8, channel: 0), expected, accuracy: expected * 0.1)
+        XCTAssertEqual(windowRMS(rendered, from: 0.2, to: 0.8, channel: 1), expected, accuracy: expected * 0.1)
     }
 
     func testSustainRenderSingleSourcePath() {
