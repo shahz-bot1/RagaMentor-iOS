@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct RagaMentorApp: App {
@@ -6,5 +7,6 @@ struct RagaMentorApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: [Song.self, LoopRegion.self, LoopGroup.self])
     }
 }
