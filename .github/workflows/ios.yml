@@ -1,0 +1,53 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit tests (simulator)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Xcode version
+        run: xcodebuild -version
+      - name: Run tests via fastlane
+        run: bundle exec fastlane test
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: fastlane/test_output
+          if-no-files-found: ignore
+
+  build-unsigned:
+    name: Unsigned IPA artifact
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - name: Build unsigned IPA via fastlane
+        run: bundle exec fastlane build_unsigned
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: RagaMentor-iOS-unsigned-ipa
+          path: RagaMentor-iOS-unsigned.ipa
+          retention-days: 14
