@@ -1,0 +1,12 @@
+build/
+*.ipa
+Payload/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+.bundle/
+vendor/bundle/
+*.xcresult
+xcuserdata/
+.DS_Store
