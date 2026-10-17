@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import LoopLab
+import PersistenceKit
 
 struct ContentView: View {
     @StateObject private var controller = PlaybackController()
