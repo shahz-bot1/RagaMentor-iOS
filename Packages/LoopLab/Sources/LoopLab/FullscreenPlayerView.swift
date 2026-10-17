@@ -3,6 +3,7 @@ import SwiftData
 import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
+import DesignSystem
 
 // Fullscreen player (PLAN §10): waveform on top, a tabbed panel
 // (Loops / A–B / More), and a persistent mini-transport. The waveform
@@ -55,10 +56,9 @@ struct FullscreenPlayerView: View {
                 }
                 .padding(.horizontal)
 
-                Picker("Panel", selection: $tab) {
-                    ForEach(Tab.allCases, id: \.self) { t in Text(t.rawValue).tag(t) }
-                }
-                .pickerStyle(.segmented)
+                StudioSegmented(
+                    items: Tab.allCases.map { ($0, $0.rawValue) },
+                    selection: $tab)
                 .padding(.horizontal)
 
                 Group {
@@ -76,6 +76,7 @@ struct FullscreenPlayerView: View {
                 Divider()
                 miniTransport
             }
+            .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(song.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -97,22 +98,26 @@ struct FullscreenPlayerView: View {
 
     private var miniTransport: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 26) {
-                Button { controller.skip(by: -10) } label: { Image(systemName: "gobackward.10") }
-                Button { controller.togglePlay() } label: {
-                    Image(systemName: controller.isPlaying ? "pause.fill" : "play.fill").font(.title)
+            HStack(spacing: 22) {
+                Spacer()
+                StudioRoundButton(systemImage: "gobackward.10", diameter: 38, filled: false) {
+                    controller.skip(by: -10)
                 }
-                Button { controller.skip(by: 10) } label: { Image(systemName: "goforward.10") }
+                StudioRoundButton(systemImage: controller.isPlaying ? "pause.fill" : "play.fill",
+                                  diameter: 50) {
+                    controller.togglePlay()
+                }
+                StudioRoundButton(systemImage: "goforward.10", diameter: 38, filled: false) {
+                    controller.skip(by: 10)
+                }
+                Spacer()
             }
             Text("\(LibraryView.formatDuration(controller.position)) / \(LibraryView.formatDuration(song.duration))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Picker("Speed", selection: $controller.speed) {
-                ForEach(PlaybackController.speedPresets, id: \.self) { preset in
-                    Text("\(preset, specifier: "%g")x").tag(preset)
-                }
-            }
-            .pickerStyle(.segmented)
+            StudioSegmented(
+                items: PlaybackController.speedPresets.map { ($0, "\($0, specifier: "%g")x") },
+                selection: $controller.speed)
         }
         .padding(.horizontal)
         .padding(.bottom, 6)
@@ -155,6 +160,7 @@ struct ABTabView: View {
                 }
             }
         }
+        .studioList()
     }
 
     @ViewBuilder
@@ -195,6 +201,7 @@ struct MoreTabView: View {
                         .foregroundStyle(.secondary)
                 }
                 Slider(value: $controller.speed, in: 0.10...1.00, step: 0.01)
+                    .tint(Studio.accent)
                 Text("Presets: 25% · 50% · 75% · 100% (on the transport bar). Pitch never changes.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -216,6 +223,7 @@ struct MoreTabView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .studioList()
         .fileImporter(isPresented: $showImporter,
                       allowedContentTypes: [.json],
                       allowsMultipleSelection: false) { result in
