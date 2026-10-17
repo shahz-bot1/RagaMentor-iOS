@@ -22,14 +22,15 @@ public struct RagaBrowseSheet: View {
 
     private var sections: [(title: String, ragas: [Raga])] {
         let all = RagaCatalog.all
-        return [
+        let raw: [(title: String, ragas: [Raga])] = [
             ("Editor ragas", RagaCatalog.curated),
             ("Melakartas", all.filter { $0.melakartaNumber != nil }),
             ("Janya ragas", all.filter { $0.parentMelakarta != nil }),
             ("Hindustani", all.filter { $0.isHindustani }),
         ]
-        .map { (title: $0.title, ragas: $0.ragas.filter(matches)) }
-        .filter { !$0.ragas.isEmpty }
+        return raw
+            .map { (title: $0.title, ragas: $0.ragas.filter(matches)) }
+            .filter { !$0.ragas.isEmpty }
     }
 
     public var body: some View {
