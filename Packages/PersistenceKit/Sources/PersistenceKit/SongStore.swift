@@ -7,7 +7,6 @@ import SwiftData
 /// SwiftUI's environment, exactly as the views already do.
 public protocol SongStore: AnyObject {
     var container: ModelContainer { get }
-    var mainContext: ModelContext { get }
 }
 
 /// SwiftData-backed store: Song / LoopRegion / LoopGroup, fully
@@ -20,6 +19,4 @@ public final class SwiftDataSongStore: SongStore {
             for: Song.self, LoopRegion.self, LoopGroup.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: inMemory))
     }
-
-    public var mainContext: ModelContext { container.mainContext }
 }
