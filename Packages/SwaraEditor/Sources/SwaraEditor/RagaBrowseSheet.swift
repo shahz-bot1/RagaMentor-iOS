@@ -54,6 +54,7 @@ public struct RagaBrowseSheet: View {
                     }
                 }
             }
+            .studioList()
             .navigationTitle("Choose a raga")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $query, prompt: "Search ragas")
