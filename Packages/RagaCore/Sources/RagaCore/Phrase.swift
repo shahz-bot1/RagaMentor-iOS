@@ -18,7 +18,9 @@ extension StackEntry: Codable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if (try? c.decode(Bool.self, forKey: .hold)) == true {
-            self.init(hold: ())
+            self.st = nil
+            self.oct = 0
+            self.isHold = true
         } else {
             self.st = try c.decode(String.self, forKey: .st)
             self.oct = try c.decodeIfPresent(Int.self, forKey: .oct) ?? 0
