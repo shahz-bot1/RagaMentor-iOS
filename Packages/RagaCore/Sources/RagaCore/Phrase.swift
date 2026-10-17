@@ -190,7 +190,7 @@ public enum PhraseSanitizer {
     /// JS truthiness for JSON values.
     static func jsTruthy(_ v: Any?) -> Bool {
         guard let v = v, !(v is NSNull) else { return false }
-        if let b = v as? Bool, String(cString: (v as? NSNumber)?.objCType ?? "") == "c" { return b }
+        if let n = v as? NSNumber, String(cString: n.objCType) == "c" { return n.boolValue }
         if let n = jsNumber(v) { return n != 0 }
         if let s = v as? String { return !s.isEmpty }
         return true
