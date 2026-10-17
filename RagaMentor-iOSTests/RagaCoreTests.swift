@@ -386,7 +386,7 @@ final class RagaCoreTests: XCTestCase {
         """#))
         // Degenerate skipped; beyond-duration clamped to 60 (kept: 55...60).
         XCTAssertEqual(plan.loops.count, 3)
-        XCTAssertEqual(plan.loops[2].end, 60)
+        XCTAssertEqual(plan.loops[1].end, 60)
         // Group colour falls back by raw group index; dangling member 404
         // dropped; the degenerate loop's serial 2 resolves to nothing.
         XCTAssertEqual(plan.groups.count, 1)
@@ -407,8 +407,7 @@ final class RagaCoreTests: XCTestCase {
         // Depth cap: inner (depth 1) may hold loops only → its link to
         // deep is cut; deep surfaces to top level with its loops.
         let byName = Dictionary(uniqueKeysWithValues: out.map { ($0.name, $0) })
-        XCTAssertEqual(byName["inner"]?.memberIDs, [])
-        XCTAssertNil(byName["inner"]) // emptied inner is dropped, cascading
+        XCTAssertNil(byName["inner"]) // link cut → no descendant loops → dropped, cascading
         XCTAssertEqual(byName["deep"]?.memberIDs, [l1, l2])
         XCTAssertNil(byName["outer"]) // outer held only inner → dropped too
         XCTAssertEqual(out.count, 1)
