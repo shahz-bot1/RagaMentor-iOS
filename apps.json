@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "0.6.0",
-      "versionDate": "2026-10-17T13:12:00Z",
-      "versionDescription": "Hello World pipeline test build. Unsigned; SideStore signs it on-device with your Apple ID.",
+      "version": "0.7.0",
+      "versionDate": "2026-10-17T19:05:00Z",
+      "versionDescription": "v0.7.0 — modular refactor into Swift Packages (RagaCore, AudioKit, PersistenceKit, DesignSystem, LoopLab) plus the launch-screen fix: the app now runs full screen.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
-      "localizedDescription": "RagaMentor native test app (Hello World). Built by GitHub Actions + fastlane on every push to main.",
+      "localizedDescription": "RagaMentor native: LoopLab — slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "0.6.0",
-          "date": "2026-10-17T13:12:00Z",
-          "localizedDescription": "Hello World pipeline test build.",
+          "version": "0.7.0",
+          "date": "2026-10-17T19:05:00Z",
+          "localizedDescription": "Modular refactor (Swift Packages) + full-screen launch fix.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
