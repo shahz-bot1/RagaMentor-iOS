@@ -19,7 +19,7 @@ public struct PhraseChipView: View {
             Text(SwaraLabel.chipLabel(chip))
                 .font(.callout.weight(.medium))
                 .foregroundStyle(chip.kind == .note ? .primary : .secondary)
-            Text(SwaraLabel.durationLabel(chip.beats))
+            Text(Swara.durationLabel(chip.beats))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
