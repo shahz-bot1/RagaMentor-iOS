@@ -240,8 +240,8 @@ public enum LoopsBackupV3 {
     static func jsString(_ v: Any?) -> String? {
         if let s = v as? String { return s }
         if let n = PhraseSanitizer.jsNumber(v) { return jsKeyString(n) }
-        if let b = v as? Bool, (v as? NSNumber).map({ String(cString: $0.objCType) == "c" }) == true {
-            return b ? "true" : "false"
+        if let n = v as? NSNumber, String(cString: n.objCType) == "c" {
+            return n.boolValue ? "true" : "false"
         }
         return nil
     }
