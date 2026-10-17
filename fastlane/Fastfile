@@ -28,13 +28,16 @@ platform :ios do
       archive_path: "build/RagaMentor-iOS.xcarchive",
       output_directory: "build"
     )
-    apps = Dir["build/RagaMentor-iOS.xcarchive/Products/Applications/*.app"]
-    UI.user_error!("No .app found inside the archive") if apps.empty?
-    sh("rm", "-rf", "Payload", "RagaMentor-iOS-unsigned.ipa")
-    sh("mkdir", "-p", "Payload")
-    sh("cp", "-r", apps.first, "Payload/")
-    sh("zip", "-qry", "RagaMentor-iOS-unsigned.ipa", "Payload")
-    sh("rm", "-rf", "Payload")
-    UI.success("Unsigned IPA ready: RagaMentor-iOS-unsigned.ipa")
+    root = sh("git", "rev-parse", "--show-toplevel").strip
+    apps = Dir[File.join(root, "build", "*.xcarchive", "Products", "Applications", "*.app")]
+    UI.user_error!("No .app found inside the archive under #{root}/build") if apps.empty?
+    ipa = File.join(root, "RagaMentor-iOS-unsigned.ipa")
+    payload = File.join(root, "Payload")
+    sh("rm", "-rf", payload, ipa)
+    sh("mkdir", "-p", payload)
+    sh("cp", "-r", apps.first, payload)
+    sh("cd", root, "&&", "zip", "-qry", ipa, "Payload")
+    sh("rm", "-rf", payload)
+    UI.success("Unsigned IPA ready: #{ipa}")
   end
 end
