@@ -1,28 +1,26 @@
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
-    @State private var taps = 0
+    @StateObject private var controller = PlaybackController()
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text(Greeting.message)
-                .font(.largeTitle)
-                .bold()
-            Text("Native build pipeline test")
-                .foregroundStyle(.secondary)
-            Button("Tap me") { taps += 1 }
-                .buttonStyle(.borderedProminent)
-            if taps > 0 {
-                Text("Taps: \(taps)")
-            }
-            Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        NavigationStack {
+            LibraryView()
         }
-        .padding()
+        .environmentObject(controller)
+        .alert("Playback", isPresented: Binding(
+            get: { controller.playbackError != nil },
+            set: { if !$0 { controller.playbackError = nil } }
+        )) {
+            Button("OK", role: .cancel) { controller.playbackError = nil }
+        } message: {
+            Text(controller.playbackError ?? "")
+        }
     }
 }
 
 #Preview {
     ContentView()
+        .modelContainer(for: [Song.self, LoopRegion.self, LoopGroup.self], inMemory: true)
 }
