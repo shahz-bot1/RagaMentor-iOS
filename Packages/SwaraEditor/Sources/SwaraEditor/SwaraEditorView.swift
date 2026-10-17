@@ -44,6 +44,7 @@ public struct SwaraEditorView: View {
                 }
                 .padding()
             }
+            .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -84,7 +85,7 @@ public struct SwaraEditorView: View {
     private var setupCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Setup").font(.headline)
+                StudioSectionTitle("Setup")
                 Spacer()
                 Button(model.rawMode ? "♪ Phrase" : "{ } JSON") {
                     if model.rawMode { model.exitRawMode() } else { model.enterRawMode() }
@@ -116,6 +117,7 @@ public struct SwaraEditorView: View {
                     get: { Double(model.phrase.tempo) },
                     set: { model.setTempo(Int($0.rounded())) }),
                        in: 30...120, step: 1)
+                .tint(Studio.accent)
                 Text("\(model.phrase.tempo) bpm")
                     .font(.callout.monospacedDigit())
                     .frame(width: 64, alignment: .trailing)
@@ -129,8 +131,7 @@ public struct SwaraEditorView: View {
                          ? "■ Stop" : "▶ Play")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(model.isPlaying ? .red : DesignTokens.accent)
+                .buttonStyle(StudioPrimaryButtonStyle())
 
                 Button {
                     model.setLoop(!model.phrase.loop)
@@ -138,19 +139,16 @@ public struct SwaraEditorView: View {
                     Text("Loop")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .tint(model.phrase.loop ? DesignTokens.accent : .secondary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(model.phrase.loop ? DesignTokens.accent : .clear, lineWidth: 1)
-                )
+                .buttonStyle(StudioSecondaryButtonStyle())
+                .foregroundStyle(model.phrase.loop ? Studio.accent : Studio.text)
             }
 
             Button("Delete swaras", role: .destructive) { confirmDelete = true }
                 .font(.callout)
         }
         .padding()
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.secondary.opacity(0.08)))
+        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Studio.border, lineWidth: 1))
     }
 
     private var ragaMenu: some View {
@@ -194,7 +192,7 @@ public struct SwaraEditorView: View {
 
     private var phraseCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Phrase").font(.headline)
+            StudioSectionTitle("Phrase")
             if model.phrase.chips.isEmpty {
                 Text("No swaras yet — tap ＋ to add the first chip.")
                     .foregroundStyle(.secondary)
@@ -213,7 +211,8 @@ public struct SwaraEditorView: View {
             }
         }
         .padding()
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.secondary.opacity(0.08)))
+        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Studio.border, lineWidth: 1))
     }
 
     // MARK: - Raw JSON card
@@ -221,7 +220,7 @@ public struct SwaraEditorView: View {
     private var rawCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Phrase JSON").font(.headline)
+                StudioSectionTitle("Phrase JSON")
                 Spacer()
                 Button("♪ Phrase") { model.exitRawMode() }.font(.callout)
             }
@@ -231,15 +230,14 @@ public struct SwaraEditorView: View {
                 .scrollContentBackground(.hidden)
                 .padding(6)
                 .background(RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.secondary.opacity(0.10)))
+                    .fill(Studio.panel2))
             HStack {
                 Button("Apply") {
                     rawError = model.applyRawJSON()
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(DesignTokens.accent)
+                .buttonStyle(StudioPrimaryButtonStyle())
                 Button("Cancel") { model.exitRawMode() }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(StudioSecondaryButtonStyle())
                 Spacer()
                 Button(model.copyConfirmed ? "Copied ✓" : "Copy all") {
 #if canImport(UIKit)
@@ -251,10 +249,11 @@ public struct SwaraEditorView: View {
                         model.copyConfirmed = false
                     }
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(StudioSecondaryButtonStyle())
             }
         }
         .padding()
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color.secondary.opacity(0.08)))
+        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Studio.border, lineWidth: 1))
     }
 }
