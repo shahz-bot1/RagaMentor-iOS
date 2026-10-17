@@ -278,4 +278,92 @@ final class RagaMentor_iOSTests: XCTestCase {
         XCTAssertGreaterThan(rms(out2, from: half, count: half), 0.05,
                              "at 0.5x the sine should still be sounding in the second half")
     }
+
+    // MARK: Loop position with first-pass offset (M3)
+
+    func testLoopPositionFirstPassOffset() {
+        // Segment 10s..20s at 10 Hz sample rate for easy math:
+        // start frame 100, count 100, entry offset 30 (entered at 13s).
+        let sr = 10.0
+        // First pass: played 0 -> 13s; played 69 -> 19.9s.
+        XCTAssertEqual(LoopMath.loopPosition(segmentStartFrame: 100, segmentFrameCount: 100,
+                                             firstPassOffsetFrames: 30, playedFrames: 0, sampleRate: sr), 13.0)
+        XCTAssertEqual(LoopMath.loopPosition(segmentStartFrame: 100, segmentFrameCount: 100,
+                                             firstPassOffsetFrames: 30, playedFrames: 69, sampleRate: sr), 19.9, accuracy: 1e-9)
+        // played 70 = end of first pass -> wraps to segment start (10s).
+        XCTAssertEqual(LoopMath.loopPosition(segmentStartFrame: 100, segmentFrameCount: 100,
+                                             firstPassOffsetFrames: 30, playedFrames: 70, sampleRate: sr), 10.0)
+        // played 100 -> 30 frames into the second pass (13s).
+        XCTAssertEqual(LoopMath.loopPosition(segmentStartFrame: 100, segmentFrameCount: 100,
+                                             firstPassOffsetFrames: 30, playedFrames: 100, sampleRate: sr), 13.0)
+        // Zero offset matches the plain wrap.
+        XCTAssertEqual(LoopMath.loopPosition(segmentStartFrame: 100, segmentFrameCount: 100,
+                                             firstPassOffsetFrames: 0, playedFrames: 250, sampleRate: sr),
+                       LoopMath.loopPosition(segmentStartFrame: 100, segmentFrameCount: 100,
+                                             playedFrames: 250, sampleRate: sr))
+    }
+
+    // MARK: Group operations (M3, PLAN §6)
+
+    func testGroupOpsDescendantsAndEmpty() {
+        let l1 = UUID(), l2 = UUID(), l3 = UUID()
+        let g1 = UUID(), g2 = UUID(), g3 = UUID()
+        let groups = [
+            GroupData(id: g1, memberIDs: [l1, g2]),
+            GroupData(id: g2, memberIDs: [l2]),
+            GroupData(id: g3, memberIDs: []),
+        ]
+        let loops: Set<UUID> = [l1, l2, l3]
+        XCTAssertEqual(Set(GroupOps.descendantLoopIDs(of: g1, groups: groups, loopIDs: loops)), [l1, l2])
+        XCTAssertEqual(GroupOps.descendantLoopIDs(of: g3, groups: groups, loopIDs: loops), [])
+        XCTAssertEqual(GroupOps.emptyGroupIDs(groups: groups, loopIDs: loops), [g3])
+        // Cascading: if g2 loses its loop, both g2 and g1 become empty.
+        let groups2 = [
+            GroupData(id: g1, memberIDs: [g2]),
+            GroupData(id: g2, memberIDs: []),
+        ]
+        XCTAssertEqual(GroupOps.emptyGroupIDs(groups: groups2, loopIDs: loops), [g1, g2])
+    }
+
+    func testGroupOpsDeletePromotesChildren() {
+        let l1 = UUID(), l2 = UUID(), l3 = UUID()
+        let g1 = UUID(), g2 = UUID()
+        let groups = [
+            GroupData(id: g1, memberIDs: [l1, g2]),
+            GroupData(id: g2, memberIDs: [l2, l3]),
+        ]
+        let after = GroupOps.deletingGroup(g2, from: groups)
+        XCTAssertEqual(after.count, 1)
+        XCTAssertEqual(Set(after[0].memberIDs), [l1, l2, l3])
+        // Deleting a top-level group leaves children ungrouped.
+        let afterTop = GroupOps.deletingGroup(g1, from: groups)
+        XCTAssertEqual(afterTop.count, 1)
+        XCTAssertEqual(afterTop[0].id, g2)
+    }
+
+    func testGroupOpsSettingMembersSteals() {
+        let l1 = UUID(), l2 = UUID()
+        let g1 = UUID(), g2 = UUID()
+        let groups = [
+            GroupData(id: g1, memberIDs: [l1, l2]),
+            GroupData(id: g2, memberIDs: []),
+        ]
+        let after = GroupOps.settingMembers(of: g2, to: [l2], in: groups)
+        XCTAssertEqual(after.first { $0.id == g1 }?.memberIDs, [l1])
+        XCTAssertEqual(after.first { $0.id == g2 }?.memberIDs, [l2])
+    }
+
+    func testGroupOpsSortedMembers() {
+        let l1 = UUID(), l2 = UUID(), g1 = UUID()
+        let spans: [UUID: LoopSpan] = [
+            l1: LoopSpan(id: l1, start: 20, end: 30),
+            l2: LoopSpan(id: l2, start: 5, end: 8),
+        ]
+        let groups = [GroupData(id: g1, memberIDs: [l2])]
+        // Group's derived start is 5; tie broken deterministically.
+        let sorted = GroupOps.sortedMemberIDs([l1, g1, l2], groups: groups, spans: spans)
+        XCTAssertEqual(sorted.first, l2)
+        XCTAssertEqual(sorted.last, l1)
+        XCTAssertEqual(sorted.count, 3)
+    }
 }
