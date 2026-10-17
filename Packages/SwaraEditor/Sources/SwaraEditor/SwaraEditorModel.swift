@@ -111,8 +111,7 @@ public final class SwaraEditorModel: ObservableObject {
     public func applyBrowsedRaga(_ raga: Raga) {
         let id = library.adoptPick(RagaPick(
             sourceId: raga.id, name: raga.name,
-            aro: raga.aro.joined(separator: " "),
-            ava: raga.ava.joined(separator: " ")))
+            aro: raga.aro, ava: raga.ava))
         setRaga(id: id)
     }
 
