@@ -27,12 +27,12 @@ public struct PhraseChipView: View {
         .padding(.vertical, 5)
         .background(
             RoundedRectangle(cornerRadius: 9)
-                .fill(isCurrent ? DesignTokens.accent.opacity(0.22) : Color.secondary.opacity(0.10))
+                .fill(isCurrent ? Studio.accentSoft : Studio.panel2)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 9)
-                .stroke(isCurrent ? DesignTokens.accent : Color.secondary.opacity(0.25),
-                        lineWidth: isCurrent ? 1.5 : 0.5)
+                .stroke(isCurrent ? Studio.accent : Studio.border,
+                        lineWidth: isCurrent ? 1.5 : 1)
         )
     }
 }
@@ -68,7 +68,7 @@ public struct PhraseChipsView: View {
                         .padding(.vertical, 9)
                         .background(
                             RoundedRectangle(cornerRadius: 9)
-                                .stroke(Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 0.5, dash: [4, 3]))
+                                .stroke(Studio.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         )
                         .onTapGesture { onTapAdd() }
                 }
