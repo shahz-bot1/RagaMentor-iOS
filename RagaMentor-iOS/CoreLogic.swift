@@ -232,6 +232,136 @@ enum GroupOps {
     }
 }
 
+// MARK: - Loops backup format v1 (M4, PLAN §11)
+
+/// File-local backup of one song's loops and groups. Ids inside the file
+/// are serial integers, never DB ids; references between entries are by
+/// serial + name. Import replaces all loops/groups and mints fresh ids.
+struct LoopsBackupFile: Codable, Equatable {
+    struct LoopEntry: Codable, Equatable {
+        var serial: Int
+        var name: String
+        var note: String
+        var start: Double
+        var end: Double
+    }
+    struct GroupEntry: Codable, Equatable {
+        var serial: Int
+        var name: String
+        var colorHex: String
+        var memberSerials: [Int]
+    }
+    var version: Int = 1
+    var songTitle: String
+    var duration: Double
+    var loops: [LoopEntry]
+    var groups: [GroupEntry]
+}
+
+enum LoopsBackup {
+    enum BackupError: Error { case unsupportedVersion, malformed }
+
+    /// Build the backup file from model-shaped data. Serials are assigned
+    /// loops first (in the given order), then groups.
+    static func make(songTitle: String,
+                     duration: Double,
+                     loops: [LoopRegionSnapshot],
+                     groups: [LoopGroupSnapshot]) -> LoopsBackupFile {
+        var serialByID: [UUID: Int] = [:]
+        var next = 1
+        var loopEntries: [LoopsBackupFile.LoopEntry] = []
+        for loop in loops {
+            serialByID[loop.id] = next
+            loopEntries.append(.init(serial: next, name: loop.name, note: loop.note,
+                                     start: loop.start, end: loop.end))
+            next += 1
+        }
+        var groupEntries: [LoopsBackupFile.GroupEntry] = []
+        for group in groups {
+            serialByID[group.id] = next
+            groupEntries.append(.init(serial: next, name: group.name, colorHex: group.colorHex,
+                                      memberSerials: []))
+            next += 1
+        }
+        for (i, group) in groups.enumerated() {
+            groupEntries[i].memberSerials = group.memberIDs.compactMap { serialByID[$0] }
+        }
+        return LoopsBackupFile(songTitle: songTitle, duration: duration,
+                               loops: loopEntries, groups: groupEntries)
+    }
+
+    /// A loop/group as the backup layer sees it (storage-agnostic).
+    struct LoopRegionSnapshot {
+        var id: UUID; var name: String; var note: String; var start: Double; var end: Double
+    }
+    struct LoopGroupSnapshot {
+        var id: UUID; var name: String; var colorHex: String; var memberIDs: [UUID]
+    }
+
+    /// Planned import result with fresh DB ids minted.
+    struct PlannedLoop { var id: UUID; var name: String; var note: String; var start: Double; var end: Double }
+    struct PlannedGroup { var id: UUID; var name: String; var colorHex: String; var memberIDs: [UUID] }
+
+    /// Validate a backup file against the target song's duration and plan
+    /// the replacement: ranges re-normalised, unknown serials dropped,
+    /// memberships that would break the 2-level cap dropped (a sub-group
+    /// may not itself hold groups).
+    static func planImport(file: LoopsBackupFile, duration: Double) throws
+        -> (loops: [PlannedLoop], groups: [PlannedGroup]) {
+        guard file.version == 1 else { throw BackupError.unsupportedVersion }
+
+        var idBySerial: [Int: UUID] = [:]
+        var plannedLoops: [PlannedLoop] = []
+        for entry in file.loops {
+            guard let range = LoopRules.normalize(start: entry.start, end: entry.end, duration: duration)
+            else { continue }
+            let id = UUID()
+            idBySerial[entry.serial] = id
+            plannedLoops.append(PlannedLoop(id: id, name: entry.name, note: entry.note,
+                                            start: range.start, end: range.end))
+        }
+        plannedLoops.sort { ($0.start, $0.end) < ($1.start, $1.end) }
+
+        // Groups whose members include another group are "holders"; a
+        // holder may not itself be a member of any group (depth cap).
+        let groupSerials = Set(file.groups.map(\.serial))
+        let holderSerials = Set(file.groups.filter { g in
+            g.memberSerials.contains { groupSerials.contains($0) }
+        }.map(\.serial))
+
+        var plannedGroups: [PlannedGroup] = []
+        for entry in file.groups {
+            let id = UUID()
+            idBySerial[entry.serial] = id
+            plannedGroups.append(PlannedGroup(id: id, name: entry.name,
+                                              colorHex: entry.colorHex, memberIDs: []))
+        }
+        for (i, entry) in file.groups.enumerated() {
+            var members: [UUID] = []
+            for serial in entry.memberSerials {
+                guard let memberID = idBySerial[serial] else { continue }
+                if groupSerials.contains(serial) && holderSerials.contains(serial) {
+                    continue // would nest a holder inside a group: cap breach
+                }
+                members.append(memberID)
+            }
+            plannedGroups[i].memberIDs = members
+        }
+        // Drop groups left with no descendant loops (they vanish, §6),
+        // and strip references to them from surviving groups.
+        let loopIDs = Set(plannedLoops.map(\.id))
+        let groupData = plannedGroups.map { GroupData(id: $0.id, memberIDs: $0.memberIDs) }
+        let empty = GroupOps.emptyGroupIDs(groups: groupData, loopIDs: loopIDs)
+        plannedGroups.removeAll { empty.contains($0.id) }
+        if !empty.isEmpty {
+            for i in plannedGroups.indices {
+                plannedGroups[i].memberIDs.removeAll { empty.contains($0) }
+            }
+        }
+        return (plannedLoops, plannedGroups)
+    }
+}
+
 enum Peaks {
     /// Bucket mono samples into `buckets` peak values (max abs per bucket).
     /// The bucket count is fixed so long files cost the same to render
