@@ -8,14 +8,14 @@
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
       "version": "0.8.0",
-      "versionDate": "2026-10-17T21:30:00Z",
+      "versionDate": "2026-10-17T21:45:00Z",
       "versionDescription": "v0.8.0 \u2014 LoopLab Swaras: every loop can carry a swara phrase (shared SwaraEditor, harmonium playback with the sustain engine), the RagaLibrary service (recents, favourites, personal registry), and web-compatible loops backup v3 \u2014 web loop files now import into native, phrases included.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
           "version": "0.8.0",
-          "date": "2026-10-17T21:30:00Z",
+          "date": "2026-10-17T21:45:00Z",
           "localizedDescription": "LoopLab Swaras + RagaLibrary + loops backup v3 (web-compatible).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
