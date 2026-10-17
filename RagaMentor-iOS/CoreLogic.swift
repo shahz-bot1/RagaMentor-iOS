@@ -157,3 +157,31 @@ enum AudioHash {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }
+
+// MARK: - Loop playback math (M2, PLAN §7)
+
+enum LoopMath {
+    /// Playhead position while a segment loops: the segment start plus the
+    /// played frames wrapped into the segment. `playedFrames` counts every
+    /// frame the player has consumed since the (re)start of playback.
+    static func loopPosition(segmentStartFrame: Int64,
+                             segmentFrameCount: Int64,
+                             playedFrames: Int64,
+                             sampleRate: Double) -> Double {
+        guard segmentFrameCount > 0, sampleRate > 0 else {
+            return TimeMath.seconds(forFrames: segmentStartFrame, sampleRate: sampleRate)
+        }
+        let wrapped = playedFrames % segmentFrameCount
+        return TimeMath.seconds(forFrames: segmentStartFrame + wrapped, sampleRate: sampleRate)
+    }
+
+    /// Whether a segment-completion event should reschedule the loop:
+    /// only while loop mode is on and the event belongs to the current
+    /// scheduling generation (stale completions after stop/mode changes
+    /// are ignored — PLAN §7 gapless re-scheduling).
+    static func shouldReschedule(loopEnabled: Bool,
+                                 eventGeneration: Int,
+                                 currentGeneration: Int) -> Bool {
+        loopEnabled && eventGeneration == currentGeneration
+    }
+}
