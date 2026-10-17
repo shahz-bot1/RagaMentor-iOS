@@ -135,13 +135,14 @@ struct WaveformView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let width = geo.size.width
+            let width = Double(geo.size.width)
             Canvas { context, size in
+                let height = Double(size.height)
                 // Loop region tint
                 if let ls = loopStart, let le = loopEnd {
                     let x1 = window.x(forTime: ls, width: width)
                     let x2 = window.x(forTime: le, width: width)
-                    context.fill(Path(CGRect(x: x1, y: 0, width: max(1, x2 - x1), height: size.height)),
+                    context.fill(Path(CGRect(x: x1, y: 0, width: max(1, x2 - x1), height: height)),
                                  with: .color(.accentColor.opacity(0.18)))
                 }
                 // Bars for the visible bucket range
@@ -154,8 +155,8 @@ struct WaveformView: View {
                         for b in first...last {
                             let t = Double(b) / bucketSpan
                             let x = window.x(forTime: t, width: width)
-                            let h = max(1, Double(peaks[b]) * size.height * 0.92)
-                            let rect = CGRect(x: x, y: (size.height - h) / 2,
+                            let h = max(1, Double(peaks[b]) * height * 0.92)
+                            let rect = CGRect(x: x, y: (height - h) / 2,
                                               width: barWidth * 0.72, height: h)
                             context.fill(Path(roundedRect: rect, cornerRadius: barWidth * 0.3),
                                          with: .color(.secondary.opacity(0.75)))
@@ -164,7 +165,7 @@ struct WaveformView: View {
                 }
                 // Playhead
                 let px = window.x(forTime: position, width: width)
-                context.fill(Path(CGRect(x: px - 0.75, y: 0, width: 1.5, height: size.height)),
+                context.fill(Path(CGRect(x: px - 0.75, y: 0, width: 1.5, height: height)),
                              with: .color(.accentColor))
             }
             .contentShape(Rectangle())
@@ -187,7 +188,7 @@ struct WaveformView: View {
                         guard seekEnabled else { return }
                         // A tap (no pan) seeks to that point (PLAN §9).
                         if !dragPanned {
-                            onSeek(window.time(forX: value.location.x, width: width))
+                            onSeek(window.time(forX: Double(value.location.x), width: width))
                         }
                     }
             )
