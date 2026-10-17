@@ -18,6 +18,7 @@ public struct SwaraEditorView: View {
 
     @State private var confirmDelete = false
     @State private var rawError: String?
+    @State private var showRagaBrowser = false
     @Environment(\.dismiss) private var dismiss
 
     public init(model: SwaraEditorModel, title: String,
@@ -57,6 +58,9 @@ public struct SwaraEditorView: View {
         }
         .sheet(item: $model.picker) { _ in
             SwaraPickerSheet(model: model)
+        }
+        .sheet(isPresented: $showRagaBrowser) {
+            RagaBrowseSheet { raga in model.applyBrowsedRaga(raga) }
         }
         .alert("JSON error", isPresented: Binding(
             get: { rawError != nil }, set: { if !$0 { rawError = nil } })) {
@@ -167,8 +171,16 @@ public struct SwaraEditorView: View {
                     }
                 }
             }
+            // The full raga list is ALWAYS reachable (parity plan §6
+            // P1): the host's RagaBrowser route from P3, or the interim
+            // in-editor browse sheet until then. (v0.8.0 build 11 hid
+            // the entry entirely when no host route was passed, which
+            // left the dropdown with only Chromatic/Recents/Favourites
+            // and no way to browse the catalog — user report.)
             if let onBrowseRaga {
                 Button("RagaBrowser ›") { onBrowseRaga() }
+            } else {
+                Button("RagaBrowser ›") { showRagaBrowser = true }
             }
         } label: {
             HStack(spacing: 4) {
