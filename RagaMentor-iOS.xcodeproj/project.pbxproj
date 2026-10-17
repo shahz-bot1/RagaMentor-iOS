@@ -19,7 +19,7 @@
 /* Begin PBXFileReference section */
 		666666666666666666666666 /* RagaMentor-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RagaMentor-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		777777777777777777777777 /* RagaMentor-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RagaMentor-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RagaMentor_iOSTests.swift; sourceTree = "<group>"; };
+		F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RagaMentor_iOSTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
@@ -122,10 +122,10 @@
 			dependencies = (
 				ABABABAB0000000000000001 /* PBXTargetDependency */,
 			);
-			name = RagaMentor_iOSTests;
+			name = "RagaMentor-iOSTests";
 			packageProductDependencies = (
 			);
-			productName = RagaMentor_iOSTests;
+			productName = "RagaMentor-iOSTests";
 			productReference = 777777777777777777777777 /* RagaMentor-iOSTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
