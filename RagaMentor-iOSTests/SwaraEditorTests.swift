@@ -162,6 +162,30 @@ final class SwaraEditorTests: XCTestCase {
     }
 
     @MainActor
+    func testBrowseSheetAdoptsRaga() {
+        let model = makeModel(phrase: emptyPhrase, hadSaved: false)
+        // A melakarta whose scale matches the editor table resolves
+        // to the table id (no registry entry is created).
+        model.applyBrowsedRaga(RagaCatalog.catalogRaga(id: "mel029")!)
+        XCTAssertEqual(model.phrase.ragaId, "shankarabharanam")
+        XCTAssertTrue(library.registryRagas().isEmpty)
+        // A catalog raga outside the table is registered personally.
+        model.applyBrowsedRaga(RagaCatalog.catalogRaga(id: "desh")!)
+        XCTAssertEqual(model.phrase.ragaId, "rb-desh")
+        XCTAssertEqual(songRaga.last, "rb-desh")
+    }
+
+    @MainActor
+    func testPickerSthanasFollowTheRaga() {
+        let model = makeModel(phrase: emptyPhrase, hadSaved: false)
+        XCTAssertEqual(model.pickerSthanas, ["S", "R2", "G3", "P", "D2"]) // Mohanam
+        model.setRaga(id: nil)
+        XCTAssertEqual(model.pickerSthanas.count, 16) // Chromatic
+        model.setRaga(id: "kalyani")
+        XCTAssertEqual(model.pickerSthanas, ["S", "R2", "G3", "M2", "P", "D2", "N3"])
+    }
+
+    @MainActor
     func testRawTextFormat() {
         let phrase = Phrase(ragaId: nil, saOffset: 0, tempo: 60, loop: false, chips: [
             .note([StackEntry(st: "R2", oct: -1)], beats: 0.5),
