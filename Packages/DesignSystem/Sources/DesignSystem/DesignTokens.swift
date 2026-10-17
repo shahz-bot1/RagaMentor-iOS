@@ -5,8 +5,9 @@ import SwiftUI
 /// native screens match the web by construction. Components grow here
 /// milestone by milestone; P0 seeds the tokens.
 public enum DesignTokens {
-    /// App accent (#2f6fe4, matches the AccentColor asset).
-    public static let accent = Color(red: 0.184, green: 0.435, blue: 0.894)
+    /// App accent, scheme-adaptive since the design pass (P1.5):
+    /// #5b9dff dark, #2f6fe4 light (the web accent per theme).
+    public static var accent: Color { Studio.accent }
     /// Default loop-group colour (#5b9dff).
     public static let defaultGroupColorHex = "#5b9dff"
     /// Group colour palette from the web app.
