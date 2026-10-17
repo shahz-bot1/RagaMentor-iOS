@@ -10,6 +10,7 @@ final class RagaCoreTests: XCTestCase {
                        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
     }
 
+
     func testTimeMathRoundTrip() {
         XCTAssertEqual(TimeMath.frames(forSeconds: 1.5, sampleRate: 48000), 72000)
         XCTAssertEqual(TimeMath.seconds(forFrames: 72000, sampleRate: 48000), 1.5)
@@ -254,5 +255,219 @@ final class RagaCoreTests: XCTestCase {
         let inner = try XCTUnwrap(plan.groups.first { $0.name == "Inner" })
         XCTAssertEqual(holder.memberIDs, [inner.id])
         XCTAssertEqual(inner.memberIDs, [plan.loops[0].id])
+    }
+
+    // MARK: - P1: swara model, sanitizer, expansion
+
+    func testSemitoneMapAsCodedOnWeb() {
+        XCTAssertEqual(Swara.semitones["S"], 0)
+        XCTAssertEqual(Swara.semitones["R3"], 2) // as coded in all three web sources
+        XCTAssertEqual(Swara.semitones["G2"], 3)
+        XCTAssertEqual(Swara.semitones["N3"], 11)
+        XCTAssertEqual(Swara.chromatic.count, 16)
+        XCTAssertTrue(Swara.beatOK(0.25) && Swara.beatOK(8) && Swara.beatOK(2.75))
+        XCTAssertFalse(Swara.beatOK(0.3) || Swara.beatOK(0) || Swara.beatOK(8.25))
+    }
+
+    private func sanitize(_ json: String) -> Phrase? {
+        PhraseSanitizer.sanitize(data: Data(json.utf8),
+                                 isKnownRaga: { RagaCatalog.curatedRaga(id: $0) != nil })
+    }
+
+    func testPhraseSanitizerRejectsMalformed() {
+        // Unknown sthana anywhere rejects the whole phrase.
+        XCTAssertNil(sanitize(#"{"chips":[{"k":"note","stack":[{"st":"X9","oct":0}],"beats":1}]}"#))
+        // Empty stack rejects.
+        XCTAssertNil(sanitize(#"{"chips":[{"k":"note","stack":[],"beats":1}]}"#))
+        // A non-object chip rejects.
+        XCTAssertNil(sanitize(#"{"chips":[42]}"#))
+        // No chips array at all.
+        XCTAssertNil(sanitize(#"{"tempo":90}"#))
+    }
+
+    func testPhraseSanitizerCoercions() {
+        let p = sanitize(#"{"ragaId":"nope","saOffset":14,"tempo":500,"loop":1,"chips":[{"k":"note","stack":[{"st":"R2","oct":5}],"beats":0.3},{"k":"hold","beats":2.75}]}"#)
+        let phrase = try! XCTUnwrap(p)
+        XCTAssertNil(phrase.ragaId)               // unknown raga → Chromatic
+        XCTAssertEqual(phrase.saOffset, 0)        // out of range → 0
+        XCTAssertEqual(phrase.tempo, 120)         // clamped
+        XCTAssertTrue(phrase.loop)
+        XCTAssertEqual(phrase.chips[0].beats, 1)  // invalid beats → 1
+        XCTAssertEqual(phrase.chips[0].stack[0].oct, 0) // oct out of set → 0
+        XCTAssertEqual(phrase.chips[1].beats, 2.75)     // quarter steps kept
+        // The {composition:} envelope is accepted.
+        let env = sanitize(#"{"composition":{"ragaId":"kalyani","tempo":90,"chips":[]}}"#)
+        XCTAssertEqual(env?.ragaId, "kalyani")
+        XCTAssertEqual(env?.tempo, 90)
+        // Missing tempo defaults to 60.
+        XCTAssertEqual(sanitize(#"{"chips":[]}"#)?.tempo, 60)
+    }
+
+    func testExpansionStackSubdividesEqually() {
+        // Web: a stack's own duration divides over ALL its entries.
+        let phrase = Phrase(ragaId: nil, saOffset: 0, tempo: 60, loop: false, chips: [
+            .note([StackEntry(st: "S", oct: 0), StackEntry(st: "R2", oct: 0)], beats: 2),
+        ])
+        let events = PhraseExpansion.events(for: phrase)
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events[0].durationBeats, 1)
+        XCTAssertEqual(events[1].startBeat, 1)
+        XCTAssertEqual(events[1].durationBeats, 1)
+    }
+
+    func testExpansionInStackHoldAddsShareToPreviousUnit() {
+        // Stack [S, hold, R2] over 3 beats: sub = 1; S takes 2 shares.
+        let phrase = Phrase(ragaId: nil, saOffset: 0, tempo: 60, loop: false, chips: [
+            .note([StackEntry(st: "S", oct: 0), .hold, StackEntry(st: "R2", oct: 0)], beats: 3),
+        ])
+        let events = PhraseExpansion.events(for: phrase)
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events[0].durationBeats, 2)
+        XCTAssertEqual(events[1].durationBeats, 1)
+        XCTAssertEqual(events[1].startBeat, 2)
+    }
+
+    func testExpansionOuterHoldLandsEntirelyOnFinalUnit() {
+        // Note (2 beats, stack of 2) + hold chip (1 beat): units 1 and 2.
+        let phrase = Phrase(ragaId: nil, saOffset: 0, tempo: 60, loop: false, chips: [
+            .note([StackEntry(st: "S", oct: 0), StackEntry(st: "G3", oct: 0)], beats: 2),
+            .hold(beats: 1),
+        ])
+        let events = PhraseExpansion.events(for: phrase)
+        XCTAssertEqual(events.map(\.durationBeats), [1, 2])
+    }
+
+    func testExpansionGapClosesAndLeadingHoldIsSilent() {
+        let phrase = Phrase(ragaId: nil, saOffset: 0, tempo: 60, loop: false, chips: [
+            .hold(beats: 1),                                 // no pending: silent advance
+            .note([StackEntry(st: "S", oct: 0)], beats: 1),  // starts at beat 1
+            .gap(beats: 1),                                  // closes S, silent beat
+            .note([StackEntry(st: "P", oct: 0)], beats: 1),  // starts at beat 3
+            .note([.hold], beats: 2),                        // all-hold stack extends P
+        ])
+        let events = PhraseExpansion.events(for: phrase)
+        XCTAssertEqual(events.count, 2)
+        XCTAssertEqual(events[0].startBeat, 1)
+        XCTAssertEqual(events[0].durationBeats, 1)
+        XCTAssertEqual(events[1].startBeat, 3)
+        XCTAssertEqual(events[1].durationBeats, 3)
+    }
+
+    func testChipLabelsCarryOctaveDots() {
+        XCTAssertEqual(SwaraLabel.noteLabel(st: "S", oct: 1), "S\u{0307}")
+        XCTAssertEqual(SwaraLabel.noteLabel(st: "R2", oct: -1), "R\u{0323}₂")
+        XCTAssertEqual(SwaraLabel.noteLabel(st: "G3", oct: 0), "G₃")
+        XCTAssertEqual(SwaraLabel.chipLabel(.hold(beats: 1)), ",")
+        XCTAssertEqual(SwaraLabel.chipLabel(.gap(beats: 1)), "–")
+        XCTAssertEqual(
+            SwaraLabel.chipLabel(.note([StackEntry(st: "S", oct: 0), .hold], beats: 1)), "S,")
+        XCTAssertEqual(Swara.formatBeats(2.5), "2½")
+        XCTAssertEqual(Swara.formatBeats(0.25), "¼")
+    }
+
+    // MARK: - P1: raga catalog + resolution
+
+    func testCatalogCounts() {
+        XCTAssertEqual(RagaCatalog.all.count, 87)
+        XCTAssertEqual(RagaCatalog.all.filter { $0.melakartaNumber != nil }.count, 72)
+        XCTAssertEqual(RagaCatalog.all.filter { $0.isHindustani }.count, 11)
+        XCTAssertEqual(RagaCatalog.curated.count, 10)
+        XCTAssertEqual(RagaCatalog.catalogRaga(id: "mel029")?.name, "Dheerasankarabharanam")
+    }
+
+    func testResolveCuratedByScaleSignature() {
+        // RagaBrowser's mel029 has the Shankarabharanam scale under a
+        // different name — the pick resolves to the table id (web rule).
+        let mel29 = try! XCTUnwrap(RagaCatalog.catalogRaga(id: "mel029"))
+        let hit = RagaCatalog.resolveCurated(name: mel29.name, aro: mel29.aro, ava: mel29.ava)
+        XCTAssertEqual(hit?.id, "shankarabharanam")
+    }
+
+    func testResolveCuratedByNameAndMiss() {
+        let hit = RagaCatalog.resolveCurated(name: "KALYANI",
+                                             aro: ["S"], ava: ["S"])
+        XCTAssertEqual(hit?.id, "kalyani") // name match is case-insensitive
+        XCTAssertNil(RagaCatalog.resolveCurated(name: "No Such Raga",
+                                                aro: ["S", "R1"], ava: ["S"]))
+    }
+
+    func testPickerListIsAroOrderThenAvaOnly() {
+        // Bhairavi: aro S R2 G2 M1 P D2 N2; ava adds D1.
+        let bhairavi = try! XCTUnwrap(RagaCatalog.curatedRaga(id: "bhairavi"))
+        XCTAssertEqual(RagaCatalog.pickerList(for: bhairavi),
+                       ["S", "R2", "G2", "M1", "P", "D2", "N2", "D1"])
+        XCTAssertEqual(RagaCatalog.registryId(forName: "Ahir Bhairav"), "rb-ahir-bhairav")
+        XCTAssertEqual(RagaCatalog.registryId(forName: "  Desh!! "), "rb-desh")
+    }
+
+    // MARK: - P1: loops backup v3
+
+    private func v3Plan(_ json: String, duration: Double = 60) -> (loops: [LoopsBackup.PlannedLoop], groups: [LoopsBackup.PlannedGroup])? {
+        LoopsBackupV3.planImport(data: Data(json.utf8), duration: duration,
+                                 isKnownRaga: { RagaCatalog.curatedRaga(id: $0) != nil })
+    }
+
+    func testLoopsBackupV3RoundTrip() {
+        let phrase = Phrase(ragaId: "mohanam", saOffset: 2, tempo: 84, loop: true, chips: [
+            .note([StackEntry(st: "S", oct: 0)], beats: 1), .hold(beats: 1),
+        ])
+        let loopID = UUID(), groupID = UUID()
+        let data = LoopsBackupV3.makeData(
+            songTitle: "Song",
+            loops: [.init(id: loopID, name: "A", note: "n", start: 1.234, end: 5.678, phrase: phrase)],
+            groups: [.init(id: groupID, name: "G", colorHex: "not-a-color", memberIDs: [loopID])],
+            isKnownRaga: { RagaCatalog.curatedRaga(id: $0) != nil })
+        let text = String(data: data, encoding: .utf8)!
+        XCTAssertTrue(text.contains("\"version\" : 3") || text.contains("\"version\": 3"))
+        let plan = try! XCTUnwrap(v3Plan(text))
+        XCTAssertEqual(plan.loops.count, 1)
+        XCTAssertEqual(plan.loops[0].start, 1.23) // 2dp rounding in the file
+        XCTAssertEqual(plan.loops[0].phrase, phrase)
+        XCTAssertEqual(plan.groups.count, 1)
+        XCTAssertEqual(plan.groups[0].colorHex, "#2dd4bf") // invalid colour → palette[0] on export
+        XCTAssertEqual(plan.groups[0].memberIDs, [plan.loops[0].id])
+    }
+
+    func testLoopsBackupV3ImportRules() {
+        // Non-object / missing loops array → unusable.
+        XCTAssertNil(v3Plan(#"{"song":"x"}"#))
+        let plan = try! XCTUnwrap(v3Plan(#"""
+        {"app":"Other","version":99,"loops":[
+          {"id":1,"name":"ok","start":2,"end":5},
+          {"id":2,"name":"degenerate","start":5,"end":5.1},
+          {"id":3,"name":"beyond","start":55,"end":90},
+          {"name":"no key","start":0,"end":1}
+        ],"groups":[
+          {"id":9,"name":"G","color":"red","members":[1,2,3,404]}
+        ]}
+        """#))
+        // Degenerate skipped; beyond-duration clamped to 60 (kept: 55...60).
+        XCTAssertEqual(plan.loops.count, 3)
+        XCTAssertEqual(plan.loops[2].end, 60)
+        // Group colour falls back by raw group index; dangling member 404
+        // dropped; the degenerate loop's serial 2 resolves to nothing.
+        XCTAssertEqual(plan.groups.count, 1)
+        XCTAssertEqual(plan.groups[0].colorHex, "#2dd4bf")
+        XCTAssertEqual(plan.groups[0].memberIDs.count, 2)
+    }
+
+    func testGroupSanitizerDepthCapAndCascade() {
+        let l1 = UUID(), l2 = UUID()
+        let g1 = LoopsBackup.PlannedGroup(id: UUID(), name: "outer", colorHex: "#fff000", memberIDs: [])
+        let g2 = LoopsBackup.PlannedGroup(id: UUID(), name: "inner", colorHex: "#fff000", memberIDs: [])
+        let g3 = LoopsBackup.PlannedGroup(id: UUID(), name: "deep", colorHex: "#fff000", memberIDs: [])
+        var outer = g1, inner = g2, deep = g3
+        outer.memberIDs = [inner.id]
+        inner.memberIDs = [deep.id]
+        deep.memberIDs = [l1, l2]
+        let out = GroupSanitizer.sanitize(loopIDs: [l1, l2], groups: [outer, inner, deep])
+        // Depth cap: inner (depth 1) may hold loops only → its link to
+        // deep is cut; deep surfaces to top level with its loops.
+        let byName = Dictionary(uniqueKeysWithValues: out.map { ($0.name, $0) })
+        XCTAssertEqual(byName["inner"]?.memberIDs, [])
+        XCTAssertNil(byName["inner"]) // emptied inner is dropped, cascading
+        XCTAssertEqual(byName["deep"]?.memberIDs, [l1, l2])
+        XCTAssertNil(byName["outer"]) // outer held only inner → dropped too
+        XCTAssertEqual(out.count, 1)
     }
 }
