@@ -23,6 +23,12 @@ jobs:
           bundler-cache: true
       - name: Xcode version
         run: xcodebuild -version
+      - name: Inspect workspace
+        run: |
+          pwd
+          ls -la
+          ls -la RagaMentor-iOSTests || true
+          find . -name '*.swift' | sort
       - name: Run tests via fastlane
         run: bundle exec fastlane test
       - name: Upload test output
