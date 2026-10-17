@@ -17,6 +17,9 @@ public final class Song {
     public var dateAdded: Date
     public var lastPosition: Double
     public var lastLoopID: UUID?
+    /// Per-song raga memory: the raga last used for this song's swara
+    /// phrases (web song.swRagaId); new phrases preselect it.
+    public var swRagaId: String?
     @Relationship(deleteRule: .cascade, inverse: \LoopRegion.song) public var loops: [LoopRegion]
     @Relationship(deleteRule: .cascade, inverse: \LoopGroup.song) public var groups: [LoopGroup]
 
@@ -29,6 +32,7 @@ public final class Song {
          dateAdded: Date = Date(),
          lastPosition: Double = 0,
          lastLoopID: UUID? = nil,
+         swRagaId: String? = nil,
          loops: [LoopRegion] = [],
          groups: [LoopGroup] = []) {
         self.id = id
@@ -40,6 +44,7 @@ public final class Song {
         self.dateAdded = dateAdded
         self.lastPosition = lastPosition
         self.lastLoopID = lastLoopID
+        self.swRagaId = swRagaId
         self.loops = loops
         self.groups = groups
     }
@@ -62,6 +67,9 @@ public final class LoopRegion {
     public var end: Double
     public var sortOrder: Int
     public var createdAt: Date
+    /// The loop's swara phrase as canonical Phrase JSON (nil = no
+    /// phrase). The phrase lives on the loop, never in a shared store.
+    public var swarasJSON: String?
     public var song: Song?
 
     public init(id: UUID = UUID(),
@@ -71,6 +79,7 @@ public final class LoopRegion {
          end: Double,
          sortOrder: Int = 0,
          createdAt: Date = Date(),
+         swarasJSON: String? = nil,
          song: Song? = nil) {
         self.id = id
         self.name = name
@@ -79,6 +88,7 @@ public final class LoopRegion {
         self.end = end
         self.sortOrder = sortOrder
         self.createdAt = createdAt
+        self.swarasJSON = swarasJSON
         self.song = song
     }
 }
