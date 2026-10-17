@@ -128,6 +128,110 @@ enum GroupLogic {
     }
 }
 
+// MARK: - Group membership operations (M3, PLAN §3/§6)
+
+/// A group's membership as plain data, for pure transformations.
+struct GroupData: Equatable {
+    var id: UUID
+    var memberIDs: [UUID]
+}
+
+enum GroupOps {
+    /// group id -> parent group id, from all groups' member lists.
+    static func parentMap(groups: [GroupData]) -> [UUID: UUID] {
+        var map: [UUID: UUID] = [:]
+        for g in groups {
+            for member in g.memberIDs { map[member] = g.id }
+        }
+        return map
+    }
+
+    /// All loop ids under a group, directly or through sub-groups.
+    static func descendantLoopIDs(of groupID: UUID,
+                                  groups: [GroupData],
+                                  loopIDs: Set<UUID>) -> [UUID] {
+        let byID = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0) })
+        var out: [UUID] = []
+        var visited = Set<UUID>()
+        func walk(_ id: UUID) {
+            guard !visited.contains(id) else { return }
+            visited.insert(id)
+            if loopIDs.contains(id) { out.append(id); return }
+            for member in byID[id]?.memberIDs ?? [] { walk(member) }
+        }
+        for member in byID[groupID]?.memberIDs ?? [] { walk(member) }
+        return out
+    }
+
+    /// Ids of groups with no descendant loops. Such groups vanish
+    /// automatically, cascading upward (PLAN §6).
+    static func emptyGroupIDs(groups: [GroupData], loopIDs: Set<UUID>) -> Set<UUID> {
+        var empty = Set<UUID>()
+        var remaining = groups
+        var changed = true
+        while changed {
+            changed = false
+            for g in remaining where !empty.contains(g.id) {
+                if descendantLoopIDs(of: g.id, groups: remaining, loopIDs: loopIDs).isEmpty {
+                    empty.insert(g.id)
+                    remaining.removeAll { $0.id == g.id }
+                    changed = true
+                }
+            }
+        }
+        return empty
+    }
+
+    /// memberIDs sorted by start time: loops by their span start,
+    /// groups by their derived range start (PLAN §6).
+    static func sortedMemberIDs(_ memberIDs: [UUID],
+                                groups: [GroupData],
+                                spans: [UUID: LoopSpan]) -> [UUID] {
+        let children = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0.memberIDs) })
+        func start(of id: UUID) -> Double {
+            if let span = spans[id] { return span.start }
+            return GroupLogic.derivedRange(groupID: id, children: children, spans: spans)?.start ?? .greatestFiniteMagnitude
+        }
+        return memberIDs.sorted { a, b in
+            let (sa, sb) = (start(of: a), start(of: b))
+            return sa != sb ? sa < sb : a.uuidString < b.uuidString
+        }
+    }
+
+    /// Delete a group: its children are promoted to the deleted group's
+    /// parent (or the top level), per PLAN §6.
+    static func deletingGroup(_ groupID: UUID, from groups: [GroupData]) -> [GroupData] {
+        guard let target = groups.first(where: { $0.id == groupID }) else { return groups }
+        let parent = parentMap(groups: groups)[groupID]
+        var out = groups.filter { $0.id != groupID }
+        if let parent, let idx = out.firstIndex(where: { $0.id == parent }) {
+            var members = out[idx].memberIDs.filter { $0 != groupID }
+            members.append(contentsOf: target.memberIDs)
+            out[idx].memberIDs = members
+        }
+        return out
+    }
+
+    /// Set a group's membership to exactly `newMembers` (the checklist
+    /// model, PLAN §3 decision 12): members are first removed from any
+    /// other group that held them, then the target list is replaced.
+    static func settingMembers(of groupID: UUID,
+                               to newMembers: [UUID],
+                               in groups: [GroupData]) -> [GroupData] {
+        var out = groups.map { g -> GroupData in
+            var g = g
+            if g.id != groupID {
+                g.memberIDs.removeAll { newMembers.contains($0) }
+            }
+            return g
+        }
+        if let idx = out.firstIndex(where: { $0.id == groupID }) {
+            out[idx].memberIDs = newMembers
+        }
+        return out
+    }
+}
+
 enum Peaks {
     /// Bucket mono samples into `buckets` peak values (max abs per bucket).
     /// The bucket count is fixed so long files cost the same to render
@@ -183,5 +287,28 @@ enum LoopMath {
                                  eventGeneration: Int,
                                  currentGeneration: Int) -> Bool {
         loopEnabled && eventGeneration == currentGeneration
+    }
+
+    /// Playhead position when playback entered the loop mid-segment
+    /// (first-pass offset): the first pass runs from
+    /// `segmentStartFrame + firstPassOffsetFrames` to the segment end,
+    /// later passes wrap over the full segment.
+    static func loopPosition(segmentStartFrame: Int64,
+                             segmentFrameCount: Int64,
+                             firstPassOffsetFrames: Int64,
+                             playedFrames: Int64,
+                             sampleRate: Double) -> Double {
+        guard segmentFrameCount > 0, sampleRate > 0 else {
+            return TimeMath.seconds(forFrames: segmentStartFrame, sampleRate: sampleRate)
+        }
+        let offset = Swift.min(Swift.max(0, firstPassOffsetFrames), segmentFrameCount - 1)
+        let firstPassLength = segmentFrameCount - offset
+        let frameInSegment: Int64
+        if playedFrames < firstPassLength {
+            frameInSegment = offset + playedFrames
+        } else {
+            frameInSegment = (playedFrames - firstPassLength) % segmentFrameCount
+        }
+        return TimeMath.seconds(forFrames: segmentStartFrame + frameInSegment, sampleRate: sampleRate)
     }
 }
