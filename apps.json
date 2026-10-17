@@ -1,0 +1,25 @@
+{
+  "name": "RagaMentor-iOS",
+  "identifier": "uk.co.shahz.ragamentor.source",
+  "sourceURL": "https://raw.githubusercontent.com/shahz-bot1/RagaMentor-iOS/main/apps.json",
+  "apps": [
+    {
+      "name": "RagaMentor-iOS",
+      "bundleIdentifier": "uk.co.shahz.ragamentor",
+      "developerName": "Shahzin",
+      "version": "0.1.0",
+      "versionDate": "2026-10-17T13:12:00Z",
+      "versionDescription": "Hello World pipeline test build. Unsigned; SideStore signs it on-device with your Apple ID.",
+      "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
+      "localizedDescription": "RagaMentor native test app (Hello World). Built by GitHub Actions + fastlane on every push to main.",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "date": "2026-10-17T13:12:00Z",
+          "localizedDescription": "Hello World pipeline test build.",
+          "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
+        }
+      ]
+    }
+  ]
+}
