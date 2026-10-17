@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 // Loops tab content (PLAN §10): loop rows with range + note, groups with
 // derived ranges, tap to select-and-play. Editing lives in the detail
@@ -13,6 +14,10 @@ struct LoopsView: View {
     @State private var showNewGroup = false
     @State private var newGroupName = ""
     @State private var editingGroup: LoopGroup?
+    @State private var showImporter = false
+    @State private var confirmImport = false
+    @State private var pendingImportData: Data?
+    @State private var importFailed = false
 
     var body: some View {
         List {
@@ -43,6 +48,50 @@ struct LoopsView: View {
                     Label("New group", systemImage: "folder.badge.plus")
                 }
             }
+
+            Section("Backup") {
+                if let data = controller.backupJSON() {
+                    ShareLink(item: BackupDocument(data: data),
+                              preview: SharePreview("\(song.title) loops")) {
+                        Label("Export loops…", systemImage: "square.and.arrow.up")
+                    }
+                }
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("Import loops…", systemImage: "square.and.arrow.down")
+                }
+            }
+        }
+        .fileImporter(isPresented: $showImporter,
+                      allowedContentTypes: [.json],
+                      allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                let scoped = url.startAccessingSecurityScopedResource()
+                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+                if let data = try? Data(contentsOf: url) {
+                    pendingImportData = data
+                    confirmImport = true
+                } else {
+                    importFailed = true
+                }
+            }
+        }
+        .confirmationDialog("Replace all loops for this song with the imported set?",
+                            isPresented: $confirmImport, titleVisibility: .visible) {
+            Button("Replace loops", role: .destructive) {
+                if let data = pendingImportData,
+                   !controller.importBackup(data: data, context: modelContext) {
+                    importFailed = true
+                }
+                pendingImportData = nil
+            }
+            Button("Cancel", role: .cancel) { pendingImportData = nil }
+        }
+        .alert("Import failed", isPresented: $importFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("That file is not a valid RagaMentor loops backup.")
         }
         .navigationTitle("Loops")
         .navigationBarTitleDisplayMode(.inline)
@@ -98,17 +147,22 @@ struct LoopsView: View {
         }
     }
 
-    @ViewBuilder
-    private func itemView(_ item: TreeItem, depth: Int) -> some View {
+    private func itemView(_ item: TreeItem, depth: Int) -> AnyView {
         switch item {
         case .loop(let loop):
-            LoopRowView(song: song, loop: loop)
-                .padding(.leading, CGFloat(depth) * 16)
+            return AnyView(
+                LoopRowView(song: song, loop: loop)
+                    .padding(.leading, CGFloat(depth) * 16)
+            )
         case .group(let group):
-            GroupHeaderView(song: song, group: group) { editingGroup = group }
-            ForEach(memberItems(of: group), id: \.id) { member in
-                itemView(member, depth: depth + 1)
-            }
+            return AnyView(
+                Group {
+                    GroupHeaderView(song: song, group: group) { editingGroup = group }
+                    ForEach(memberItems(of: group), id: \.id) { member in
+                        itemView(member, depth: depth + 1)
+                    }
+                }
+            )
         }
     }
 
@@ -118,6 +172,14 @@ struct LoopsView: View {
             ($0.id, LoopSpan(id: $0.id, start: $0.start, end: $0.end))
         })
         return GroupLogic.derivedRange(groupID: group.id, children: children, spans: spans)
+    }
+}
+
+/// JSON payload for the loops-backup ShareLink.
+struct BackupDocument: Transferable {
+    let data: Data
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .json) { $0.data }
     }
 }
 
