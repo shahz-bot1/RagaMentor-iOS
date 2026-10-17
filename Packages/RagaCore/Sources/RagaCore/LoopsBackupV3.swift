@@ -96,41 +96,49 @@ public enum LoopsBackupV3 {
         for loop in sortedLoops { serial += 1; serialByID[loop.id] = serial }
         for group in groups { serial += 1; serialByID[group.id] = serial }
 
-        let loopEntries: [[String: Any]] = sortedLoops.enumerated().map { (i, loop) in
-            var entry: [String: Any] = [
-                "id": serialByID[loop.id] ?? 0,
-                "name": loop.name.isEmpty ? "Loop \(i + 1)" : loop.name,
-                "start": (loop.start * 100).rounded() / 100,
-                "end": (loop.end * 100).rounded() / 100,
-                "note": loop.note,
+        let loopEntries: [JSJSON] = sortedLoops.enumerated().map { (i, loop) in
+            var fields: [(String, JSJSON)] = [
+                ("id", .number(Double(serialByID[loop.id] ?? 0))),
+                ("name", .string(loop.name.isEmpty ? "Loop \(i + 1)" : loop.name)),
+                ("start", .number((loop.start * 100).rounded() / 100)),
+                ("end", .number((loop.end * 100).rounded() / 100)),
+                ("note", .string(loop.note)),
             ]
             if let phrase = loop.phrase,
-               let clean = PhraseSanitizer.sanitize(phrase: phrase, isKnownRaga: isKnownRaga),
-               let phraseObj = try? JSONSerialization.jsonObject(with: clean.jsonData() ?? Data()) {
-                entry["swaras"] = phraseObj
+               let clean = PhraseSanitizer.sanitize(phrase: phrase, isKnownRaga: isKnownRaga) {
+                fields.append(("swaras", .phrase(clean)))
             }
-            return entry
+            return .object(fields)
         }
-        let groupEntries: [[String: Any]] = groups.map { group in
-            [
-                "id": serialByID[group.id] ?? 0,
-                "name": group.name.isEmpty ? "Group" : group.name,
-                "color": GroupPalette.isValidHex(group.colorHex) ? group.colorHex : GroupPalette.hexes[0],
-                "members": group.memberIDs.compactMap { serialByID[$0] },
-            ]
+        let groupEntries: [JSJSON] = groups.map { group in
+            .object([
+                ("id", .number(Double(serialByID[group.id] ?? 0))),
+                ("name", .string(group.name.isEmpty ? "Group" : group.name)),
+                ("color", .string(GroupPalette.isValidHex(group.colorHex)
+                                  ? group.colorHex : GroupPalette.hexes[0])),
+                ("members", .array(group.memberIDs.compactMap {
+                    serialByID[$0].map { .number(Double($0)) }
+                })),
+            ])
         }
-        let iso = ISO8601DateFormatter()
-        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let root: [String: Any] = [
-            "app": "RagaMentor",
-            "version": 3,
-            "song": songTitle,
-            "exportedAt": iso.string(from: exportedAt),
-            "loops": loopEntries,
-            "groups": groupEntries,
-        ]
-        return (try? JSONSerialization.data(withJSONObject: root,
-                                            options: [.prettyPrinted, .sortedKeys])) ?? Data()
+        let root = JSJSON.object([
+            ("app", .string("RagaMentor")),
+            ("version", .number(3)),
+            ("song", .string(songTitle)),
+            ("exportedAt", .string(isoTimestamp(exportedAt))),
+            ("loops", .array(loopEntries)),
+            ("groups", .array(groupEntries)),
+        ])
+        return Data(root.stringify().utf8)
+    }
+
+    /// JS Date.toISOString: UTC with millisecond precision and a Z.
+    static func isoTimestamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
+        return f.string(from: date)
     }
 
     /// Plan a v3 import. Returns nil when the data is not an object with
@@ -244,5 +252,118 @@ public enum LoopsBackupV3 {
             return n.boolValue ? "true" : "false"
         }
         return nil
+    }
+}
+
+/// An ordered JSON value with a writer that matches the web export
+/// byte-for-byte in structure: JSON.stringify(value, null, 2) — keys in
+/// insertion order, two-space indent, integral numbers without a
+/// decimal point. The loops file is platform-independent: an export
+/// from web and an export from native have the same shape.
+public indirect enum JSJSON {
+    case object([(String, JSJSON)])
+    case array([JSJSON])
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
+
+    public static func phrase(_ phrase: Phrase) -> JSJSON {
+        .object([
+            ("ragaId", phrase.ragaId.map(JSJSON.string) ?? .null),
+            ("saOffset", .number(Double(phrase.saOffset))),
+            ("tempo", .number(Double(phrase.tempo))),
+            ("loop", .bool(phrase.loop)),
+            ("chips", .array(phrase.chips.map(chip))),
+        ])
+    }
+
+    public static func chip(_ chip: Chip) -> JSJSON {
+        switch chip.kind {
+        case .note:
+            return .object([
+                ("k", .string("note")),
+                ("stack", .array(chip.stack.map(entry))),
+                ("beats", .number(chip.beats)),
+            ])
+        case .hold, .gap:
+            return .object([
+                ("k", .string(chip.kind.rawValue)),
+                ("beats", .number(chip.beats)),
+            ])
+        }
+    }
+
+    public static func entry(_ entry: StackEntry) -> JSJSON {
+        if entry.isHold { return .object([("hold", .bool(true))]) }
+        return .object([
+            ("st", .string(entry.st ?? "")),
+            ("oct", .number(Double(entry.oct))),
+        ])
+    }
+
+    public func stringify() -> String {
+        var out = ""
+        write(into: &out, level: 0)
+        return out
+    }
+
+    private func write(into out: inout String, level: Int) {
+        let pad = String(repeating: "  ", count: level)
+        let padIn = String(repeating: "  ", count: level + 1)
+        switch self {
+        case .object(let fields):
+            if fields.isEmpty { out += "{}"; return }
+            out += "{"
+            for (i, field) in fields.enumerated() {
+                out += i == 0 ? "\n" : ",\n"
+                out += padIn + Self.escape(field.0) + ": "
+                field.1.write(into: &out, level: level + 1)
+            }
+            out += "\n" + pad + "}"
+        case .array(let items):
+            if items.isEmpty { out += "[]"; return }
+            out += "["
+            for (i, item) in items.enumerated() {
+                out += i == 0 ? "\n" : ",\n"
+                out += padIn
+                item.write(into: &out, level: level + 1)
+            }
+            out += "\n" + pad + "]"
+        case .string(let s):
+            out += Self.escape(s)
+        case .number(let n):
+            out += Self.formatNumber(n)
+        case .bool(let b):
+            out += b ? "true" : "false"
+        case .null:
+            out += "null"
+        }
+    }
+
+    static func formatNumber(_ n: Double) -> String {
+        if n == n.rounded() && abs(n) < 1e15 { return String(Int(n)) }
+        return String(n)
+    }
+
+    static func escape(_ s: String) -> String {
+        var out = "\""
+        for scalar in s.unicodeScalars {
+            switch scalar {
+            case "\"": out += "\\\""
+            case "\\": out += "\\\\"
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
+            default:
+                if scalar.value < 0x20 {
+                    out += String(format: "\\u%04x", scalar.value)
+                } else {
+                    out.unicodeScalars.append(scalar)
+                }
+            }
+        }
+        out += "\""
+        return out
     }
 }
