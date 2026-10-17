@@ -1,0 +1,40 @@
+default_platform(:ios)
+
+SCHEME = "RagaMentor-iOS"
+
+platform :ios do
+  desc "Run unit tests on the iOS simulator"
+  lane :test do
+    run_tests(
+      scheme: SCHEME,
+      devices: ["iPhone 16"],
+      result_bundle: true,
+      output_directory: "fastlane/test_output",
+      output_types: "junit",
+      fail_build: true
+    )
+  end
+
+  desc "Build an unsigned device IPA (sideload it with SideStore or AltStore)"
+  lane :build_unsigned do
+    build_app(
+      scheme: SCHEME,
+      configuration: "Release",
+      destination: "generic/platform=iOS",
+      skip_codesigning: true,
+      skip_package_ipa: true,
+      skip_archive: false,
+      clean: true,
+      archive_path: "build/RagaMentor-iOS.xcarchive",
+      output_directory: "build"
+    )
+    apps = Dir["build/RagaMentor-iOS.xcarchive/Products/Applications/*.app"]
+    UI.user_error!("No .app found inside the archive") if apps.empty?
+    sh("rm", "-rf", "Payload", "RagaMentor-iOS-unsigned.ipa")
+    sh("mkdir", "-p", "Payload")
+    sh("cp", "-r", apps.first, "Payload/")
+    sh("zip", "-qry", "RagaMentor-iOS-unsigned.ipa", "Payload")
+    sh("rm", "-rf", "Payload")
+    UI.success("Unsigned IPA ready: RagaMentor-iOS-unsigned.ipa")
+  end
+end
