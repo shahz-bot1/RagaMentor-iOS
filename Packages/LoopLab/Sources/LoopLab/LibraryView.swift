@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import PersistenceKit
+import DesignSystem
 
 // Home screen per PLAN §10 (locked decision 10): the Now Playing card
 // sits above the library; all loop management lives in the fullscreen
@@ -60,6 +61,7 @@ public struct LibraryView: View {
             }
         }
         .navigationTitle("RagaMentor")
+        .studioList()
         .onAppear { controller.modelContext = modelContext }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -154,30 +156,28 @@ struct NowPlayingCard: View {
                 get: { controller.position },
                 set: { controller.seek(to: $0) }
             ), in: 0...max(song.duration, 0.01))
+            .tint(Studio.accent)
             .disabled(song.duration <= 0)
 
-            HStack(spacing: 20) {
-                Button { controller.skip(by: -10) } label: {
-                    Image(systemName: "gobackward.10")
+            HStack(spacing: 18) {
+                Spacer()
+                StudioRoundButton(systemImage: "gobackward.10", diameter: 42, filled: false) {
+                    controller.skip(by: -10)
                 }
-                Button {
+                StudioRoundButton(systemImage: controller.isPlaying ? "pause.fill" : "play.fill",
+                                  diameter: 56) {
                     controller.togglePlay()
-                } label: {
-                    Image(systemName: controller.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title2)
                 }
-                Button { controller.skip(by: 10) } label: {
-                    Image(systemName: "goforward.10")
+                StudioRoundButton(systemImage: "goforward.10", diameter: 42, filled: false) {
+                    controller.skip(by: 10)
                 }
+                Spacer()
             }
             .frame(maxWidth: .infinity)
 
-            Picker("Speed", selection: $controller.speed) {
-                ForEach(PlaybackController.speedPresets, id: \.self) { preset in
-                    Text("\(preset, specifier: "%g")x").tag(preset)
-                }
-            }
-            .pickerStyle(.segmented)
+            StudioSegmented(
+                items: PlaybackController.speedPresets.map { ($0, "\($0, specifier: "%g")x") },
+                selection: $controller.speed)
 
             HStack(spacing: 10) {
                 Button {
@@ -185,16 +185,16 @@ struct NowPlayingCard: View {
                 } label: {
                     Text(controller.pendingA == nil ? "Set A" : "A \(short(controller.pendingA!))")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(StudioSecondaryButtonStyle())
                 Button {
                     controller.setB()
                 } label: {
                     Text(controller.pendingB == nil ? "Set B" : "B \(short(controller.pendingB!))")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(StudioSecondaryButtonStyle())
                 if controller.pendingA != nil || controller.pendingB != nil {
                     Button("Clear") { controller.clearPendingMarks() }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(StudioSecondaryButtonStyle())
                 }
                 Spacer()
                 Button {
@@ -202,8 +202,8 @@ struct NowPlayingCard: View {
                 } label: {
                     Label("Loop", systemImage: "repeat")
                 }
-                .buttonStyle(.bordered)
-                .tint(controller.loopOn ? .accentColor : .gray)
+                .buttonStyle(StudioSecondaryButtonStyle())
+                .tint(controller.loopOn ? Studio.accent : .gray)
                 .disabled(controller.selectedLoop == nil)
             }
             .font(.subheadline)
