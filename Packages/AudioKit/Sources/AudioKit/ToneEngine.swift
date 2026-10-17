@@ -21,6 +21,14 @@ public final class HarmoniumToneEngine: ToneEngine {
     private var players: [AVAudioPlayerNode] = []
     private var nextPlayer = 0
     private var engineStarted = false
+    /// The format the players are connected with. Every scheduled
+    /// buffer is rendered into exactly this format: AVAudioPlayerNode
+    /// crashes when a buffer's format differs from its connection
+    /// format (the bundled samples are 44.1 kHz mono; a device's
+    /// hardware format is usually 48 kHz stereo — connecting with a
+    /// nil format and scheduling sample-format buffers crashed phrase
+    /// playback on device, v0.8.0).
+    private var nodeFormat: AVAudioFormat?
     private var buffers: [String: AVAudioPCMBuffer] = [:] // file name → sample
     private var renderCache: [String: AVAudioPCMBuffer] = [:]
     public private(set) var samplesReady = false
@@ -29,7 +37,6 @@ public final class HarmoniumToneEngine: ToneEngine {
         for _ in 0..<playerCount {
             let node = AVAudioPlayerNode()
             engine.attach(node)
-            engine.connect(node, to: engine.mainMixerNode, format: nil)
             players.append(node)
         }
     }
@@ -54,8 +61,10 @@ public final class HarmoniumToneEngine: ToneEngine {
             }
             return out
         }.value
-        buffers = loaded
-        samplesReady = !loaded.isEmpty
+        await MainActor.run {
+            buffers = loaded
+            samplesReady = !loaded.isEmpty
+        }
     }
 
     private func ensureEngine() {
@@ -63,6 +72,15 @@ public final class HarmoniumToneEngine: ToneEngine {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
+        if nodeFormat == nil {
+            let mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
+            nodeFormat = mixerFormat.sampleRate > 0
+                ? mixerFormat
+                : AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)
+            for player in players {
+                engine.connect(player, to: engine.mainMixerNode, format: nodeFormat)
+            }
+        }
         engine.prepare()
         do {
             try engine.start()
@@ -74,7 +92,7 @@ public final class HarmoniumToneEngine: ToneEngine {
 
     public func playNote(semitone: Int, atOffset offset: Double, duration: Double) {
         ensureEngine()
-        guard engineStarted else { return }
+        guard engineStarted, let format = nodeFormat else { return }
         let rendered: AVAudioPCMBuffer?
         let cacheKey = "\(semitone)|\(Int((duration * 20).rounded()))"
         if let cached = renderCache[cacheKey] {
@@ -82,11 +100,16 @@ public final class HarmoniumToneEngine: ToneEngine {
         } else {
             let (file, rate) = SampleMap.sample(forSemitone: semitone)
             if let source = buffers[file] {
-                rendered = SustainRenderer.render(source: source, rate: rate, duration: duration)
+                rendered = SustainRenderer.render(
+                    source: source, rate: rate, duration: duration,
+                    outputSampleRate: format.sampleRate,
+                    outputChannels: Int(format.channelCount))
             } else {
                 rendered = SustainRenderer.renderSynth(
                     frequency: 261.63 * pow(2, Double(semitone) / 12),
-                    duration: duration)
+                    duration: duration,
+                    sampleRate: format.sampleRate,
+                    channels: Int(format.channelCount))
             }
             if let rendered { renderCache[cacheKey] = rendered }
         }
