@@ -210,8 +210,9 @@ public final class SwaraEditorModel: ObservableObject {
         switch chip.kind {
         case .note:
             let stack = chip.stack.map { entry -> String in
-                entry.isHold ? "{\"hold\":true}"
-                    : "{\"st\":\"\(entry.st ?? \"\")\",\"oct\":\(entry.oct)}"
+                if entry.isHold { return "{\"hold\":true}" }
+                let st = entry.st ?? ""
+                return "{\"st\":\"" + st + "\",\"oct\":\(entry.oct)}"
             }.joined(separator: ",")
             return "{\"k\":\"note\",\"stack\":[\(stack)],\"beats\":\(JSJSON.formatNumber(chip.beats))}"
         case .hold, .gap:
