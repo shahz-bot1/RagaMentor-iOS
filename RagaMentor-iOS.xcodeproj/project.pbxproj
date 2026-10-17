@@ -19,7 +19,12 @@
 /* Begin PBXFileReference section */
 		666666666666666666666666 /* RagaMentor-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RagaMentor-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		777777777777777777777777 /* RagaMentor-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RagaMentor-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RagaMentor_iOSTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXBuildFile section */
+		F2F2F2F20000000000000001 /* RagaMentor_iOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		444444444444444444444444 /* RagaMentor-iOS */ = {
@@ -34,12 +39,9 @@
 			sourceTree = "<group>";
 		};
 		555555555555555555555555 /* RagaMentor-iOSTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+			isa = PBXGroup;
+			children = (
+				F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */,
 			);
 			path = RagaMentor_iOSTests;
 			sourceTree = "<group>";
@@ -120,9 +122,6 @@
 			dependencies = (
 				ABABABAB0000000000000001 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				555555555555555555555555 /* RagaMentor-iOSTests */,
-			);
 			name = RagaMentor_iOSTests;
 			packageProductDependencies = (
 			);
@@ -197,6 +196,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F2F2F2F20000000000000001 /* RagaMentor_iOSTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
