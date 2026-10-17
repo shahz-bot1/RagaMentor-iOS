@@ -38,14 +38,6 @@
 			path = "RagaMentor-iOS";
 			sourceTree = "<group>";
 		};
-		555555555555555555555555 /* RagaMentor-iOSTests */ = {
-			isa = PBXGroup;
-			children = (
-				F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */,
-			);
-			path = RagaMentor_iOSTests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +74,14 @@
 				777777777777777777777777 /* RagaMentor-iOSTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		555555555555555555555555 /* RagaMentor-iOSTests */ = {
+			isa = PBXGroup;
+			children = (
+				F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */,
+			);
+			path = RagaMentor_iOSTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
