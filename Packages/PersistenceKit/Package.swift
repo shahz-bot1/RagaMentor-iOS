@@ -6,5 +6,6 @@ let package = Package(
     name: "PersistenceKit",
     platforms: [.iOS(.v17)],
     products: [.library(name: "PersistenceKit", targets: ["PersistenceKit"])],
-    targets: [.target(name: "PersistenceKit")]
+    dependencies: [.package(path: "../RagaCore")],
+    targets: [.target(name: "PersistenceKit", dependencies: ["RagaCore"])]
 )
