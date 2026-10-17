@@ -19,11 +19,26 @@
 /* Begin PBXFileReference section */
 		666666666666666666666666 /* RagaMentor-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "RagaMentor-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		777777777777777777777777 /* RagaMentor-iOSTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "RagaMentor-iOSTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RagaMentor_iOSTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000401 /* RagaCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RagaCoreTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000402 /* AudioKitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AudioKitTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000403 /* PersistenceKitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistenceKitTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000404 /* LoopLabTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LoopLabTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000405 /* AppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
-		F2F2F2F20000000000000001 /* RagaMentor_iOSTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */; };
+		C0FFEE000000000000000301 /* LoopLab in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000201 /* LoopLab */; };
+		C0FFEE000000000000000302 /* PersistenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000202 /* PersistenceKit */; };
+		C0FFEE000000000000000303 /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000203 /* DesignSystem */; };
+		C0FFEE000000000000000311 /* RagaCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000211 /* RagaCore */; };
+		C0FFEE000000000000000312 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000212 /* AudioKit */; };
+		C0FFEE000000000000000313 /* PersistenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000213 /* PersistenceKit */; };
+		C0FFEE000000000000000314 /* LoopLab in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000214 /* LoopLab */; };
+		C0FFEE000000000000000411 /* RagaCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000401 /* RagaCoreTests.swift */; };
+		C0FFEE000000000000000412 /* AudioKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000402 /* AudioKitTests.swift */; };
+		C0FFEE000000000000000413 /* PersistenceKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000403 /* PersistenceKitTests.swift */; };
+		C0FFEE000000000000000414 /* LoopLabTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000404 /* LoopLabTests.swift */; };
+		C0FFEE000000000000000415 /* AppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000405 /* AppTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -45,6 +60,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0FFEE000000000000000301 /* LoopLab in Frameworks */,
+				C0FFEE000000000000000302 /* PersistenceKit in Frameworks */,
+				C0FFEE000000000000000303 /* DesignSystem in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,6 +70,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0FFEE000000000000000311 /* RagaCore in Frameworks */,
+				C0FFEE000000000000000312 /* AudioKit in Frameworks */,
+				C0FFEE000000000000000313 /* PersistenceKit in Frameworks */,
+				C0FFEE000000000000000314 /* LoopLab in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -79,7 +101,11 @@
 		555555555555555555555555 /* RagaMentor-iOSTests */ = {
 			isa = PBXGroup;
 			children = (
-				F1F1F1F10000000000000001 /* RagaMentor_iOSTests.swift */,
+				C0FFEE000000000000000401 /* RagaCoreTests.swift */,
+				C0FFEE000000000000000402 /* AudioKitTests.swift */,
+				C0FFEE000000000000000403 /* PersistenceKitTests.swift */,
+				C0FFEE000000000000000404 /* LoopLabTests.swift */,
+				C0FFEE000000000000000405 /* AppTests.swift */,
 			);
 			path = "RagaMentor-iOSTests";
 			sourceTree = "<group>";
@@ -104,6 +130,9 @@
 			);
 			name = "RagaMentor-iOS";
 			packageProductDependencies = (
+				C0FFEE000000000000000201 /* LoopLab */,
+				C0FFEE000000000000000202 /* PersistenceKit */,
+				C0FFEE000000000000000203 /* DesignSystem */,
 			);
 			productName = "RagaMentor-iOS";
 			productReference = 666666666666666666666666 /* RagaMentor-iOS.app */;
@@ -124,6 +153,10 @@
 			);
 			name = "RagaMentor-iOSTests";
 			packageProductDependencies = (
+				C0FFEE000000000000000211 /* RagaCore */,
+				C0FFEE000000000000000212 /* AudioKit */,
+				C0FFEE000000000000000213 /* PersistenceKit */,
+				C0FFEE000000000000000214 /* LoopLab */,
 			);
 			productName = "RagaMentor-iOSTests";
 			productReference = 777777777777777777777777 /* RagaMentor-iOSTests.xctest */;
@@ -155,6 +188,13 @@
 			knownRegions = (
 				en,
 				Base,
+			);
+			packageReferences = (
+				C0FFEE000000000000000101 /* XCLocalSwiftPackageReference "RagaCore" */,
+				C0FFEE000000000000000102 /* XCLocalSwiftPackageReference "AudioKit" */,
+				C0FFEE000000000000000103 /* XCLocalSwiftPackageReference "PersistenceKit" */,
+				C0FFEE000000000000000104 /* XCLocalSwiftPackageReference "DesignSystem" */,
+				C0FFEE000000000000000105 /* XCLocalSwiftPackageReference "LoopLab" */,
 			);
 			mainGroup = 222222222222222222222222;
 			productRefGroup = 333333333333333333333333 /* Products */;
@@ -196,7 +236,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F2F2F2F20000000000000001 /* RagaMentor_iOSTests.swift in Sources */,
+				C0FFEE000000000000000411 /* RagaCoreTests.swift in Sources */,
+				C0FFEE000000000000000412 /* AudioKitTests.swift in Sources */,
+				C0FFEE000000000000000413 /* PersistenceKitTests.swift in Sources */,
+				C0FFEE000000000000000414 /* LoopLabTests.swift in Sources */,
+				C0FFEE000000000000000415 /* AppTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,6 +253,67 @@
 			targetProxy = CDCDCDCD0000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		C0FFEE000000000000000101 /* XCLocalSwiftPackageReference "RagaCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/RagaCore";
+		};
+		C0FFEE000000000000000102 /* XCLocalSwiftPackageReference "AudioKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/AudioKit";
+		};
+		C0FFEE000000000000000103 /* XCLocalSwiftPackageReference "PersistenceKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/PersistenceKit";
+		};
+		C0FFEE000000000000000104 /* XCLocalSwiftPackageReference "DesignSystem" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/DesignSystem";
+		};
+		C0FFEE000000000000000105 /* XCLocalSwiftPackageReference "LoopLab" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/LoopLab";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C0FFEE000000000000000201 /* LoopLab */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000105 /* XCLocalSwiftPackageReference "LoopLab" */;
+			productName = "LoopLab";
+		};
+		C0FFEE000000000000000202 /* PersistenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000103 /* XCLocalSwiftPackageReference "PersistenceKit" */;
+			productName = "PersistenceKit";
+		};
+		C0FFEE000000000000000203 /* DesignSystem */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000104 /* XCLocalSwiftPackageReference "DesignSystem" */;
+			productName = "DesignSystem";
+		};
+		C0FFEE000000000000000211 /* RagaCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000101 /* XCLocalSwiftPackageReference "RagaCore" */;
+			productName = "RagaCore";
+		};
+		C0FFEE000000000000000212 /* AudioKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000102 /* XCLocalSwiftPackageReference "AudioKit" */;
+			productName = "AudioKit";
+		};
+		C0FFEE000000000000000213 /* PersistenceKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000103 /* XCLocalSwiftPackageReference "PersistenceKit" */;
+			productName = "PersistenceKit";
+		};
+		C0FFEE000000000000000214 /* LoopLab */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000105 /* XCLocalSwiftPackageReference "LoopLab" */;
+			productName = "LoopLab";
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
 		D10000000000000000000001 /* Debug */ = {
@@ -238,17 +343,18 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				INFOPLIST_KEY_UIBackgroundModes = audio;
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -264,17 +370,18 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				INFOPLIST_KEY_UIBackgroundModes = audio;
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -289,14 +396,14 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -311,14 +418,14 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 10;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.6.0;
+				MARKETING_VERSION = 0.7.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
