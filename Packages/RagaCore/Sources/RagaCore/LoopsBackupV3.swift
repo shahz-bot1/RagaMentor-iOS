@@ -341,7 +341,7 @@ public indirect enum JSJSON {
         }
     }
 
-    static func formatNumber(_ n: Double) -> String {
+    public static func formatNumber(_ n: Double) -> String {
         if n == n.rounded() && abs(n) < 1e15 { return String(Int(n)) }
         return String(n)
     }
