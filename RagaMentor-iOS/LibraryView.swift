@@ -19,7 +19,6 @@ struct LibraryView: View {
                     NowPlayingCard(song: song)
                 }
             }
-
             Section {
                 if songs.isEmpty {
                     ContentUnavailableView {
@@ -58,6 +57,7 @@ struct LibraryView: View {
             }
         }
         .navigationTitle("RagaMentor")
+        .onAppear { controller.modelContext = modelContext }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -143,7 +143,52 @@ struct NowPlayingCard: View {
                 }
             }
             .pickerStyle(.segmented)
+
+            HStack(spacing: 10) {
+                Button {
+                    controller.setA()
+                } label: {
+                    Text(controller.pendingA == nil ? "Set A" : "A \(short(controller.pendingA!))")
+                }
+                .buttonStyle(.bordered)
+                Button {
+                    controller.setB()
+                } label: {
+                    Text(controller.pendingB == nil ? "Set B" : "B \(short(controller.pendingB!))")
+                }
+                .buttonStyle(.bordered)
+                if controller.pendingA != nil || controller.pendingB != nil {
+                    Button("Clear") { controller.clearPendingMarks() }
+                        .buttonStyle(.bordered)
+                }
+                Spacer()
+                Button {
+                    controller.toggleLoopOn()
+                } label: {
+                    Label("Loop", systemImage: "repeat")
+                }
+                .buttonStyle(.bordered)
+                .tint(controller.loopOn ? .accentColor : .gray)
+                .disabled(controller.selectedLoop == nil)
+            }
+            .font(.subheadline)
+
+            NavigationLink {
+                LoopsView(song: song)
+            } label: {
+                HStack {
+                    Text("Loops")
+                    Spacer()
+                    Text("\(song.loops.count)")
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding(.vertical, 4)
     }
+
+    private func short(_ t: Double) -> String { LibraryView.formatDuration(t) }
 }
