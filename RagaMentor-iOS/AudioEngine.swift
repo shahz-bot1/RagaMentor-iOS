@@ -4,7 +4,8 @@ import AVFoundation
 // Audio engine per PLAN §7.
 // Graph: AVAudioPlayerNode -> AVAudioUnitTimePitch -> mainMixer -> output.
 // M1: full-file playback, seek, live rate change, position reporting.
-// M2 adds gapless segment looping on this same graph.
+// M2: gapless segment looping — the loop segment is re-scheduled from its
+// .dataPlayedBack completion while loop mode stays on (PLAN §7).
 
 final class AudioEngine {
     private let engine = AVAudioEngine()
@@ -12,8 +13,20 @@ final class AudioEngine {
     private let timePitch = AVAudioUnitTimePitch()
 
     private(set) var loadedFile: AVAudioFile?
-    /// Frame offset where the current schedule started.
+    /// Frame offset where the current schedule started (file mode).
     private var scheduleStartFrame: AVAudioFramePosition = 0
+
+    // Loop state (seconds, as set by the caller; frames derived on use).
+    private(set) var loopStart: Double?
+    private(set) var loopEnd: Double?
+    var loopEnabled: Bool { loopStart != nil && loopEnd != nil }
+    /// Frame where the active loop segment starts (position math).
+    private var loopStartFrame: AVAudioFramePosition = 0
+    private var loopFrameCount: AVAudioFramePosition = 0
+    /// Bumped on every stop/mode change so stale segment completions
+    /// never reschedule (LoopMath.shouldReschedule).
+    private var generation = 0
+
     private var sessionConfigured = false
 
     var isPlaying: Bool { playerNode.isPlaying }
@@ -46,6 +59,7 @@ final class AudioEngine {
     func load(url: URL) throws {
         let file = try AVAudioFile(forReading: url)
         stop()
+        clearLoop()
         engine.disconnectNodeOutput(playerNode)
         engine.disconnectNodeOutput(timePitch)
         engine.connect(playerNode, to: timePitch, format: file.processingFormat)
@@ -62,23 +76,81 @@ final class AudioEngine {
         }
     }
 
-    /// Schedule the loaded file from `seconds` and play.
-    func play(from seconds: Double = 0) {
-        guard let file = loadedFile else { return }
-        ensureEngineRunning()
-        playerNode.stop()
-        let startFrame = TimeMath.frames(forSeconds: max(0, seconds),
-                                         sampleRate: file.fileFormat.sampleRate)
-        let clampedStart = min(startFrame, max(0, file.length - 1))
-        let frameCount = AVAudioFrameCount(max(0, file.length - clampedStart))
-        scheduleStartFrame = clampedStart
-        if frameCount > 0 {
-            playerNode.scheduleSegment(file,
-                                       startingFrame: clampedStart,
-                                       frameCount: frameCount,
-                                       at: nil)
+    // MARK: - Loop control
+
+    /// Arm (or clear, with nil) the active loop. If playback is running it
+    /// restarts inside the new mode; M3/M4 wire the UI around this.
+    func setLoop(start: Double?, end: Double?) {
+        if let start, let end, end > start {
+            loopStart = start
+            loopEnd = end
+        } else {
+            loopStart = nil
+            loopEnd = nil
         }
+        if playerNode.isPlaying {
+            play(from: loopEnabled ? (loopStart ?? 0) : currentPosition() ?? 0)
+        }
+    }
+
+    func clearLoop() {
+        loopStart = nil
+        loopEnd = nil
+    }
+
+    // MARK: - Transport
+
+    /// Schedule playback from `seconds` and play. In loop mode playback
+    /// always (re)starts at the loop start, per PLAN §7.
+    func play(from seconds: Double = 0) {
+        guard loadedFile != nil else { return }
+        ensureEngineRunning()
+        schedule(from: seconds)
         playerNode.play()
+    }
+
+    /// Shared scheduling for realtime play and offline rendering.
+    private func schedule(from seconds: Double) {
+        guard let file = loadedFile else { return }
+        generation += 1
+        playerNode.stop()
+        let sampleRate = file.fileFormat.sampleRate
+
+        if loopEnabled, let ls = loopStart, let le = loopEnd {
+            loopStartFrame = TimeMath.frames(forSeconds: ls, sampleRate: sampleRate)
+            let endFrame = TimeMath.frames(forSeconds: le, sampleRate: sampleRate)
+            loopFrameCount = max(1, endFrame - loopStartFrame)
+            scheduleLoopSegment(generation: generation)
+        } else {
+            let startFrame = TimeMath.frames(forSeconds: max(0, seconds), sampleRate: sampleRate)
+            let clampedStart = min(startFrame, max(0, file.length - 1))
+            let frameCount = AVAudioFrameCount(max(0, file.length - clampedStart))
+            scheduleStartFrame = clampedStart
+            if frameCount > 0 {
+                playerNode.scheduleSegment(file,
+                                           startingFrame: clampedStart,
+                                           frameCount: frameCount,
+                                           at: nil)
+            }
+        }
+    }
+
+    /// Schedule one pass of the loop segment; its completion schedules the
+    /// next pass while loop mode and generation still match (gapless).
+    private func scheduleLoopSegment(generation gen: Int) {
+        guard let file = loadedFile, loopFrameCount > 0 else { return }
+        playerNode.scheduleSegment(file,
+                                   startingFrame: loopStartFrame,
+                                   frameCount: AVAudioFrameCount(loopFrameCount),
+                                   at: nil,
+                                   completionCallbackType: .dataPlayedBack) { [weak self] _ in
+            guard let self else { return }
+            if LoopMath.shouldReschedule(loopEnabled: self.loopEnabled,
+                                         eventGeneration: gen,
+                                         currentGeneration: self.generation) {
+                self.scheduleLoopSegment(generation: gen)
+            }
+        }
     }
 
     func pause() {
@@ -91,6 +163,7 @@ final class AudioEngine {
     }
 
     func stop() {
+        generation += 1
         playerNode.stop()
         scheduleStartFrame = 0
     }
@@ -102,13 +175,71 @@ final class AudioEngine {
     }
 
     /// Current playhead position in seconds, from the render clock
-    /// (PLAN §7 position reporting). Nil when nothing is scheduled.
+    /// (PLAN §7 position reporting). In loop mode the position wraps
+    /// inside the segment. Nil when nothing is scheduled.
     func currentPosition() -> Double? {
         guard let file = loadedFile,
               let nodeTime = playerNode.lastRenderTime,
               let playerTime = playerNode.playerTime(forNodeTime: nodeTime) else { return nil }
+        let sampleRate = file.fileFormat.sampleRate
+        if loopEnabled {
+            return LoopMath.loopPosition(segmentStartFrame: loopStartFrame,
+                                         segmentFrameCount: loopFrameCount,
+                                         playedFrames: playerTime.sampleTime,
+                                         sampleRate: sampleRate)
+        }
         let frames = scheduleStartFrame + playerTime.sampleTime
-        let seconds = TimeMath.seconds(forFrames: frames, sampleRate: file.fileFormat.sampleRate)
+        let seconds = TimeMath.seconds(forFrames: frames, sampleRate: sampleRate)
         return TimeMath.clamp(seconds, min: 0, max: duration)
+    }
+
+    // MARK: - Offline rendering (analysis + tests; PLAN §13 M2 spike)
+
+    /// Render the current schedule (file or loop mode, current rate)
+    /// without hardware, using AVAudioEngine manual rendering. Returns a
+    /// mono-downmixed buffer of exactly the requested frame count
+    /// (silence-padded if the schedule runs out).
+    func renderOffline(from seconds: Double, frames requestedFrames: AVAudioFrameCount) throws -> AVAudioPCMBuffer? {
+        guard let file = loadedFile else { return nil }
+        let wasRunning = engine.isRunning
+        if wasRunning { engine.stop() }
+        stop()
+        try engine.enableManualRenderingMode(.offline,
+                                             format: file.processingFormat,
+                                             maximumFrameCount: 8192)
+        defer {
+            playerNode.stop()
+            engine.disableManualRenderingMode()
+        }
+        schedule(from: seconds)
+        try engine.start()
+        playerNode.play()
+
+        let format = engine.manualRenderingFormat
+        guard let out = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: requestedFrames),
+              let chunk = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 8192) else { return nil }
+        var rendered: AVAudioFrameCount = 0
+        while rendered < requestedFrames {
+            let want = min(AVAudioFrameCount(8192), requestedFrames - rendered)
+            let status = try engine.renderOffline(want, to: chunk)
+            let got = chunk.frameLength
+            if got > 0 {
+                copyFrames(from: chunk, to: out, at: rendered)
+                rendered += got
+            }
+            if status == .error || got == 0 { break }
+        }
+        out.frameLength = rendered
+        return out
+    }
+
+    private func copyFrames(from src: AVAudioPCMBuffer, to dst: AVAudioPCMBuffer, at offset: AVAudioFrameCount) {
+        let channels = Int(min(src.format.channelCount, dst.format.channelCount))
+        guard let s = src.floatChannelData, let d = dst.floatChannelData else { return }
+        for ch in 0..<channels {
+            for i in 0..<Int(src.frameLength) {
+                d[ch][Int(offset) + i] = s[ch][i]
+            }
+        }
     }
 }
