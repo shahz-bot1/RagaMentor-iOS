@@ -3,6 +3,7 @@ import SwiftData
 import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
+import SwaraEditor
 
 // Loops tab content (PLAN §10): loop rows with range + note, groups with
 // derived ranges, tap to select-and-play. Editing lives in the detail
@@ -16,6 +17,7 @@ struct LoopsView: View {
     @State private var showNewGroup = false
     @State private var newGroupName = ""
     @State private var editingGroup: LoopGroup?
+    @State private var phraseEditorLoop: LoopRegion?
     @State private var showImporter = false
     @State private var confirmImport = false
     @State private var pendingImportData: Data?
@@ -27,6 +29,13 @@ struct LoopsView: View {
                 Section("Selected loop") {
                     LoopEditorView(song: song, loop: loop)
                 }
+            }
+
+            Section("Swaras") {
+                SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
+                    phraseEditorLoop = loop
+                }
+                .environmentObject(controller)
             }
 
             Section {
@@ -106,6 +115,34 @@ struct LoopsView: View {
             GroupEditorView(song: song, group: group)
                 .environmentObject(controller)
         }
+        .fullScreenCover(item: $phraseEditorLoop) { loop in
+            SwaraEditorView(
+                model: editorModel(for: loop),
+                title: loop.name,
+                onClose: { phraseEditorLoop = nil })
+        }
+    }
+
+    /// Build the swara editor's model for a loop, wired to the
+    /// controller's phrase storage and interlocks.
+    private func editorModel(for loop: LoopRegion) -> SwaraEditorModel {
+        let existing = controller.phrase(for: loop)
+        return SwaraEditorModel(
+            phrase: existing ?? controller.defaultPhrase(for: song),
+            hadSavedPhrase: existing != nil,
+            contextKey: controller.editorKey(for: loop),
+            library: controller.ragaLibrary,
+            player: controller.phrasePlayer,
+            onSave: { [weak controller] phrase in
+                controller?.savePhrase(phrase, for: loop, context: modelContext)
+            },
+            onDelete: { [weak controller] in
+                controller?.clearPhrase(for: loop, context: modelContext)
+            },
+            onSongRaga: { [weak controller] id in
+                controller?.noteSongRaga(id, context: modelContext)
+            },
+            onPlayStart: { [weak controller] in controller?.pause() })
     }
 
     // MARK: Tree construction
@@ -211,6 +248,9 @@ struct LoopRowView: View {
                     }
                 }
                 Spacer()
+                if controller.hasPhrase(loop) {
+                    Text("♪").foregroundStyle(.secondary)
+                }
                 if controller.selectedLoopID == loop.id {
                     Image(systemName: controller.loopOn ? "repeat.circle.fill" : "checkmark.circle")
                         .foregroundStyle(.tint)
