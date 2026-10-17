@@ -183,18 +183,23 @@ enum GroupOps {
     }
 
     /// memberIDs sorted by start time: loops by their span start,
-    /// groups by their derived range start (PLAN §6).
+    /// groups by their derived range start (PLAN §6). Ties put loops
+    /// before groups, then break by id for determinism.
     static func sortedMemberIDs(_ memberIDs: [UUID],
                                 groups: [GroupData],
                                 spans: [UUID: LoopSpan]) -> [UUID] {
         let children = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0.memberIDs) })
+        let groupIDs = Set(groups.map(\.id))
         func start(of id: UUID) -> Double {
             if let span = spans[id] { return span.start }
             return GroupLogic.derivedRange(groupID: id, children: children, spans: spans)?.start ?? .greatestFiniteMagnitude
         }
         return memberIDs.sorted { a, b in
             let (sa, sb) = (start(of: a), start(of: b))
-            return sa != sb ? sa < sb : a.uuidString < b.uuidString
+            if sa != sb { return sa < sb }
+            let (ga, gb) = (groupIDs.contains(a), groupIDs.contains(b))
+            if ga != gb { return !ga } // loops first
+            return a.uuidString < b.uuidString
         }
     }
 
