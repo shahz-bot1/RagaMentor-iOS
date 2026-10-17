@@ -163,6 +163,17 @@ final class PlaybackController: ObservableObject {
     func setB() { pendingB = position; completeLoopIfReady() }
     func clearPendingMarks() { pendingA = nil; pendingB = nil }
 
+    /// 0.1 s steppers for a pending mark (PLAN §10 A–B tab).
+    func nudgePending(edge: Edge, by delta: Double) {
+        guard let song = currentSong else { return }
+        if edge == .start, let a = pendingA {
+            pendingA = TimeMath.clamp(a + delta, min: 0, max: song.duration)
+        }
+        if edge == .end, let b = pendingB {
+            pendingB = TimeMath.clamp(b + delta, min: 0, max: song.duration)
+        }
+    }
+
     private func completeLoopIfReady() {
         guard let a = pendingA, let b = pendingB else { return }
         pendingA = nil
@@ -224,16 +235,12 @@ final class PlaybackController: ObservableObject {
     }
 
     /// Arm/disarm looping of the selected loop without changing selection.
+    /// (engine.setLoop restarts playback in the new mode when playing.)
     func toggleLoopOn() {
         guard let loop = selectedLoop else { return }
         loopOn.toggle()
-        if loopOn {
-            engine.setLoop(start: loop.start, end: loop.end)
-            if isPlaying { engine.play(from: position) }
-        } else {
-            engine.setLoop(start: nil, end: nil)
-            if isPlaying { engine.play(from: position) }
-        }
+        engine.setLoop(start: loopOn ? loop.start : nil,
+                       end: loopOn ? loop.end : nil)
     }
 
     func renameLoop(_ loop: LoopRegion, to name: String, context: ModelContext) {
@@ -420,5 +427,59 @@ final class PlaybackController: ObservableObject {
     func savePosition() {
         guard let song = currentSong else { return }
         song.lastPosition = position >= song.duration ? 0 : position
+        try? modelContext?.save()
+    }
+
+    // MARK: - Loops backup (M4, PLAN §11)
+
+    /// Serialise the current song's loops/groups to backup JSON (v1).
+    func backupJSON() -> Data? {
+        guard let song = currentSong else { return nil }
+        let file = LoopsBackup.make(
+            songTitle: song.title,
+            duration: song.duration,
+            loops: song.loops.map { .init(id: $0.id, name: $0.name, note: $0.note, start: $0.start, end: $0.end) },
+            groups: song.groups.map { .init(id: $0.id, name: $0.name, colorHex: $0.colorHex, memberIDs: $0.memberIDs) })
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try? encoder.encode(file)
+    }
+
+    /// Replace ALL loops/groups of the current song from backup data
+    /// (PLAN §11: import replaces; fresh DB ids are minted).
+    /// Returns false (changing nothing) when the file is not a valid
+    /// v1 backup.
+    @discardableResult
+    func importBackup(data: Data, context: ModelContext) -> Bool {
+        guard let song = currentSong,
+              let file = try? JSONDecoder().decode(LoopsBackupFile.self, from: data),
+              let plan = try? LoopsBackup.planImport(file: file, duration: song.duration) else {
+            return false
+        }
+        // Disarm playback selection first (records are about to vanish).
+        selectedLoopID = nil
+        loopOn = false
+        song.lastLoopID = nil
+        engine.setLoop(start: nil, end: nil)
+
+        for loop in song.loops { context.delete(loop) }
+        song.loops = []
+        for group in song.groups { context.delete(group) }
+        song.groups = []
+
+        for planned in plan.loops {
+            let loop = LoopRegion(id: planned.id, name: planned.name, note: planned.note,
+                                  start: planned.start, end: planned.end, song: song)
+            song.loops.append(loop)
+        }
+        resortLoops(song)
+        for planned in plan.groups {
+            let group = LoopGroup(id: planned.id, name: planned.name,
+                                  colorHex: planned.colorHex, memberIDs: planned.memberIDs,
+                                  song: song)
+            song.groups.append(group)
+        }
+        try? context.save()
+        return true
     }
 }
