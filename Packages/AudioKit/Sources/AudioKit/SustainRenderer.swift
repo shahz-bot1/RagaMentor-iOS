@@ -146,7 +146,7 @@ public enum SustainRenderer {
             return perChannel
         }
 
-        for frame in 0..<outFrames {
+        for frame in 0..<Int(out.frameLength) {
             let t = Double(frame) / sr
             let env = masterEnvelope(at: t, duration: duration)
             let sig = signal(at: t)
