@@ -340,13 +340,16 @@ public enum LoopsBackup {
         public var note: String
         public var start: Double
         public var end: Double
+        public var phrase: Phrase?
 
-        public init(id: UUID, name: String, note: String, start: Double, end: Double) {
+        public init(id: UUID, name: String, note: String, start: Double, end: Double,
+                    phrase: Phrase? = nil) {
             self.id = id
             self.name = name
             self.note = note
             self.start = start
             self.end = end
+            self.phrase = phrase
         }
     }
     public struct LoopGroupSnapshot {
@@ -364,8 +367,22 @@ public enum LoopsBackup {
     }
 
     /// Planned import result with fresh DB ids minted.
-    public struct PlannedLoop { public var id: UUID; public var name: String; public var note: String; public var start: Double; public var end: Double }
-    public struct PlannedGroup { public var id: UUID; public var name: String; public var colorHex: String; public var memberIDs: [UUID] }
+    public struct PlannedLoop {
+        public var id: UUID; public var name: String; public var note: String
+        public var start: Double; public var end: Double; public var phrase: Phrase? = nil
+        public init(id: UUID, name: String, note: String, start: Double, end: Double,
+                    phrase: Phrase? = nil) {
+            self.id = id; self.name = name; self.note = note
+            self.start = start; self.end = end; self.phrase = phrase
+        }
+    }
+    public struct PlannedGroup {
+        public var id: UUID; public var name: String; public var colorHex: String
+        public var memberIDs: [UUID]
+        public init(id: UUID, name: String, colorHex: String, memberIDs: [UUID]) {
+            self.id = id; self.name = name; self.colorHex = colorHex; self.memberIDs = memberIDs
+        }
+    }
 
     /// Validate a backup file against the target song's duration and plan
     /// the replacement: ranges re-normalised, unknown serials dropped,
