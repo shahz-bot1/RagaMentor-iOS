@@ -40,30 +40,45 @@ public enum SustainRenderer {
         return 0.0001
     }
 
-    /// Render a sampled note. Output runs duration + 0.2 s (the web
-    /// source stop time) at the source's sample rate and channel count.
+    /// Render a sampled note into a buffer of `outputSampleRate` /
+    /// `outputChannels` (standard float format). The output format is
+    /// a hard contract: AVAudioPlayerNode crashes when a scheduled
+    /// buffer's format differs from the node's connection format, so
+    /// callers pass the node format they connected with. Output
+    /// channels read source channel min(ch, last) — a mono sample
+    /// feeds both stereo channels. Output runs duration + 0.2 s (the
+    /// web source stop time).
     public static func render(source: AVAudioPCMBuffer, rate: Double,
-                              duration: Double) -> AVAudioPCMBuffer? {
-        let sr = source.format.sampleRate
-        let channels = Int(source.format.channelCount)
+                              duration: Double,
+                              outputSampleRate: Double,
+                              outputChannels: Int) -> AVAudioPCMBuffer? {
+        let srcRate = source.format.sampleRate
+        let srcChannels = Int(source.format.channelCount)
         let srcFrames = Int(source.frameLength)
-        guard sr > 0, srcFrames > 0, let srcData = source.floatChannelData else { return nil }
-        let bd = Double(srcFrames) / sr // buffer duration (source seconds)
-        let outFrames = Int(((duration + 0.2) * sr).rounded(.up))
-        guard let out = AVAudioPCMBuffer(pcmFormat: source.format,
-                                         frameCapacity: AVAudioFrameCount(outFrames)),
+        guard srcRate > 0, srcFrames > 0, outputSampleRate > 0, outputChannels > 0,
+              let srcData = source.floatChannelData,
+              let format = AVAudioFormat(standardFormatWithSampleRate: outputSampleRate,
+                                         channels: AVAudioChannelCount(outputChannels)),
+              let out = AVAudioPCMBuffer(pcmFormat: format,
+                                         frameCapacity: AVAudioFrameCount(((duration + 0.2) * outputSampleRate).rounded(.up))),
               let outData = out.floatChannelData else { return nil }
-        out.frameLength = AVAudioFrameCount(outFrames)
+        let sr = outputSampleRate
+        let channels = outputChannels
+        out.frameLength = AVAudioFrameCount(out.frameCapacity)
+        let bd = Double(srcFrames) / srcRate // buffer duration (source seconds)
 
         func sourceSample(channel: Int, sourcePos: Double) -> Double {
-            // sourcePos in source seconds; linear interpolation.
-            let x = sourcePos * sr
+            // sourcePos in source seconds; linear interpolation. The
+            // channel clamps to the source's last channel (mono
+            // samples feed every output channel).
+            let ch = min(channel, srcChannels - 1)
+            let x = sourcePos * srcRate
             if x < 0 || x >= Double(srcFrames) { return 0 }
             let i0 = Int(x.rounded(.down))
             let frac = x - Double(i0)
-            let a = Double(srcData[channel][i0])
+            let a = Double(srcData[ch][i0])
             if i0 + 1 >= srcFrames { return a }
-            let b = Double(srcData[channel][i0 + 1])
+            let b = Double(srcData[ch][i0 + 1])
             return a + (b - a) * frac
         }
 
@@ -142,11 +157,22 @@ public enum SustainRenderer {
         return out
     }
 
+    /// Convenience: render at the source's own format.
+    public static func render(source: AVAudioPCMBuffer, rate: Double,
+                              duration: Double) -> AVAudioPCMBuffer? {
+        render(source: source, rate: rate, duration: duration,
+               outputSampleRate: source.format.sampleRate,
+               outputChannels: Int(source.format.channelCount))
+    }
+
     /// The triangle-wave fallback note (web playSynth): output runs
-    /// duration + 0.15 s, mono.
+    /// duration + 0.15 s at the requested format (mono synth feeds
+    /// every channel).
     public static func renderSynth(frequency: Double, duration: Double,
-                                   sampleRate: Double = 44100) -> AVAudioPCMBuffer? {
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1),
+                                   sampleRate: Double = 44100,
+                                   channels: Int = 1) -> AVAudioPCMBuffer? {
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate,
+                                         channels: AVAudioChannelCount(channels)),
               let out = AVAudioPCMBuffer(pcmFormat: format,
                                          frameCapacity: AVAudioFrameCount(((duration + 0.15) * sampleRate).rounded(.up))),
               let data = out.floatChannelData else { return nil }
@@ -162,7 +188,7 @@ public enum SustainRenderer {
             else { env = 0.0001 }
             let x = (frequency * t).truncatingRemainder(dividingBy: 1)
             let tri = x < 0.5 ? (4 * x - 1) : (3 - 4 * x)
-            data[0][frame] = Float(env * tri)
+            for ch in 0..<channels { data[ch][frame] = Float(env * tri) }
         }
         return out
     }
