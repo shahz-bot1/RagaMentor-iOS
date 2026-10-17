@@ -416,8 +416,14 @@ final class RagaMentor_iOSTests: XCTestCase {
             ])
         let plan = try LoopsBackup.planImport(file: file, duration: 50)
         XCTAssertEqual(plan.loops.first?.end, 50) // clamped from 90
-        let outer = try XCTUnwrap(plan.groups.first { $0.name == "Outer" })
-        XCTAssertTrue(outer.memberIDs.isEmpty) // Holder was dropped as a member
+        // Outer held only Holder; Holder was dropped as a member (cap),
+        // leaving Outer with no descendant loops — so it vanishes (§6).
+        // Holder survives at top level, still holding Inner and the loop.
+        XCTAssertEqual(Set(plan.groups.map(\.name)), ["Holder", "Inner"])
+        let holder = try XCTUnwrap(plan.groups.first { $0.name == "Holder" })
+        let inner = try XCTUnwrap(plan.groups.first { $0.name == "Inner" })
+        XCTAssertEqual(holder.memberIDs, [inner.id])
+        XCTAssertEqual(inner.memberIDs, [plan.loops[0].id])
     }
 
     // MARK: Waveform geometry + peaks (M5, PLAN §9)
