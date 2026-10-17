@@ -36,8 +36,9 @@ platform :ios do
     sh("rm", "-rf", payload, ipa)
     sh("mkdir", "-p", payload)
     sh("cp", "-r", apps.first, payload)
-    sh("cd", root, "&&", "zip", "-qry", ipa, "Payload")
+    sh("cd #{root} && zip -qry #{ipa} Payload")
     sh("rm", "-rf", payload)
-    UI.success("Unsigned IPA ready: #{ipa}")
+    UI.user_error!("IPA was not created at #{ipa}") unless File.exist?(ipa)
+    UI.success("Unsigned IPA ready: #{ipa} (#{File.size(ipa)} bytes)")
   end
 end
