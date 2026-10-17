@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
 import SwaraEditor
+import DesignSystem
 
 // Loops tab content (PLAN §10): loop rows with range + note, groups with
 // derived ranges, tap to select-and-play. Editing lives in the detail
@@ -17,7 +18,7 @@ struct LoopsView: View {
     @State private var showNewGroup = false
     @State private var newGroupName = ""
     @State private var editingGroup: LoopGroup?
-    @State private var phraseEditorLoop: LoopRegion?
+    @State private var editorSession: EditorSession?
     @State private var showImporter = false
     @State private var confirmImport = false
     @State private var pendingImportData: Data?
@@ -33,7 +34,12 @@ struct LoopsView: View {
 
             Section("Swaras") {
                 SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
-                    phraseEditorLoop = loop
+                    // Build the model ONCE, here in the action — never
+                    // inside the cover's content closure. Creating it
+                    // there rebuilt a fresh model on every controller
+                    // publish, which swapped the editor's model and
+                    // killed the picker sheet instantly (v0.8.0 bug).
+                    editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
                 }
                 .environmentObject(controller)
             }
@@ -105,6 +111,7 @@ struct LoopsView: View {
             Text("That file is not a valid RagaMentor loops backup.")
         }
         .navigationTitle("Loops")
+        .studioList()
         .navigationBarTitleDisplayMode(.inline)
         .alert("New group", isPresented: $showNewGroup) {
             TextField("Group name", text: $newGroupName)
@@ -115,12 +122,21 @@ struct LoopsView: View {
             GroupEditorView(song: song, group: group)
                 .environmentObject(controller)
         }
-        .fullScreenCover(item: $phraseEditorLoop) { loop in
+        .fullScreenCover(item: $editorSession) { session in
             SwaraEditorView(
-                model: editorModel(for: loop),
-                title: loop.name,
-                onClose: { phraseEditorLoop = nil })
+                model: session.model,
+                title: session.loop.name,
+                onClose: { editorSession = nil })
         }
+    }
+
+    /// One editor presentation: the loop plus its model, created once
+    /// when the user taps Add/Edit and held in @State for the whole
+    /// presentation, so the editor's model identity is stable.
+    private struct EditorSession: Identifiable {
+        let loop: LoopRegion
+        let model: SwaraEditorModel
+        var id: UUID { loop.id }
     }
 
     /// Build the swara editor's model for a loop, wired to the
