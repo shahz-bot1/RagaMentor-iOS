@@ -93,6 +93,9 @@ struct LibraryView: View {
 struct NowPlayingCard: View {
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
+    @State private var peaks: [Float] = []
+    @State private var window = WaveformWindow(duration: 1)
+    @State private var showFullscreen = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -107,6 +110,12 @@ struct NowPlayingCard: View {
                 }
                 Spacer()
                 Button {
+                    showFullscreen = true
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                }
+                .buttonStyle(.plain)
+                Button {
                     controller.closeSong()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -114,6 +123,19 @@ struct NowPlayingCard: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            WaveformView(peaks: peaks,
+                         duration: song.duration,
+                         position: controller.position,
+                         loopStart: controller.selectedLoop?.start,
+                         loopEnd: controller.selectedLoop?.end,
+                         window: $window,
+                         onSeek: { controller.seek(to: $0) })
+                .frame(height: 44)
+                .task(id: song.id) {
+                    window = WaveformWindow(duration: song.duration)
+                    peaks = await PeaksService.peaks(for: song)
+                }
 
             Slider(value: Binding(
                 get: { controller.position },
@@ -188,6 +210,10 @@ struct NowPlayingCard: View {
             }
         }
         .padding(.vertical, 4)
+        .fullScreenCover(isPresented: $showFullscreen) {
+            FullscreenPlayerView(song: song)
+                .environmentObject(controller)
+        }
     }
 
     private func short(_ t: Double) -> String { LibraryView.formatDuration(t) }
