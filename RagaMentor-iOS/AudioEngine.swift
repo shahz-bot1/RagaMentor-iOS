@@ -23,6 +23,9 @@ final class AudioEngine {
     /// Frame where the active loop segment starts (position math).
     private var loopStartFrame: AVAudioFramePosition = 0
     private var loopFrameCount: AVAudioFramePosition = 0
+    /// Frame where the current loop playback entered (may be mid-segment;
+    /// the first pass runs entry->end, later passes wrap the full segment).
+    private var loopEntryFrame: AVAudioFramePosition = 0
     /// Bumped on every stop/mode change so stale segment completions
     /// never reschedule (LoopMath.shouldReschedule).
     private var generation = 0
@@ -89,7 +92,10 @@ final class AudioEngine {
             loopEnd = nil
         }
         if playerNode.isPlaying {
-            play(from: loopEnabled ? (loopStart ?? 0) : currentPosition() ?? 0)
+            // Restart in the new mode from the current position; the
+            // scheduler enters the loop at that position when it falls
+            // inside the segment, else at the loop start.
+            play(from: currentPosition() ?? (loopStart ?? 0))
         }
     }
 
@@ -110,7 +116,11 @@ final class AudioEngine {
     }
 
     /// Shared scheduling for realtime play and offline rendering.
-    private func schedule(from seconds: Double) {
+    /// `preScheduleLoopPasses > 0` is the offline path: manual rendering
+    /// does not pick up segments scheduled from completion handlers
+    /// (observed in CI, M2 spike), so loop passes are queued up front.
+    /// Realtime playback passes 0 and re-schedules from the completion.
+    private func schedule(from seconds: Double, preScheduleLoopPasses: Int = 0) {
         guard let file = loadedFile else { return }
         generation += 1
         playerNode.stop()
@@ -120,7 +130,18 @@ final class AudioEngine {
             loopStartFrame = TimeMath.frames(forSeconds: ls, sampleRate: sampleRate)
             let endFrame = TimeMath.frames(forSeconds: le, sampleRate: sampleRate)
             loopFrameCount = max(1, endFrame - loopStartFrame)
-            scheduleLoopSegment(generation: generation)
+            // Enter at the requested position when it falls inside the
+            // loop, else at the loop start.
+            let wanted = TimeMath.frames(forSeconds: seconds, sampleRate: sampleRate)
+            loopEntryFrame = (wanted >= loopStartFrame && wanted < endFrame) ? wanted : loopStartFrame
+            if preScheduleLoopPasses > 0 {
+                scheduleSegmentPass(startFrame: loopEntryFrame)
+                for _ in 1..<preScheduleLoopPasses {
+                    scheduleSegmentPass(startFrame: loopStartFrame)
+                }
+            } else {
+                scheduleLoopSegment(generation: generation, firstPass: true)
+            }
         } else {
             let startFrame = TimeMath.frames(forSeconds: max(0, seconds), sampleRate: sampleRate)
             let clampedStart = min(startFrame, max(0, file.length - 1))
@@ -135,13 +156,28 @@ final class AudioEngine {
         }
     }
 
+    /// Schedule one loop pass with no completion handler (offline path).
+    private func scheduleSegmentPass(startFrame: AVAudioFramePosition) {
+        guard let file = loadedFile, loopFrameCount > 0 else { return }
+        let count = loopStartFrame + loopFrameCount - startFrame
+        guard count > 0 else { return }
+        playerNode.scheduleSegment(file,
+                                   startingFrame: startFrame,
+                                   frameCount: AVAudioFrameCount(count),
+                                   at: nil)
+    }
+
     /// Schedule one pass of the loop segment; its completion schedules the
     /// next pass while loop mode and generation still match (gapless).
-    private func scheduleLoopSegment(generation gen: Int) {
+    /// The first pass may start mid-segment (loopEntryFrame).
+    private func scheduleLoopSegment(generation gen: Int, firstPass: Bool = false) {
         guard let file = loadedFile, loopFrameCount > 0 else { return }
+        let startFrame = firstPass ? loopEntryFrame : loopStartFrame
+        let count = loopStartFrame + loopFrameCount - startFrame
+        guard count > 0 else { return }
         playerNode.scheduleSegment(file,
-                                   startingFrame: loopStartFrame,
-                                   frameCount: AVAudioFrameCount(loopFrameCount),
+                                   startingFrame: startFrame,
+                                   frameCount: AVAudioFrameCount(count),
                                    at: nil,
                                    completionCallbackType: .dataPlayedBack) { [weak self] _ in
             guard let self else { return }
@@ -185,6 +221,7 @@ final class AudioEngine {
         if loopEnabled {
             return LoopMath.loopPosition(segmentStartFrame: loopStartFrame,
                                          segmentFrameCount: loopFrameCount,
+                                         firstPassOffsetFrames: loopEntryFrame - loopStartFrame,
                                          playedFrames: playerTime.sampleTime,
                                          sampleRate: sampleRate)
         }
@@ -211,7 +248,18 @@ final class AudioEngine {
             playerNode.stop()
             engine.disableManualRenderingMode()
         }
-        schedule(from: seconds)
+        // In loop mode, queue enough passes up front to cover the request
+        // (completion re-scheduling does not work in manual rendering).
+        var passes = 0
+        if loopEnabled, let ls = loopStart, let le = loopEnd {
+            let frames = TimeMath.frames(forSeconds: le, sampleRate: file.fileFormat.sampleRate)
+                - TimeMath.frames(forSeconds: ls, sampleRate: file.fileFormat.sampleRate)
+            if frames > 0 {
+                let outputPerPass = Double(frames) / Double(max(rate, 0.01))
+                passes = Int((Double(requestedFrames) / max(outputPerPass, 1)).rounded(.up)) + 2
+            }
+        }
+        schedule(from: seconds, preScheduleLoopPasses: passes)
         try engine.start()
         playerNode.play()
 
