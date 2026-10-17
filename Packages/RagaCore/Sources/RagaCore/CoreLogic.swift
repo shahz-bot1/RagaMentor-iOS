@@ -251,88 +251,13 @@ public enum GroupOps {
     }
 }
 
-// MARK: - Loops backup format v1 (M4, PLAN §11)
+// MARK: - Loops backup (M4, PLAN §11; format v3 since P1)
 
-/// File-local backup of one song's loops and groups. Ids inside the file
-/// are serial integers, never DB ids; references between entries are by
-/// serial + name. Import replaces all loops/groups and mints fresh ids.
-public struct LoopsBackupFile: Codable, Equatable {
-    public struct LoopEntry: Codable, Equatable {
-        public var serial: Int
-        public var name: String
-        public var note: String
-        public var start: Double
-        public var end: Double
-
-        public init(serial: Int, name: String, note: String, start: Double, end: Double) {
-            self.serial = serial
-            self.name = name
-            self.note = note
-            self.start = start
-            self.end = end
-        }
-    }
-    public struct GroupEntry: Codable, Equatable {
-        public var serial: Int
-        public var name: String
-        public var colorHex: String
-        public var memberSerials: [Int]
-
-        public init(serial: Int, name: String, colorHex: String, memberSerials: [Int]) {
-            self.serial = serial
-            self.name = name
-            self.colorHex = colorHex
-            self.memberSerials = memberSerials
-        }
-    }
-    public var version: Int = 1
-    public var songTitle: String
-    public var duration: Double
-    public var loops: [LoopEntry]
-    public var groups: [GroupEntry]
-
-    public init(version: Int = 1, songTitle: String, duration: Double,
-                loops: [LoopEntry], groups: [GroupEntry]) {
-        self.version = version
-        self.songTitle = songTitle
-        self.duration = duration
-        self.loops = loops
-        self.groups = groups
-    }
-}
-
+/// The backup layer's shared vocabulary (snapshots in, planned import
+/// out). The file format itself is v3 only — see LoopsBackupV3. The
+/// short-lived native v1 format was retired in P1 (user decision,
+/// 2026-10-17): one platform-independent JSON, identical to the web's.
 public enum LoopsBackup {
-    public enum BackupError: Error { case unsupportedVersion, malformed }
-
-    /// Build the backup file from model-shaped data. Serials are assigned
-    /// loops first (in the given order), then groups.
-    public static func make(songTitle: String,
-                     duration: Double,
-                     loops: [LoopRegionSnapshot],
-                     groups: [LoopGroupSnapshot]) -> LoopsBackupFile {
-        var serialByID: [UUID: Int] = [:]
-        var next = 1
-        var loopEntries: [LoopsBackupFile.LoopEntry] = []
-        for loop in loops {
-            serialByID[loop.id] = next
-            loopEntries.append(.init(serial: next, name: loop.name, note: loop.note,
-                                     start: loop.start, end: loop.end))
-            next += 1
-        }
-        var groupEntries: [LoopsBackupFile.GroupEntry] = []
-        for group in groups {
-            serialByID[group.id] = next
-            groupEntries.append(.init(serial: next, name: group.name, colorHex: group.colorHex,
-                                      memberSerials: []))
-            next += 1
-        }
-        for (i, group) in groups.enumerated() {
-            groupEntries[i].memberSerials = group.memberIDs.compactMap { serialByID[$0] }
-        }
-        return LoopsBackupFile(songTitle: songTitle, duration: duration,
-                               loops: loopEntries, groups: groupEntries)
-    }
-
     /// A loop/group as the backup layer sees it (storage-agnostic).
     public struct LoopRegionSnapshot {
         public var id: UUID
@@ -384,64 +309,6 @@ public enum LoopsBackup {
         }
     }
 
-    /// Validate a backup file against the target song's duration and plan
-    /// the replacement: ranges re-normalised, unknown serials dropped,
-    /// memberships that would break the 2-level cap dropped (a sub-group
-    /// may not itself hold groups).
-    public static func planImport(file: LoopsBackupFile, duration: Double) throws
-        -> (loops: [PlannedLoop], groups: [PlannedGroup]) {
-        guard file.version == 1 else { throw BackupError.unsupportedVersion }
-
-        var idBySerial: [Int: UUID] = [:]
-        var plannedLoops: [PlannedLoop] = []
-        for entry in file.loops {
-            guard let range = LoopRules.normalize(start: entry.start, end: entry.end, duration: duration)
-            else { continue }
-            let id = UUID()
-            idBySerial[entry.serial] = id
-            plannedLoops.append(PlannedLoop(id: id, name: entry.name, note: entry.note,
-                                            start: range.start, end: range.end))
-        }
-        plannedLoops.sort { ($0.start, $0.end) < ($1.start, $1.end) }
-
-        // Groups whose members include another group are "holders"; a
-        // holder may not itself be a member of any group (depth cap).
-        let groupSerials = Set(file.groups.map(\.serial))
-        let holderSerials = Set(file.groups.filter { g in
-            g.memberSerials.contains { groupSerials.contains($0) }
-        }.map(\.serial))
-
-        var plannedGroups: [PlannedGroup] = []
-        for entry in file.groups {
-            let id = UUID()
-            idBySerial[entry.serial] = id
-            plannedGroups.append(PlannedGroup(id: id, name: entry.name,
-                                              colorHex: entry.colorHex, memberIDs: []))
-        }
-        for (i, entry) in file.groups.enumerated() {
-            var members: [UUID] = []
-            for serial in entry.memberSerials {
-                guard let memberID = idBySerial[serial] else { continue }
-                if groupSerials.contains(serial) && holderSerials.contains(serial) {
-                    continue // would nest a holder inside a group: cap breach
-                }
-                members.append(memberID)
-            }
-            plannedGroups[i].memberIDs = members
-        }
-        // Drop groups left with no descendant loops (they vanish, §6),
-        // and strip references to them from surviving groups.
-        let loopIDs = Set(plannedLoops.map(\.id))
-        let groupData = plannedGroups.map { GroupData(id: $0.id, memberIDs: $0.memberIDs) }
-        let empty = GroupOps.emptyGroupIDs(groups: groupData, loopIDs: loopIDs)
-        plannedGroups.removeAll { empty.contains($0.id) }
-        if !empty.isEmpty {
-            for i in plannedGroups.indices {
-                plannedGroups[i].memberIDs.removeAll { empty.contains($0) }
-            }
-        }
-        return (plannedLoops, plannedGroups)
-    }
 }
 
 public enum Peaks {
