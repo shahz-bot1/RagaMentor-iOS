@@ -12,12 +12,13 @@ struct VarisaiLessonView: View {
     let lesson: VarisaiLesson
     let onPlayStart: () -> Void
 
-    /// The player lives in a plain box the lesson view does NOT
-    /// observe: only the grid and the play button subscribe, so a
-    /// highlight tick never rebuilds this screen (the pattern menu
-    /// flickered while the whole screen was subscribed).
-    @State private var playerBox = VarisaiPlayerBox()
-    private var player: VarisaiPlayer { playerBox.player }
+    /// The adapter lives in a plain box the lesson view does NOT
+    /// observe: only the grid and the play button subscribe to
+    /// its SequencePlayer, so a highlight tick never rebuilds
+    /// this screen (the pattern menu flickered while the whole
+    /// screen was subscribed).
+    @State private var adapterBox = VarisaiAdapterBox()
+    private var adapter: VarisaiAdapter { adapterBox.adapter }
     @State private var patternIndex = 0
     /// The pattern's display lines with flat playback indices,
     /// rebuilt only when the pattern changes — never per highlight
@@ -44,7 +45,7 @@ struct VarisaiLessonView: View {
             VStack(spacing: 12) {
                 patternRow
                 metaLine
-                VarisaiGridView(player: player, lines: indexedLines,
+                VarisaiGridView(player: adapter.player, lines: indexedLines,
                                 full: labels == "full")
                 layaSection
                 settingsRow
@@ -56,25 +57,25 @@ struct VarisaiLessonView: View {
         .navigationTitle(lesson.name)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            focusToken = audioFocus.register { player.stop() }
+            focusToken = audioFocus.register { adapter.stop() }
             rebuildLines()
         }
         .onDisappear {
-            player.stop()
+            adapter.stop()
             if let focusToken { audioFocus.unregister(focusToken) }
         }
         .onChange(of: loopOn) { _, newValue in
-            // The player reads the toggle live at the loop seam.
-            player.loopEnabled = newValue
+            // The policy reads the toggle live at the loop seam.
+            adapter.loopEnabled = newValue
         }
         .onChange(of: patternIndex) { _, _ in
-            player.stop()
+            adapter.stop()
             layaExpanded = false
             rebuildLines()
         }
         .onChange(of: saOffset) { _, _ in restartIfPlaying(debounced: false) }
         .onChange(of: speed) { _, _ in restartIfPlaying(debounced: false) }
-        .onChange(of: labels) { _, _ in player.stop() }
+        .onChange(of: labels) { _, _ in adapter.stop() }
         .onChange(of: tempo) { _, _ in restartIfPlaying(debounced: true) }
     }
 
@@ -320,12 +321,12 @@ struct VarisaiLessonView: View {
     }
 
     private var playButton: some View {
-        VarisaiPlayButton(player: player) {
-            if player.state == .idle {
+        VarisaiPlayButton(player: adapter.player) {
+            if adapter.state == .idle {
                 onPlayStart()
                 start()
             } else {
-                player.stop()
+                adapter.stop()
             }
         }
     }
@@ -334,14 +335,14 @@ struct VarisaiLessonView: View {
 
     private func start() {
         audioFocus.stopAll(except: focusToken)
-        player.play(pattern: pattern, saOffset: saOffset, tempo: tempo,
-                    speed: speedValue, loop: loopOn)
+        adapter.play(pattern: pattern, saOffset: saOffset, tempo: tempo,
+                     speed: speedValue, loop: loopOn)
     }
 
     /// Web restart rules: Sa and speed restart at once; tempo
     /// restarts after a 350 ms debounce; labels only re-render.
     private func restartIfPlaying(debounced: Bool) {
-        guard player.state == .playing else { return }
+        guard adapter.state == .playing else { return }
         if !debounced {
             start()
             return
@@ -350,7 +351,7 @@ struct VarisaiLessonView: View {
         let token = tempoToken
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 350_000_000)
-            if token == tempoToken, player.state == .playing {
+            if token == tempoToken, adapter.state == .playing {
                 start()
             }
         }
@@ -368,12 +369,12 @@ struct VarisaiLessonView: View {
 /// token count, so EVERY token cell on a line has the same width —
 /// (container − gaps) / tokens in the line.
 struct VarisaiGridView: View {
-    @ObservedObject var player: VarisaiPlayer
+    @ObservedObject var player: SequencePlayer
     let lines: [[[(token: String, index: Int)]]]
     let full: Bool
 
     var body: some View {
-        let current = player.isPlaying ? player.currentToken : -1
+        let current = player.isPlaying ? player.currentIndex : -1
         VStack(alignment: .leading, spacing: 10) {
             ForEach(lines.indices, id: \.self) { lineIndex in
                 lineView(lines[lineIndex], current: current)
@@ -453,21 +454,23 @@ struct VarisaiTokenCell: View, Equatable {
 }
 
 
-/// Holds the lesson's player without the lesson view subscribing
-/// to it (see the lesson view's note). The player is main-actor
-/// isolated; view state is always created on the main actor, so
-/// the isolated init is assumed, not awaited.
-final class VarisaiPlayerBox {
-    let player: VarisaiPlayer
+/// Holds the lesson's adapter without the lesson view
+/// subscribing to it (see the lesson view's note). The adapter
+/// is main-actor isolated; view state is always created on the
+/// main actor, so the isolated init is assumed, not awaited.
+final class VarisaiAdapterBox {
+    let adapter: VarisaiAdapter
     init() {
-        player = MainActor.assumeIsolated { VarisaiPlayer() }
+        adapter = MainActor.assumeIsolated {
+            VarisaiAdapter(tone: HarmoniumToneEngine())
+        }
     }
 }
 
 /// The big Play/Stop button — the only control that observes the
 /// player's state, so playback state changes rebuild nothing else.
 struct VarisaiPlayButton: View {
-    @ObservedObject var player: VarisaiPlayer
+    @ObservedObject var player: SequencePlayer
     let onToggle: () -> Void
 
     var body: some View {
