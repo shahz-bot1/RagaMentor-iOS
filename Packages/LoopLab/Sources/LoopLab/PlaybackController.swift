@@ -486,6 +486,23 @@ public final class PlaybackController: ObservableObject {
 
     public enum Edge { case start, end }
 
+    /// Set one edge of a loop at an absolute time (the A–B tab's Set
+    /// buttons with a loop selected — the web writes the playhead
+    /// into the editing loop's edge).
+    public func setLoopEdge(_ loop: LoopRegion, edge: Edge, at time: Double, context: ModelContext) {
+        guard let song = currentSong else { return }
+        let newStart = edge == .start ? time : loop.start
+        let newEnd = edge == .end ? time : loop.end
+        guard let range = LoopRules.normalize(start: newStart, end: newEnd, duration: song.duration) else { return }
+        loop.start = range.start
+        loop.end = range.end
+        resortLoops(song)
+        if selectedLoopID == loop.id && loopOn {
+            engine.setLoop(start: loop.start, end: loop.end)
+        }
+        try? context.save()
+    }
+
     /// Split the loop at the current playhead (PLAN §10 A–B rules).
     public func splitLoop(_ loop: LoopRegion, context: ModelContext) {
         guard let song = currentSong,
