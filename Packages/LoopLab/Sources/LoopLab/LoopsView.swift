@@ -19,6 +19,9 @@ struct LoopsView: View {
     /// other studios.
     @EnvironmentObject private var audioFocus: StudioAudioFocus
     let song: Song
+    /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
+    /// only the fullscreen host can switch tabs.
+    var onRequestAB: (() -> Void)? = nil
 
     /// The group currently drilled into (web's fsGroupView); nil =
     /// the top level.
@@ -31,7 +34,7 @@ struct LoopsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                loopsCard
+                loopsChips
                 if let loop = controller.selectedLoop {
                     SelectedLoopBar(song: song, loop: loop)
                 }
@@ -130,46 +133,70 @@ struct LoopsView: View {
         openGroupID.flatMap { id in song.groups.first { $0.id == id } }
     }
 
-    /// Loops and groups as wrapping chips, the web's model: group
-    /// chips (colour dot, name, member count, chevron) drill in and
-    /// arm the group's whole range; loop chips select; tapping the
-    /// selected loop chip again deselects it.
-    private var loopsCard: some View {
-        StudioCard {
-            VStack(alignment: .leading, spacing: 10) {
-                StudioSectionTitle("Loops")
-                FlowLayout(spacing: 8, rowSpacing: 8) {
-                    if openGroup != nil {
-                        chipButton(title: "‹ All", filled: false) { openGroupID = nil }
+    private enum ChipItem: Identifiable {
+        case back
+        case tree(TreeItem)
+        case addLoops
+        case newLoop
+        case newGroup
+        var id: String {
+            switch self {
+            case .back: return "back"
+            case .tree(let item): return "tree-\(item.id.uuidString)"
+            case .addLoops: return "addLoops"
+            case .newLoop: return "newLoop"
+            case .newGroup: return "newGroup"
+            }
+        }
+    }
+
+    /// Loops and groups as wrapping chips, flat on the page like
+    /// the web (no card, no section title): group chips (colour
+    /// dot, name, ▸, member count) drill in and arm the group's
+    /// whole range; loop chips select; tapping the selected loop
+    /// chip again deselects it. The dashed chips are the web's:
+    /// ＋ New loop (fullscreen: jump to A–B) and ＋ New group.
+    private var loopsChips: some View {
+        var items: [ChipItem] = []
+        if openGroup != nil { items.append(.back) }
+        items += levelItems.map { .tree($0) }
+        if openGroup != nil { items.append(.addLoops) }
+        else {
+            if onRequestAB != nil { items.append(.newLoop) }
+            items.append(.newGroup)
+        }
+        return VStack(alignment: .leading, spacing: 8) {
+            FlowStack(items: items, spacing: 8, rowSpacing: 8) { item in
+                switch item {
+                case .back:
+                    chipButton(title: "‹ All", dashed: false) { openGroupID = nil }
+                case .tree(.loop(let loop)):
+                    loopChip(loop)
+                case .tree(.group(let group)):
+                    groupChip(group)
+                case .addLoops:
+                    chipButton(title: "＋ Add loops", dashed: true) {
+                        if let openGroup { editingGroup = openGroup }
                     }
-                    ForEach(levelItems, id: \.id) { item in
-                        switch item {
-                        case .loop(let loop):
-                            loopChip(loop)
-                        case .group(let group):
-                            groupChip(group)
-                        }
+                case .newLoop:
+                    chipButton(title: "＋ New loop", dashed: true) {
+                        onRequestAB?()
                     }
-                    if let openGroup {
-                        chipButton(title: "＋ Add loops", filled: false) {
-                            editingGroup = openGroup
-                        }
-                    } else {
-                        chipButton(title: "＋ New group", filled: false) {
-                            newGroupName = ""
-                            showNewGroup = true
-                        }
+                case .newGroup:
+                    chipButton(title: "＋ New group", dashed: true) {
+                        newGroupName = ""
+                        showNewGroup = true
                     }
                 }
-                if song.loops.isEmpty {
-                    Text("No loops yet. Use Set A and Set B on the player to mark a section.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                } else if let group = openGroup {
-                    Text(memberSummary(of: group))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            }
+            if song.loops.isEmpty {
+                Text("No loops yet. Use Set A and Set B on the player to mark a section.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else if let group = openGroup {
+                Text(memberSummary(of: group))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -180,16 +207,17 @@ struct LoopsView: View {
             if selected { controller.clearLoopSelection() }
             else { controller.selectLoop(loop, context: modelContext) }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: 7) {
                 Text(loop.name)
                 if controller.hasPhrase(loop) {
                     Text("♪").font(.caption)
                 }
             }
-            .font(.subheadline.weight(selected ? .semibold : .regular))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .font(.system(size: 13.5, weight: selected ? .semibold : .regular))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
             .background(selected ? Studio.accent : Studio.panel2, in: Capsule())
+            .overlay(Capsule().strokeBorder(Studio.border, lineWidth: selected ? 0 : 1))
             .foregroundStyle(selected ? .white : Studio.text)
         }
         .buttonStyle(.plain)
@@ -206,17 +234,19 @@ struct LoopsView: View {
             openGroupID = group.id
             controller.selectGroup(group, context: modelContext)
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 Circle().fill(Color(hex: group.colorHex)).frame(width: 9, height: 9)
                 Text(group.name)
+                Text("▸")
+                    .font(.system(size: 11))
+                    .foregroundStyle(armed ? .white.opacity(0.65) : .secondary)
                 Text("\(group.memberIDs.count)")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(armed ? .white.opacity(0.8) : .secondary)
-                Text("▸").font(.caption).foregroundStyle(armed ? .white.opacity(0.8) : .secondary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(armed ? .white.opacity(0.65) : .secondary)
             }
-            .font(.subheadline.weight(armed ? .semibold : .regular))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .font(.system(size: 13.5, weight: armed ? .semibold : .regular))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
             .background(armed ? Studio.accent : Studio.panel2, in: Capsule())
             .overlay(Capsule().strokeBorder(Studio.border, lineWidth: armed ? 0 : 1))
             .foregroundStyle(armed ? .white : Studio.text)
@@ -229,15 +259,16 @@ struct LoopsView: View {
         }
     }
 
-    private func chipButton(title: String, filled: Bool, action: @escaping () -> Void) -> some View {
+    private func chipButton(title: String, dashed: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Studio.panel2, in: Capsule())
-                .overlay(Capsule().strokeBorder(Studio.border, lineWidth: 1))
-                .foregroundStyle(Studio.text)
+                .font(.system(size: 13.5))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(dashed ? Color.clear : Studio.panel2, in: Capsule())
+                .overlay(Capsule().strokeBorder(Studio.border,
+                                                style: StrokeStyle(lineWidth: 1, dash: dashed ? [5, 4] : [])))
+                .foregroundStyle(dashed ? .secondary : Studio.text)
         }
         .buttonStyle(.plain)
     }
@@ -325,6 +356,9 @@ struct SelectedLoopBar: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
+    /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
+    /// only the fullscreen host can switch tabs.
+    var onRequestAB: (() -> Void)? = nil
     let loop: LoopRegion
     @State private var nameDraft = ""
     @State private var noteDraft = ""
@@ -367,6 +401,9 @@ struct GroupEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
+    /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
+    /// only the fullscreen host can switch tabs.
+    var onRequestAB: (() -> Void)? = nil
     let group: LoopGroup
 
     @State private var nameDraft: String = ""
