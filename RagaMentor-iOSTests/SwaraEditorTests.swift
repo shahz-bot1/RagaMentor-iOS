@@ -24,7 +24,7 @@ final class SwaraEditorTests: XCTestCase {
     private var library: DefaultRagaLibrary!
     private var defaults: UserDefaults!
     private var suiteName: String!
-    private var player: PhrasePlayer!
+    private var player: PhraseAdapter!
     private var saved: [Phrase] = []
     private var deleted = false
     private var songRaga: [String?] = []
@@ -45,7 +45,7 @@ final class SwaraEditorTests: XCTestCase {
     @MainActor
     private func makeModel(phrase: Phrase, hadSaved: Bool) -> SwaraEditorModel {
         let tone = FakeTone()
-        player = PhrasePlayer(tone: tone)
+        player = PhraseAdapter(tone: tone)
         return SwaraEditorModel(
             phrase: phrase,
             hadSavedPhrase: hadSaved,
