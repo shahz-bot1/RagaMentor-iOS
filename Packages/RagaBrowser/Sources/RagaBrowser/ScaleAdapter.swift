@@ -8,36 +8,35 @@ import AudioKit
 /// step))), the 0.10 lead-in, and the end landing 0.30 s after the
 /// last note's step. The core knows none of it.
 ///
-/// Replaces ScalePlayer (P-B). The adapter owns the studio's
-/// SequencePlayer and its tone engine until P-E moves the single
-/// engine construction site to the app shell.
+/// Replaces ScalePlayer (P-B). The adapter wraps the app's one
+/// shared SequencePlayer (P-E) — the single tone engine lives
+/// in the app shell; the adapter constructs nothing.
 @MainActor
 public final class ScaleAdapter: ObservableObject {
     /// The shared core; the Listen section observes this.
     public let player: SequencePlayer
-    private let tone: any ToneEngine
     private let beeper = TestBeep()
 
     public static let contextKey = "scale"
 
-    public init() {
-        let tone = HarmoniumToneEngine()
-        self.tone = tone
-        self.player = SequencePlayer(tone: tone)
+    public init(player: SequencePlayer) {
+        self.player = player
     }
 
     /// Playing for host purposes (includes the prepare window).
     public var isPlaying: Bool { player.isPlaying(contextKey: Self.contextKey) }
     public var currentIndex: Int { player.currentIndex }
-    /// Readiness for a status line (design §6.5).
-    public var samplesReady: Bool { tone.samplesReady }
 
     public func play(semitones: [Int], tempo: Int) {
         player.play(timeline: Self.timeline(semitones: semitones, tempo: tempo),
                     policy: NoLoopPolicy(), contextKey: Self.contextKey)
     }
 
-    public func stop() { player.stop() }
+    /// Stop only a scale pass: on the shared core (P-E) a stop
+    /// aimed at scales must not kill another studio's pass.
+    public func stop() {
+        if player.contextKey == Self.contextKey { player.stop() }
+    }
 
     /// The web's 880 Hz test beep, on its own engine (TestBeep) so
     /// it never disturbs the harmonium pool.
