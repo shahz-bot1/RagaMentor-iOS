@@ -1,5 +1,6 @@
 import SwiftUI
 import RagaCore
+import AudioKit
 import DesignSystem
 
 /// One raga's detail (web raga detail): the scale with its notation
@@ -20,6 +21,9 @@ struct RagaDetailView: View {
     @State private var status = "Audio: not started — tap Test beep below"
     @State private var isFavourite: Bool
     @State private var tempoToken = 0
+    /// Cross-studio audio focus registration (P6).
+    @EnvironmentObject private var audioFocus: StudioAudioFocus
+    @State private var focusToken: UUID?
 
     private enum Notation: Hashable { case carnatic, hindustani }
 
@@ -60,7 +64,13 @@ struct RagaDetailView: View {
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(raga.name)
         .navigationBarTitleDisplayMode(.inline)
-        .onDisappear { player.stop() }
+        .onAppear {
+            focusToken = audioFocus.register { player.stop() }
+        }
+        .onDisappear {
+            player.stop()
+            if let focusToken { audioFocus.unregister(focusToken) }
+        }
         .onChange(of: tempo) { _, newTempo in
             // Web: a tempo change while playing restarts after a
             // 350 ms debounce.
@@ -235,6 +245,7 @@ struct RagaDetailView: View {
     // MARK: - Playback
 
     private func play(_ atTempo: Int) {
+        audioFocus.stopAll(except: focusToken)
         player.play(semitones: walk.map { $0.semitone + saOffset },
                     tempo: atTempo)
         status = "Audio: ready · harmonium"
