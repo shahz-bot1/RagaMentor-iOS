@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "0.9.0",
-      "versionDate": "2026-10-18T08:15:00Z",
-      "versionDescription": "v0.9.0 \u2014 Compose Studio: write, save, play, import and export swara compositions, using the same editor as loop phrases. Plus the v0.8.1 design pass.",
+      "version": "0.10.0",
+      "versionDate": "2026-10-18T09:45:00Z",
+      "versionDescription": "v0.10.0 \u2014 RagaBrowser: all 87 ragas with search, favourites, melakarta chakras and thaats, the detail piano, harmonium playback, and the live raga picker in both editors.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "0.9.0",
-          "date": "2026-10-18T08:15:00Z",
-          "localizedDescription": "Compose Studio (P2): compositions list + editor, import/export in the web format.",
+          "version": "0.10.0",
+          "date": "2026-10-18T09:45:00Z",
+          "localizedDescription": "RagaBrowser + live RagaPicker (P3).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
