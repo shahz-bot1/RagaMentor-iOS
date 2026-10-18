@@ -3,6 +3,7 @@ import RagaCore
 import AudioKit
 import RagaBrowser
 import SwaraEditor
+import Varisai
 
 // SequencePlayer tests (design P-A) — the pure timeline math, the
 // two P-A loop policies, and the core's scheduling/state behaviour
@@ -66,6 +67,15 @@ final class SequencePlayerTests: XCTestCase {
         var on = true
         let policy = RestartAfterGapPolicy(gap: 0.4, isLoopOn: { on })
         XCTAssertEqual(policy.boundary(), .again(leadIn: 0.4))
+        on = false
+        XCTAssertEqual(policy.boundary(), .stop)
+    }
+
+    func testSeamlessReadsToggleAtSeam() {
+        var on = true
+        let policy = SeamlessPolicy(isLoopOn: { on })
+        XCTAssertEqual(policy.wakeEarly, 0.06)
+        XCTAssertEqual(policy.boundary(), .again(leadIn: 0.06))
         on = false
         XCTAssertEqual(policy.boundary(), .stop)
     }
@@ -225,6 +235,64 @@ final class SequencePlayerTests: XCTestCase {
         XCTAssertEqual(durations[1], 0.78, accuracy: 1e-9)
         XCTAssertEqual(durations[2], 1.78, accuracy: 1e-9)
         XCTAssertEqual(durations[3], 1.28, accuracy: 1e-9)
+    }
+
+    func testSeamlessReentryLandsOnBoundary() async {
+        let tone = FakeTone()
+        let player = await MainActor.run { SequencePlayer(tone: tone) }
+        let timeline = Timeline(
+            notes: [TimelineNote(semitone: 0, start: 0, duration: 0.1,
+                                 highlight: 0)],
+            passDuration: 0.4, highlightCount: 1,
+            highlightStarts: [0], leadIn: 0.1)
+        await MainActor.run {
+            player.play(timeline: timeline,
+                        policy: SeamlessPolicy(isLoopOn: { true }),
+                        contextKey: "test")
+        }
+        let reentered = await poll(until: { tone.played.count >= 2 },
+                                   timeout: 3.0)
+        XCTAssertTrue(reentered)
+        // The core wakes 60 ms before the 0.4 s boundary; the
+        // policy's 0.06 lead-in is measured from the wake, so the
+        // next pass's first note is scheduled 0.06 ahead — it
+        // lands ON the boundary, not 0.06 past it (which would
+        // read 0.12 here).
+        XCTAssertEqual(tone.played[1].offset, 0.06, accuracy: 0.04)
+        await MainActor.run { player.stop() }
+    }
+
+    // MARK: - VarisaiAdapter timeline (P-D)
+
+    func testVarisaiTimelineWithDheergamAtSpeed8() {
+        // S held by a dheergam comma, then R2, G3. Tempo 60,
+        // speed 8 → step = 0.125.
+        let pattern = VarisaiPattern(
+            title: "T", sub: "", laya: nil, tala: nil,
+            notes: ["S", ",", "R2", "G3"],
+            dlines: [[["S", ",", "R2", "G3"]]])
+        let timeline = VarisaiAdapter.timeline(
+            pattern: pattern, saOffset: 0, tempo: 60, speed: 8)
+        XCTAssertEqual(timeline.leadIn, 0.08)
+        XCTAssertEqual(timeline.passDuration, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.highlightCount, 4)
+        XCTAssertEqual(timeline.highlightStarts, [0, 0.125, 0.25, 0.375])
+        XCTAssertEqual(timeline.notes.count, 3)
+        let semis = timeline.notes.map { $0.semitone }
+        XCTAssertEqual(semis, [0, 2, 4])
+        let starts = timeline.notes.map { $0.start }
+        XCTAssertEqual(starts, [0, 0.25, 0.375])
+        let highlights = timeline.notes.map { $0.highlight }
+        XCTAssertEqual(highlights, [0, 2, 3])
+        // Overlap at 8x = max(2.0, 0.25 ÷ step) = 2.0. S spans
+        // two slots → 0.125 × 2 × 2.0 = 0.5; R2 one slot → 0.25;
+        // the last event keeps max(base × 0.96, step × factor)
+        // = max(0.24, 0.25) = 0.25.
+        let durations = timeline.notes.map { $0.duration }
+        XCTAssertEqual(durations.count, 3)
+        XCTAssertEqual(durations[0], 0.5, accuracy: 1e-9)
+        XCTAssertEqual(durations[1], 0.25, accuracy: 1e-9)
+        XCTAssertEqual(durations[2], 0.25, accuracy: 1e-9)
     }
 
     func testStopCancelsPlayback() async {
