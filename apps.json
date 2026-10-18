@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.4.1",
-      "versionDate": "2026-10-18T20:55:00Z",
-      "versionDescription": "v1.4.1 \u2014 SequencePlayer migration Phase P-B: Raga Listen scales now play through the shared SequencePlayer core via a thin ScaleAdapter (same notes, durations and end timing; the piano highlight comes from the unified ticker). The 880 Hz test beep moved to its own helper. Ear-test gate: a scale at tempo 240 with the piano highlight tracking the sound.",
+      "version": "1.4.2",
+      "versionDate": "2026-10-18T21:10:00Z",
+      "versionDescription": "v1.4.2 \u2014 SequencePlayer migration Phase P-C: phrases (Compose list + editor, LoopLab Swaras section + editor) now play through the shared SequencePlayer core via a thin PhraseAdapter. Same notes, durations, +0.4 s loop breath and host highlighting; the highlight now comes from the unified ticker instead of per-chip timers. Ear-test gates: a phrase loop in the foreground and locked (two to three passes); section and editor hosts do not cross-highlight.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.4.1",
-          "date": "2026-10-18T20:55:00Z",
-          "localizedDescription": "Scales migrate to the shared SequencePlayer (P-B).",
+          "version": "1.4.2",
+          "date": "2026-10-18T21:10:00Z",
+          "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
