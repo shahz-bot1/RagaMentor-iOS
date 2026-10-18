@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "0.10.1",
-      "versionDate": "2026-10-18T10:20:00Z",
-      "versionDescription": "v0.10.1 \u2014 Fix: the LoopLab swara editor no longer opens and closes in a loop; it is now a pushed page instead of a modal cover.",
+      "version": "0.11.0",
+      "versionDate": "2026-10-18T11:25:00Z",
+      "versionDescription": "v0.11.0 \u2014 Varisai Studio: all 7 lessons and 50 patterns with grouped notation, Sa/speed/labels/tempo controls and legato playback. Includes the LoopLab editor fix from v0.10.1.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "0.10.1",
-          "date": "2026-10-18T10:20:00Z",
-          "localizedDescription": "LoopLab editor presentation fix.",
+          "version": "0.11.0",
+          "date": "2026-10-18T11:25:00Z",
+          "localizedDescription": "Varisai Studio (built ahead of Tala at request).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
