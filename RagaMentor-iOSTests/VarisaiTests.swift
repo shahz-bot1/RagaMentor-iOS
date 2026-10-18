@@ -90,4 +90,27 @@ final class VarisaiTests: XCTestCase {
                        ["I4 0 I4 I4", "I4 0 I4", "0 I4", "I7 U 0",
                         "I3 0 0", "I5 I5 0 0", "I4"])
     }
+
+    // MARK: - Laya parsing + anga beats (web layaDisplay/talaDisplay)
+
+    func testLayaParsePlainRunIsOneGroup() {
+        XCTAssertEqual(LayaParts.parse("12345678"), [["12345678"]])
+        XCTAssertEqual(LayaParts.parse("1234 5678"), [["12345678"]])
+    }
+
+    func testLayaParseGroupsAndParts() {
+        XCTAssertEqual(LayaParts.parse("11-22-33-44"), [["11", "22", "33", "44"]])
+        XCTAssertEqual(LayaParts.parse("11-22 and 33-44"),
+                       [["11", "22"], ["33", "44"]])
+    }
+
+    func testLayaParseStripsCountHints() {
+        XCTAssertEqual(LayaParts.parse("1122 (4 counts)"), [["1122"]])
+    }
+
+    func testAngaBeatsFollowTheWebRules() {
+        XCTAssertEqual(VarisaiPlayback.angaBeats("I4 0 I4 I4"), [4, 2, 4, 4])
+        XCTAssertEqual(VarisaiPlayback.angaBeats("I3 U"), [3, 1])
+        XCTAssertEqual(VarisaiPlayback.talaBeats("I4 0 I4 I4"), 14)
+    }
 }
