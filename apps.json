@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.2.4",
-      "versionDate": "2026-10-18T18:40:00Z",
-      "versionDescription": "v1.2.4 \u2014 Compose: the new button is just \uff0b; tapping a composition PUSHES the editor (no more modal to dismiss before switching tabs); the editor delete is a red trash icon; the editor Play button now flips to Stop and the Loop button shows its state (both were stale rendering). Raga browser: All 72 lists flat without chakra grouping. Includes v1.2.3 (waveform Follow/Fit corner buttons + pinned playback scrolling).",
+      "version": "1.3.0",
+      "versionDate": "2026-10-18T18:56:00Z",
+      "versionDescription": "v1.3.0 \u2014 Varisai lesson screen rebuilt as the Practice Dock layout (option 1 from the mockups): one compact pattern row (name + Pattern N of M + prev/next), metadata chips, the notation grid as the hero, Laya/Tala collapsed to a single row that taps open, Sa/Speed/Labels as a bare chip row, and a sticky bottom dock with Play, Loop and the tempo slider. The Patterns card and the repeated title/sub block are gone.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.2.4",
-          "date": "2026-10-18T18:40:00Z",
-          "localizedDescription": "Compose push navigation + editor button fixes; All 72 flat.",
+          "version": "1.3.0",
+          "date": "2026-10-18T18:56:00Z",
+          "localizedDescription": "Varisai Practice Dock layout.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
