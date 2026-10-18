@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
@@ -53,6 +54,13 @@ struct SongDetailView: View {
                     }
                     .padding(.top, waveHeight)
                 }
+
+                // Touch forwarding (topmost): hands touches in
+                // the wave strip to the waveform while the scroll
+                // view rests at the top; passes everything else
+                // through to the scroll view (see the class).
+                TouchForwardingOverlay()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Studio.bg.ignoresSafeArea())
