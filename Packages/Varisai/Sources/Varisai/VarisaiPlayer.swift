@@ -15,6 +15,10 @@ public final class VarisaiPlayer: ObservableObject {
     private let tone: any ToneEngine
     private var generation = 0
     private var tasks: [Task<Void, Never>] = []
+    /// Whether the next seam re-enters (read live at the seam,
+    /// like the web's loop toggle — flipping it mid-play takes
+    /// effect at the end of the current pass).
+    public var loopEnabled = true
 
     public init(tone: any ToneEngine = HarmoniumToneEngine()) {
         self.tone = tone
@@ -26,6 +30,7 @@ public final class VarisaiPlayer: ObservableObject {
     public func play(pattern: VarisaiPattern, saOffset: Int, tempo: Int,
                      speed: Int, loop: Bool) {
         stop()
+        loopEnabled = loop
         generation += 1
         let gen = generation
         state = .loading
@@ -61,29 +66,31 @@ public final class VarisaiPlayer: ObservableObject {
             })
         }
         let passSeconds = Double(tokenCount) * step
-        if loop {
-            // Wake 60 ms before the exact pass boundary and re-enter.
-            let wake = UInt64(max(0, passSeconds - 0.06) * 1_000_000_000)
-            tasks.append(Task { @MainActor in
-                try? await Task.sleep(nanoseconds: wake)
-                if gen == generation {
-                    tasks.forEach { $0.cancel() }
-                    tasks = []
+        // Wake 60 ms before the exact pass boundary (the web's
+        // seamless-loop timer). At the seam, the live loop toggle
+        // decides: re-enter for another pass, or finish.
+        let wake = UInt64(max(0, passSeconds - 0.06) * 1_000_000_000)
+        tasks.append(Task { @MainActor in
+            try? await Task.sleep(nanoseconds: wake)
+            if gen == generation {
+                tasks.forEach { $0.cancel() }
+                tasks = []
+                if loopEnabled {
                     // Re-enter with a 0.06 lead-in from the 60 ms-early
                     // wake, so the first note lands on the exact pass
                     // boundary (the web's seamless seam).
                     schedulePass(events: events, tokenCount: tokenCount,
                                  step: step, speed: speed, gen: gen, loop: true,
                                  leadIn: 0.06)
+                } else {
+                    let endDelay = UInt64((leadIn + 0.16) * 1_000_000_000)
+                    tasks.append(Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: endDelay)
+                        if gen == generation { finish() }
+                    })
                 }
-            })
-        } else {
-            let endDelay = UInt64((leadIn + passSeconds + 0.1) * 1_000_000_000)
-            tasks.append(Task { @MainActor in
-                try? await Task.sleep(nanoseconds: endDelay)
-                if gen == generation { finish() }
-            })
-        }
+            }
+        })
     }
 
     public func stop() {
