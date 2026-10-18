@@ -12,7 +12,12 @@ struct VarisaiLessonView: View {
     let lesson: VarisaiLesson
     let onPlayStart: () -> Void
 
-    @StateObject private var player = VarisaiPlayer()
+    /// The player lives in a plain box the lesson view does NOT
+    /// observe: only the grid and the play button subscribe, so a
+    /// highlight tick never rebuilds this screen (the pattern menu
+    /// flickered while the whole screen was subscribed).
+    @State private var playerBox = VarisaiPlayerBox()
+    private var player: VarisaiPlayer { playerBox.player }
     @State private var patternIndex = 0
     /// The pattern's display lines with flat playback indices,
     /// rebuilt only when the pattern changes — never per highlight
@@ -86,11 +91,8 @@ struct VarisaiLessonView: View {
                         Button(lesson.patterns[i].title) { patternIndex = i }
                     }
                 } label: {
-                    VStack(spacing: 1) {
-                        Text(pattern.title).font(.headline)
-                            .foregroundStyle(Studio.text)
-                        Text(pattern.sub).font(.caption).foregroundStyle(.secondary)
-                    }
+                    Text(pattern.title).font(.headline)
+                        .foregroundStyle(Studio.text)
                 }
                 Spacer()
                 Button { patternIndex += 1 } label: {
@@ -98,21 +100,31 @@ struct VarisaiLessonView: View {
                 }
                 .disabled(patternIndex == lesson.patterns.count - 1)
             }
-            if let laya = pattern.laya {
-                Text("Laya · \(laya)")
-                    .font(.caption)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(lesson.name) · \(patternIndex + 1)".uppercased())
+                    .font(.system(size: 15, weight: .bold))
+                    .tracking(1.0)
+                    .foregroundStyle(Studio.text)
+                Text((pattern.sub.isEmpty ? "" : pattern.sub + " · ")
+                     + lesson.raga + " · \(pattern.notes.count) swaras")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let laya = pattern.laya {
+                LayaInfoBox(title: "Laya", parts: LayaParts.parse(laya))
             }
             if let tala = pattern.tala {
                 Button {
                     showTalaLegend = true
                 } label: {
-                    Text("Tala · \(tala) · \(VarisaiPlayback.talaBeats(tala)) beats")
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Studio.panel2, in: Capsule())
-                        .foregroundStyle(Studio.text)
+                    LayaInfoBox(
+                        title: "Tala",
+                        parts: [tala.split(separator: " ").map(String.init)],
+                        legend: VarisaiPlayback.angaBeats(tala)
+                            .map(String.init).joined(separator: " + ")
+                            + " = \(VarisaiPlayback.talaBeats(tala)) beats")
                 }
                 .buttonStyle(.plain)
                 .popover(isPresented: $showTalaLegend) {
@@ -149,44 +161,65 @@ struct VarisaiLessonView: View {
 
     private var controlsCard: some View {
         StudioCard {
-            VStack(spacing: 12) {
-                HStack {
-                    Text("Sa").foregroundStyle(.secondary)
-                    Spacer()
-                    Picker("Sa", selection: $saOffset) {
+            VStack(spacing: 14) {
+                HStack(alignment: .top, spacing: 10) {
+                    ctlDrop(label: "Sa", value: Swara.saNames[saOffset]) {
                         ForEach(0..<12, id: \.self) { i in
-                            Text(Swara.saNames[i]).tag(i)
+                            Button(Swara.saNames[i]) { saOffset = i }
                         }
                     }
-                    .pickerStyle(.menu)
+                    ctlDrop(label: "Speed", value: "\(speedValue)x") {
+                        ForEach([1, 2, 4, 8], id: \.self) { v in
+                            Button("\(v)x") { speed = "\(v)" }
+                        }
+                    }
+                    ctlDrop(label: "Labels",
+                            value: labels == "full" ? "S R₁ G₃" : "S R G") {
+                        Button("S R G") { labels = "simple" }
+                        Button("S R₁ G₃") { labels = "full" }
+                    }
                 }
-                HStack {
-                    Text("Speed").foregroundStyle(.secondary)
-                    Spacer()
-                    StudioSegmented(items: [("1", "1x"), ("2", "2x"),
-                                            ("4", "4x"), ("8", "8x")],
-                                    selection: $speed)
-                        .frame(width: 190)
-                }
-                HStack {
-                    Text("Labels").foregroundStyle(.secondary)
-                    Spacer()
-                    StudioSegmented(items: [("simple", "Simple"), ("full", "Full")],
-                                    selection: $labels)
-                        .frame(width: 190)
-                }
-                HStack {
-                    Text("Tempo").foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Text("Tempo").foregroundStyle(Studio.text)
                     Slider(value: Binding(
                         get: { Double(tempo) },
                         set: { tempo = Int($0) }),
                         in: 30...90, step: 10)
                         .tint(Studio.accent)
-                    Text("\(tempo) bpm").font(.callout).monospacedDigit()
-                        .frame(width: 64, alignment: .trailing)
+                    Text("\(tempo) BPM").font(.callout).monospacedDigit()
+                        .foregroundStyle(Studio.text)
                 }
             }
         }
+    }
+
+    /// One web ctl-drop: a small caps label over a select-style box.
+    private func ctlDrop<Items: View>(label: String, value: String,
+                                      @ViewBuilder items: () -> Items) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.7)
+                .foregroundStyle(.secondary)
+            Menu {
+                items()
+            } label: {
+                HStack {
+                    Text(value).font(.system(size: 16))
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .frame(height: 46)
+                .background(Studio.panel2, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Studio.border, lineWidth: 1))
+                .foregroundStyle(Studio.text)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 
     /// The play row under the big Play button (web .playrow): the
@@ -251,26 +284,14 @@ struct VarisaiLessonView: View {
     }
 
     private var playButton: some View {
-        Button {
+        VarisaiPlayButton(player: player) {
             if player.state == .idle {
                 onPlayStart()
                 start()
             } else {
                 player.stop()
             }
-        } label: {
-            Text(player.state == .playing ? "■ Stop"
-                 : player.state == .loading ? "⏳ Loading…" : "▶ Play pattern")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(player.state == .playing
-                            ? Color(red: 0.878, green: 0.322, blue: 0.322)
-                            : Studio.accent,
-                            in: RoundedRectangle(cornerRadius: 12))
-                .foregroundStyle(.white)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Playback control
@@ -392,5 +413,100 @@ struct VarisaiTokenCell: View, Equatable {
                                   style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
             )
             .foregroundStyle(isCurrent ? .white : Studio.text)
+    }
+}
+
+
+/// Holds the lesson's player without the lesson view subscribing
+/// to it (see the lesson view's note).
+final class VarisaiPlayerBox {
+    let player = VarisaiPlayer()
+}
+
+/// The big Play/Stop button — the only control that observes the
+/// player's state, so playback state changes rebuild nothing else.
+struct VarisaiPlayButton: View {
+    @ObservedObject var player: VarisaiPlayer
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            Text(player.state == .playing ? "■ Stop"
+                 : player.state == .loading ? "⏳ Loading…" : "▶ Play pattern")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(player.state == .playing
+                            ? Color(red: 0.878, green: 0.322, blue: 0.322)
+                            : Studio.accent,
+                            in: RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// The web's laya/tala info box (.laya): a panel2 card with a
+/// small caps title and the groups as dark inset boxes, parts
+/// joined by an italic "and"; the tala variant adds the beat-math
+/// legend line under a divider.
+struct LayaInfoBox: View {
+    let title: String
+    let parts: [[String]]
+    var legend: String? = nil
+
+    private struct Element: Identifiable {
+        let id: Int
+        let text: String?   // nil renders the italic "and"
+    }
+
+    private var elements: [Element] {
+        var out: [Element] = []
+        for (index, part) in parts.enumerated() {
+            if index > 0 { out.append(Element(id: out.count, text: nil)) }
+            for group in part {
+                out.append(Element(id: out.count, text: group))
+            }
+        }
+        return out
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(0.7)
+                .foregroundStyle(.secondary)
+            FlowStack(items: elements, spacing: 6, rowSpacing: 6) { element in
+                if let text = element.text {
+                    Text(text)
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .tracking(0.5)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Studio.bg, in: RoundedRectangle(cornerRadius: 7))
+                        .overlay(RoundedRectangle(cornerRadius: 7)
+                            .strokeBorder(Studio.border, lineWidth: 1))
+                        .foregroundStyle(Studio.text)
+                } else {
+                    Text("and")
+                        .font(.system(size: 12))
+                        .italic()
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let legend {
+                Divider()
+                Text(legend)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Studio.panel2, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10)
+            .strokeBorder(Studio.border, lineWidth: 1))
     }
 }
