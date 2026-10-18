@@ -15,7 +15,9 @@ public enum ScaleWalk {
     /// Split a scale token into its base token and octave lift:
     /// the catalog marks the upper Sa as "S'" (apostrophe), which
     /// is not itself a sthana.
-    private static func split(_ token: String) -> (base: String, lift: Int) {
+    /// Split a catalog token into its base sthana and octave lift
+    /// ("S'" → ("S", 1)).
+    public static func splitToken(_ token: String) -> (base: String, lift: Int) {
         if token.hasSuffix("'") || token.hasSuffix("′") {
             return (String(token.dropLast()), 1)
         }
@@ -29,7 +31,7 @@ public enum ScaleWalk {
         // previous note.
         var prevAbs = -1
         for token in aro {
-            let (base, lift) = split(token)
+            let (base, lift) = splitToken(token)
             let pc = Swara.semitones[base] ?? 0
             var s = pc + 12 * lift
             while s <= prevAbs { s += 12 }
@@ -41,7 +43,7 @@ public enum ScaleWalk {
         // highest placement below the previous note.
         var prev = Int.max
         for (index, token) in ava.enumerated() {
-            let (base, lift) = split(token)
+            let (base, lift) = splitToken(token)
             let pc = Swara.semitones[base] ?? 0
             var s: Int
             if index == 0 {
@@ -64,7 +66,7 @@ public enum ScaleWalk {
     /// The scale's pitch classes (0–11), for piano tinting and
     /// search-class matching.
     public static func pitchClasses(aro: [String], ava: [String]) -> Set<Int> {
-        Set((aro + ava).map { Swara.semitones[split($0).base] ?? -1 }).subtracting([-1])
+        Set((aro + ava).map { Swara.semitones[splitToken($0).base] ?? -1 }).subtracting([-1])
     }
 }
 
