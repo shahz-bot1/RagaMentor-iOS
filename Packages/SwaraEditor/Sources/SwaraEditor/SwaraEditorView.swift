@@ -18,6 +18,11 @@ public struct SwaraEditorView: View {
     /// Compose hosts pass a name binding: the editor gains a Name
     /// row (web Compose renames via the editor title, live).
     public var compositionName: Binding<String>?
+    /// The live RagaPicker hosts supply (P3): builds the full
+    /// RagaBrowser in pick mode for this model, with a dismiss
+    /// callback for when a pick lands or the user cancels. Nil
+    /// keeps the interim browse sheet (hosts without a browser).
+    public var browseSheet: ((SwaraEditorModel, @escaping () -> Void) -> AnyView)?
     /// Delete wording differs per host ("Delete swaras" in LoopLab,
     /// "Delete composition" in Compose).
     public var deleteTitle: String
@@ -31,6 +36,7 @@ public struct SwaraEditorView: View {
     public init(model: SwaraEditorModel, title: String,
                 onBrowseRaga: (() -> Void)? = nil,
                 compositionName: Binding<String>? = nil,
+                browseSheet: ((SwaraEditorModel, @escaping () -> Void) -> AnyView)? = nil,
                 deleteTitle: String = "Delete swaras",
                 deleteMessage: String = "Delete the swaras for this loop?",
                 onClose: @escaping () -> Void) {
@@ -39,6 +45,7 @@ public struct SwaraEditorView: View {
         self.title = title
         self.onBrowseRaga = onBrowseRaga
         self.compositionName = compositionName
+        self.browseSheet = browseSheet
         self.deleteTitle = deleteTitle
         self.deleteMessage = deleteMessage
         self.onClose = onClose
@@ -74,7 +81,16 @@ public struct SwaraEditorView: View {
             SwaraPickerSheet(model: model)
         }
         .sheet(isPresented: $showRagaBrowser) {
-            RagaBrowseSheet { raga in model.applyBrowsedRaga(raga) }
+            if let browseSheet {
+                browseSheet(model) { showRagaBrowser = false }
+            } else {
+                RagaBrowseSheet { raga in model.applyBrowsedRaga(raga) }
+            }
+        }
+        .onChange(of: showRagaBrowser) { _, isShowing in
+            // Opening the picker silences the editor's own playback
+            // (the browser has its own tone engine).
+            if isShowing { model.stopPlayback() }
         }
         .alert("JSON error", isPresented: Binding(
             get: { rawError != nil }, set: { if !$0 { rawError = nil } })) {
