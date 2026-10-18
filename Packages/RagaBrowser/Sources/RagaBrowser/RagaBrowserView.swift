@@ -16,14 +16,14 @@ public struct RagaBrowserView: View {
     private let onCancel: (() -> Void)?
 
     @StateObject private var player = ScalePlayer()
-    @State private var section: Section = .search
+    @State private var section: Tab = .search
     @State private var query = ""
     @State private var selectedClasses: Set<String> = []
     @State private var melSegment = 0
     @State private var openChakra: Int?
     @State private var favourites: [Raga] = []
 
-    private enum Section: Hashable { case search, favourites, melakartas, hindustani }
+    private enum Tab: Hashable { case search, favourites, melakartas, hindustani }
 
     public init(library: any RagaLibrary, mode: Mode = .browse,
                 onPick: ((Raga) -> Void)? = nil,
@@ -48,7 +48,7 @@ public struct RagaBrowserView: View {
                         .padding(.horizontal)
                 }
                 StudioSegmented(
-                    items: [(Section.search, "Search"), (.favourites, "Favourites"),
+                    items: [(Tab.search, "Search"), (.favourites, "Favourites"),
                             (.melakartas, "Melakartas"), (.hindustani, "Hindustani")],
                     selection: $section)
                     .padding(.horizontal)
@@ -100,7 +100,7 @@ public struct RagaBrowserView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)],
                       spacing: 8) {
                 ForEach(RagaSearch.classes, id: \.self) { cls in
-                    StudioChip(title: cls, selected: selectedClasses.contains(cls)) {
+                    StudioChip(cls, selected: selectedClasses.contains(cls)) {
                         if selectedClasses.contains(cls) {
                             selectedClasses.remove(cls)
                         } else {
@@ -158,30 +158,35 @@ public struct RagaBrowserView: View {
                 .onChange(of: melSegment) { _, _ in openChakra = nil }
             List {
                 ForEach(chakraGroups, id: \.chakra) { group in
-                    Section {
-                        if openChakra == group.chakra {
-                            ForEach(group.ragas, id: \.id) { raga in
-                                NavigationLink(value: raga.id) { rowLabel(raga) }
-                            }
-                        }
-                    } header: {
-                        Button {
-                            openChakra = openChakra == group.chakra ? nil : group.chakra
-                        } label: {
-                            HStack {
-                                Text("Chakra \(group.chakra + 1) · \(Melakarta.chakraNames[group.chakra])")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Studio.text)
-                                Spacer()
-                                Text(openChakra == group.chakra ? "▾" : "▸")
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .textCase(nil)
-                    }
+                    chakraSection(group)
                 }
             }
             .studioList()
+        }
+    }
+
+    @ViewBuilder
+    private func chakraSection(_ group: (chakra: Int, ragas: [Raga])) -> some View {
+        Section {
+            if openChakra == group.chakra {
+                ForEach(group.ragas, id: \.id) { raga in
+                    NavigationLink(value: raga.id) { rowLabel(raga) }
+                }
+            }
+        } header: {
+            Button {
+                openChakra = openChakra == group.chakra ? nil : group.chakra
+            } label: {
+                HStack {
+                    Text("Chakra \(group.chakra + 1) · \(Melakarta.chakraNames[group.chakra])")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Studio.text)
+                    Spacer()
+                    Text(openChakra == group.chakra ? "▾" : "▸")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .textCase(nil)
         }
     }
 
