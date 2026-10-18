@@ -25,6 +25,7 @@ struct VarisaiLessonView: View {
     @State private var indexedLines: [[[(token: String, index: Int)]]] = []
     @State private var loopOn = true
     @State private var showTalaLegend = false
+    @State private var layaExpanded = false
     @State private var tempoToken = 0
     /// Cross-studio audio focus registration (P6).
     @EnvironmentObject private var audioFocus: StudioAudioFocus
@@ -40,17 +41,17 @@ struct VarisaiLessonView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 14) {
-                patternHeader
+            VStack(spacing: 12) {
+                patternRow
+                metaLine
                 VarisaiGridView(player: player, lines: indexedLines,
                                 full: labels == "full")
-                controlsCard
-                playButton
-                playRow
-                patternsCard
+                layaSection
+                settingsRow
             }
             .padding(16)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { dock }
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(lesson.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -68,6 +69,7 @@ struct VarisaiLessonView: View {
         }
         .onChange(of: patternIndex) { _, _ in
             player.stop()
+            layaExpanded = false
             rebuildLines()
         }
         .onChange(of: saOffset) { _, _ in restartIfPlaying(debounced: false) }
@@ -78,44 +80,81 @@ struct VarisaiLessonView: View {
 
     // MARK: - Header & grid
 
-    private var patternHeader: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Button { patternIndex -= 1 } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .disabled(patternIndex == 0)
-                Spacer()
-                Menu {
-                    ForEach(lesson.patterns.indices, id: \.self) { i in
-                        Button(lesson.patterns[i].title) { patternIndex = i }
-                    }
-                } label: {
-                    Text(pattern.title).font(.headline)
-                        .foregroundStyle(Studio.text)
-                }
-                Spacer()
-                Button { patternIndex += 1 } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .disabled(patternIndex == lesson.patterns.count - 1)
+    /// One compact pattern row: prev/next chevrons around the
+    /// pattern name (a menu for direct jumps) and its count.
+    private var patternRow: some View {
+        HStack {
+            Button { patternIndex -= 1 } label: {
+                Image(systemName: "chevron.left")
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(lesson.name) · \(patternIndex + 1)".uppercased())
-                    .font(.system(size: 15, weight: .bold))
-                    .tracking(1.0)
-                    .foregroundStyle(Studio.text)
-                Text((pattern.sub.isEmpty ? "" : pattern.sub + " · ")
-                     + lesson.raga + " · \(pattern.notes.count) swaras")
+            .disabled(patternIndex == 0)
+            Spacer()
+            Menu {
+                ForEach(lesson.patterns.indices, id: \.self) { i in
+                    Button(lesson.patterns[i].title) { patternIndex = i }
+                }
+            } label: {
+                VStack(spacing: 1) {
+                    Text(pattern.title)
+                        .font(.headline)
+                        .foregroundStyle(Studio.text)
+                    Text("Pattern \(patternIndex + 1) of \(lesson.patterns.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button { patternIndex += 1 } label: {
+                Image(systemName: "chevron.right")
+            }
+            .disabled(patternIndex == lesson.patterns.count - 1)
+        }
+    }
+
+    /// The old title/sub block as one light line: the pattern's
+    /// own description, then the raga and swara count as chips.
+    private var metaLine: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !pattern.sub.isEmpty {
+                Text(pattern.sub)
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let laya = pattern.laya {
-                LayaInfoBox(title: "Laya", parts: LayaParts.parse(laya))
+            HStack(spacing: 6) {
+                metaChip(lesson.raga)
+                metaChip("\(pattern.notes.count) swaras")
             }
-            if let tala = pattern.tala {
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func metaChip(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.medium))
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(Studio.panel2, in: Capsule())
+            .overlay(Capsule().strokeBorder(Studio.border, lineWidth: 1))
+            .foregroundStyle(Studio.text)
+    }
+
+    /// Laya/Tala as ONE collapsed row (title + a short preview);
+    /// a tap expands the full boxed component from v1.2.1.
+    @ViewBuilder
+    private var layaSection: some View {
+        if let laya = pattern.laya {
+            if layaExpanded {
+                Button { layaExpanded = false } label: {
+                    LayaInfoBox(title: "Laya", parts: LayaParts.parse(laya))
+                }
+                .buttonStyle(.plain)
+            } else {
+                infoRow(title: "Laya",
+                        preview: LayaParts.parse(laya).first?.first ?? "")
+            }
+        }
+        if let tala = pattern.tala {
+            if layaExpanded {
                 Button {
                     showTalaLegend = true
                 } label: {
@@ -140,8 +179,38 @@ struct VarisaiLessonView: View {
                     .padding(16)
                     .presentationCompactAdaptation(.popover)
                 }
+            } else {
+                infoRow(title: "Tala",
+                        preview: "\(tala) · \(VarisaiPlayback.talaBeats(tala)) beats")
             }
         }
+    }
+
+    private func infoRow(title: String, preview: String) -> some View {
+        Button {
+            layaExpanded = true
+        } label: {
+            HStack(spacing: 8) {
+                Text(title.uppercased())
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.7)
+                    .foregroundStyle(.secondary)
+                Text(preview)
+                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Studio.text)
+                    .lineLimit(1)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Studio.panel2, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Studio.border, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     /// Rebuild the cached display lines for the current pattern.
@@ -159,36 +228,24 @@ struct VarisaiLessonView: View {
 
     // MARK: - Controls & play
 
-    private var controlsCard: some View {
-        StudioCard {
-            VStack(spacing: 14) {
-                HStack(alignment: .top, spacing: 10) {
-                    ctlDrop(label: "Sa", value: Swara.saNames[saOffset]) {
-                        ForEach(0..<12, id: \.self) { i in
-                            Button(Swara.saNames[i]) { saOffset = i }
-                        }
-                    }
-                    ctlDrop(label: "Speed", value: "\(speedValue)x") {
-                        ForEach([1, 2, 4, 8], id: \.self) { v in
-                            Button("\(v)x") { speed = "\(v)" }
-                        }
-                    }
-                    ctlDrop(label: "Labels",
-                            value: labels == "full" ? "S R₁ G₃" : "S R G") {
-                        Button("S R G") { labels = "simple" }
-                        Button("S R₁ G₃") { labels = "full" }
-                    }
+    /// Sa / Speed / Labels as a bare chip row (no card): the
+    /// three web ctl-drops without the box around them.
+    private var settingsRow: some View {
+        HStack(alignment: .top, spacing: 10) {
+            ctlDrop(label: "Sa", value: Swara.saNames[saOffset]) {
+                ForEach(0..<12, id: \.self) { i in
+                    Button(Swara.saNames[i]) { saOffset = i }
                 }
-                HStack(spacing: 10) {
-                    Text("Tempo").foregroundStyle(Studio.text)
-                    Slider(value: Binding(
-                        get: { Double(tempo) },
-                        set: { tempo = Int($0) }),
-                        in: 30...90, step: 10)
-                        .tint(Studio.accent)
-                    Text("\(tempo) BPM").font(.callout).monospacedDigit()
-                        .foregroundStyle(Studio.text)
+            }
+            ctlDrop(label: "Speed", value: "\(speedValue)x") {
+                ForEach([1, 2, 4, 8], id: \.self) { v in
+                    Button("\(v)x") { speed = "\(v)" }
                 }
+            }
+            ctlDrop(label: "Labels",
+                    value: labels == "full" ? "S R₁ G₃" : "S R G") {
+                Button("S R G") { labels = "simple" }
+                Button("S R₁ G₃") { labels = "full" }
             }
         }
     }
@@ -222,65 +279,44 @@ struct VarisaiLessonView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// The play row under the big Play button (web .playrow): the
-    /// Loop toggle as a button, on-state tinted.
-    private var playRow: some View {
-        HStack(spacing: 10) {
-            Button {
-                loopOn.toggle()
-            } label: {
-                Text("🔁 Loop")
-                    .font(.callout.weight(.medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(loopOn ? Studio.accentSoft : Studio.panel2,
-                                in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(loopOn ? Studio.accent : Studio.border, lineWidth: 1))
+    /// The sticky bottom dock: Play + Loop on one row, the
+    /// tempo slider under it. Always visible, so the notation
+    /// owns the scrolling area.
+    private var dock: some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                playButton
+                Button {
+                    loopOn.toggle()
+                } label: {
+                    Text("🔁 Loop")
+                        .font(.callout.weight(.medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 13)
+                        .background(loopOn ? Studio.accentSoft : Studio.panel2,
+                                    in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(loopOn ? Studio.accent : Studio.border, lineWidth: 1))
+                        .foregroundStyle(Studio.text)
+                }
+                .buttonStyle(.plain)
+            }
+            HStack(spacing: 10) {
+                Text("Tempo").foregroundStyle(Studio.text)
+                Slider(value: Binding(
+                    get: { Double(tempo) },
+                    set: { tempo = Int($0) }),
+                    in: 30...90, step: 10)
+                    .tint(Studio.accent)
+                Text("\(tempo) BPM").font(.callout).monospacedDigit()
                     .foregroundStyle(Studio.text)
             }
-            .buttonStyle(.plain)
         }
-    }
-
-    /// The Patterns card (web's second card): every pattern in the
-    /// lesson, the current one marked; a tap jumps to it.
-    private var patternsCard: some View {
-        StudioCard {
-            VStack(alignment: .leading, spacing: 8) {
-                StudioSectionTitle("Patterns")
-                Text("\(lesson.patterns.count) patterns")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach(lesson.patterns.indices, id: \.self) { i in
-                    Button {
-                        patternIndex = i
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(lesson.patterns[i].title)
-                                    .font(.callout.weight(i == patternIndex ? .semibold : .regular))
-                                    .foregroundStyle(i == patternIndex ? Studio.accent : Studio.text)
-                                if !lesson.patterns[i].sub.isEmpty {
-                                    Text(lesson.patterns[i].sub)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            if i == patternIndex {
-                                Text("●").font(.caption).foregroundStyle(Studio.accent)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    if i < lesson.patterns.count - 1 {
-                        Divider()
-                    }
-                }
-            }
-        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(Studio.panel)
+        .overlay(alignment: .top) { Divider() }
     }
 
     private var playButton: some View {
@@ -437,7 +473,7 @@ struct VarisaiPlayButton: View {
     var body: some View {
         Button(action: onToggle) {
             Text(player.state == .playing ? "■ Stop"
-                 : player.state == .loading ? "⏳ Loading…" : "▶ Play pattern")
+                 : player.state == .loading ? "⏳ Loading…" : "▶ Play")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
