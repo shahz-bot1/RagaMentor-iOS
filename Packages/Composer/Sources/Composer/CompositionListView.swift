@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
 import SwaraEditor
+import RagaBrowser
 import DesignSystem
 
 /// Compose Studio (web compose/index.html): the composition list
@@ -84,6 +85,15 @@ public struct CompositionListView: View {
                 model: session.model,
                 title: name(of: session.id),
                 compositionName: nameBinding(for: session.id),
+                browseSheet: { model, dismiss in
+                    AnyView(RagaBrowserView(
+                        library: model.library, mode: .pick,
+                        onPick: { raga in
+                            model.applyBrowsedRaga(raga)
+                            dismiss()
+                        },
+                        onCancel: dismiss))
+                },
                 deleteTitle: "Delete composition",
                 deleteMessage: "Delete this composition?",
                 onClose: {
