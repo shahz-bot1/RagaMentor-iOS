@@ -29,6 +29,7 @@
 		C0FFEE000000000000000408 /* ComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ComposerTests.swift"; sourceTree = "<group>"; };
 		C0FFEE000000000000000409 /* RagaBrowserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RagaBrowserTests.swift"; sourceTree = "<group>"; };
 		C0FFEE000000000000000410 /* VarisaiTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarisaiTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000411 /* TalaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TalaTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
@@ -41,10 +42,12 @@
 		C0FFEE000000000000000307 /* Composer in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000207 /* Composer */; };
 		C0FFEE000000000000000308 /* RagaBrowser in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000208 /* RagaBrowser */; };
 		C0FFEE000000000000000309 /* Varisai in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000209 /* Varisai */; };
+		C0FFEE000000000000000310 /* Tala in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000210 /* Tala */; };
 		C0FFEE000000000000000315 /* SwaraEditor in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000215 /* SwaraEditor */; };
 		C0FFEE000000000000000316 /* Composer in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000216 /* Composer */; };
 		C0FFEE000000000000000317 /* RagaBrowser in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000217 /* RagaBrowser */; };
 		C0FFEE000000000000000318 /* Varisai in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000218 /* Varisai */; };
+		C0FFEE000000000000000319 /* Tala in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000219 /* Tala */; };
 		C0FFEE000000000000000311 /* RagaCore in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000211 /* RagaCore */; };
 		C0FFEE000000000000000312 /* AudioKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000212 /* AudioKit */; };
 		C0FFEE000000000000000313 /* PersistenceKit in Frameworks */ = {isa = PBXBuildFile; productRef = C0FFEE000000000000000213 /* PersistenceKit */; };
@@ -59,6 +62,7 @@
 		C0FFEE000000000000000418 /* ComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000408 /* ComposerTests.swift */; };
 		C0FFEE000000000000000419 /* RagaBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000409 /* RagaBrowserTests.swift */; };
 		C0FFEE000000000000000420 /* VarisaiTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000410 /* VarisaiTests.swift */; };
+		C0FFEE000000000000000421 /* TalaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000411 /* TalaTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -89,6 +93,7 @@
 				C0FFEE000000000000000307 /* Composer in Frameworks */,
 				C0FFEE000000000000000308 /* RagaBrowser in Frameworks */,
 				C0FFEE000000000000000309 /* Varisai in Frameworks */,
+				C0FFEE000000000000000310 /* Tala in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -104,6 +109,7 @@
 				C0FFEE000000000000000316 /* Composer in Frameworks */,
 				C0FFEE000000000000000317 /* RagaBrowser in Frameworks */,
 				C0FFEE000000000000000318 /* Varisai in Frameworks */,
+				C0FFEE000000000000000319 /* Tala in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,6 +147,7 @@
 				C0FFEE000000000000000408 /* ComposerTests.swift */,
 				C0FFEE000000000000000409 /* RagaBrowserTests.swift */,
 				C0FFEE000000000000000410 /* VarisaiTests.swift */,
+				C0FFEE000000000000000411 /* TalaTests.swift */,
 			);
 			path = "RagaMentor-iOSTests";
 			sourceTree = "<group>";
@@ -174,6 +181,7 @@
 				C0FFEE000000000000000207 /* Composer */,
 				C0FFEE000000000000000208 /* RagaBrowser */,
 				C0FFEE000000000000000209 /* Varisai */,
+				C0FFEE000000000000000210 /* Tala */,
 			);
 			productName = "RagaMentor-iOS";
 			productReference = 666666666666666666666666 /* RagaMentor-iOS.app */;
@@ -202,6 +210,7 @@
 				C0FFEE000000000000000216 /* Composer */,
 				C0FFEE000000000000000217 /* RagaBrowser */,
 				C0FFEE000000000000000218 /* Varisai */,
+				C0FFEE000000000000000219 /* Tala */,
 			);
 			productName = "RagaMentor-iOSTests";
 			productReference = 777777777777777777777777 /* RagaMentor-iOSTests.xctest */;
@@ -244,6 +253,7 @@
 				C0FFEE000000000000000107 /* XCLocalSwiftPackageReference "Composer" */,
 				C0FFEE000000000000000108 /* XCLocalSwiftPackageReference "RagaBrowser" */,
 				C0FFEE000000000000000109 /* XCLocalSwiftPackageReference "Varisai" */,
+				C0FFEE000000000000000110 /* XCLocalSwiftPackageReference "Tala" */,
 			);
 			mainGroup = 222222222222222222222222;
 			productRefGroup = 333333333333333333333333 /* Products */;
@@ -295,6 +305,7 @@
 				C0FFEE000000000000000418 /* ComposerTests.swift in Sources */,
 				C0FFEE000000000000000419 /* RagaBrowserTests.swift in Sources */,
 				C0FFEE000000000000000420 /* VarisaiTests.swift in Sources */,
+				C0FFEE000000000000000421 /* TalaTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,6 +355,10 @@
 		C0FFEE000000000000000109 /* XCLocalSwiftPackageReference "Varisai" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "Packages/Varisai";
+		};
+		C0FFEE000000000000000110 /* XCLocalSwiftPackageReference "Tala" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "Packages/Tala";
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -413,6 +428,11 @@
 			package = C0FFEE000000000000000109 /* XCLocalSwiftPackageReference "Varisai" */;
 			productName = "Varisai";
 		};
+		C0FFEE000000000000000210 /* Tala */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000110 /* XCLocalSwiftPackageReference "Tala" */;
+			productName = "Tala";
+		};
 		C0FFEE000000000000000215 /* SwaraEditor */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C0FFEE000000000000000106 /* XCLocalSwiftPackageReference "SwaraEditor" */;
@@ -432,6 +452,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C0FFEE000000000000000109 /* XCLocalSwiftPackageReference "Varisai" */;
 			productName = "Varisai";
+		};
+		C0FFEE000000000000000219 /* Tala */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0FFEE000000000000000110 /* XCLocalSwiftPackageReference "Tala" */;
+			productName = "Tala";
 		};
 /* End XCSwiftPackageProductDependency section */
 
@@ -463,7 +488,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -474,7 +499,7 @@
 					"@executable_path/Frameworks",
 				);
 				INFOPLIST_KEY_UIBackgroundModes = audio;
-				MARKETING_VERSION = 0.11.0;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -490,7 +515,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -501,7 +526,7 @@
 					"@executable_path/Frameworks",
 				);
 				INFOPLIST_KEY_UIBackgroundModes = audio;
-				MARKETING_VERSION = 0.11.0;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -516,14 +541,14 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.11.0;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -538,14 +563,14 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 18;
+				CURRENT_PROJECT_VERSION = 19;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.11.0;
+				MARKETING_VERSION = 0.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
