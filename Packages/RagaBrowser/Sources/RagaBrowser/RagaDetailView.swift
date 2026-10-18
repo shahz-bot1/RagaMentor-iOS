@@ -11,19 +11,13 @@ import DesignSystem
 struct RagaDetailView: View {
     let raga: Raga
     let library: any RagaLibrary
-    @ObservedObject var player: ScalePlayer
+    /// Plain value: the listen section observes the player, so this
+    /// page no longer re-renders on every note pulse.
+    let player: ScalePlayer
     var onPick: ((Raga) -> Void)?
 
-    @AppStorage("raga-sa") private var saOffset = 0
-    @AppStorage("raga-tempo") private var tempo = 120
-    @AppStorage("raga-label-mode") private var labelMode = "sargam"
     @State private var notation: Notation
-    @State private var status = "Audio: not started — tap Test beep below"
     @State private var isFavourite: Bool
-    @State private var tempoToken = 0
-    /// Cross-studio audio focus registration (P6).
-    @EnvironmentObject private var audioFocus: StudioAudioFocus
-    @State private var focusToken: UUID?
 
     private enum Notation: Hashable { case carnatic, hindustani }
 
@@ -35,10 +29,6 @@ struct RagaDetailView: View {
         self.onPick = onPick
         self._notation = State(initialValue: raga.isHindustani ? .hindustani : .carnatic)
         self._isFavourite = State(initialValue: library.isFavourite(sourceId: raga.id))
-    }
-
-    private var walk: [ScaleWalk.Note] {
-        ScaleWalk.notes(aro: raga.aro, ava: raga.ava)
     }
 
     var body: some View {
@@ -54,8 +44,8 @@ struct RagaDetailView: View {
                     .buttonStyle(StudioPrimaryButtonStyle())
                 }
                 scaleCard
-                listenCard
-                pianoCard
+                RagaListenSection(raga: raga, player: player,
+                                  hindustaniLabels: notation == .hindustani)
                 alliedCard
                 lakshanaCard
             }
@@ -64,29 +54,6 @@ struct RagaDetailView: View {
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(raga.name)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            focusToken = audioFocus.register { player.stop() }
-        }
-        .onDisappear {
-            player.stop()
-            if let focusToken { audioFocus.unregister(focusToken) }
-        }
-        .onChange(of: tempo) { _, newTempo in
-            // Web: a tempo change while playing restarts after a
-            // 350 ms debounce.
-            guard player.isPlaying else { return }
-            tempoToken += 1
-            let token = tempoToken
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                if token == tempoToken, player.isPlaying {
-                    play(newTempo)
-                }
-            }
-        }
-        .onChange(of: saOffset) { _, _ in
-            if player.isPlaying { play(tempo) }
-        }
     }
 
     // MARK: - Cards
@@ -133,143 +100,6 @@ struct RagaDetailView: View {
             return ScaleNotation.hindustani(String(token.dropLast())) + "′"
         }
         return ScaleNotation.hindustani(token)
-    }
-
-    private var listenCard: some View {
-        StudioCard {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    StudioSectionTitle("Listen · harmonium")
-                    Text("v14").font(.caption2.weight(.bold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Studio.panel2, in: Capsule())
-                        .foregroundStyle(.secondary)
-                }
-                HStack {
-                    Text("Sa").foregroundStyle(.secondary)
-                    Spacer()
-                    Picker("Sa", selection: $saOffset) {
-                        ForEach(0..<12, id: \.self) { i in
-                            Text(Swara.saNames[i]).tag(i)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-                HStack {
-                    Text("Tempo").foregroundStyle(.secondary)
-                    Slider(value: Binding(
-                        get: { Double(tempo) },
-                        set: { tempo = Int($0) }),
-                        in: 30...240, step: 10)
-                        .tint(Studio.accent)
-                    Text("\(tempo) bpm").font(.callout).monospacedDigit()
-                        .frame(width: 64, alignment: .trailing)
-                }
-                Button {
-                    if player.isPlaying { player.stop() } else { play(tempo) }
-                } label: {
-                    Text(player.isPlaying ? "■ Stop" : "▶ Play")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(StudioPrimaryButtonStyle())
-                HStack(spacing: 10) {
-                    Button("🔔 Test beep") {
-                        player.beep()
-                        status = "Audio: running — beep playing…"
-                    }
-                    .buttonStyle(StudioSecondaryButtonStyle())
-                    Text(status).font(.caption).foregroundStyle(.secondary)
-                }
-                Text("🔇 No sound on iPhone? Turn off silent mode.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text("Harmonium: tonejs-instruments · CC-BY 3.0 · Choir: Sonatina · CC Sampling+ 1.0 · AI voice: DiffSinger TIGER (experimental, non-commercial voicebank)")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var pianoCard: some View {
-        StudioCard {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    StudioSectionTitle("Piano")
-                    Spacer()
-                    StudioSegmented(items: [("sargam", "Sargam"), ("western", "Western")],
-                                    selection: $labelMode)
-                        .frame(width: 190)
-                }
-                PianoView(
-                    saPitchClass: saOffset,
-                    labels: pianoLabels,
-                    highlightRel: player.currentIndex >= 0 && player.currentIndex < walk.count
-                        ? walk[player.currentIndex].semitone : nil)
-            }
-        }
-    }
-
-    private var alliedCard: some View {
-        let resolved = raga.allied.compactMap { name in
-            RagaCatalog.all.first { $0.name == name }
-        }
-        return Group {
-            if !resolved.isEmpty {
-                StudioCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        StudioSectionTitle("Allied ragas · sounds like")
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)],
-                                  alignment: .leading, spacing: 8) {
-                            ForEach(resolved, id: \.id) { allied in
-                                NavigationLink(value: allied.id) {
-                                    StudioChipLabel(title: allied.name)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var lakshanaCard: some View {
-        StudioCard {
-            VStack(alignment: .leading, spacing: 6) {
-                StudioSectionTitle("Lakshana · curated in v1")
-                Text("Vadi / samvadi, anya swaras, jeeva swaras and compositions land here once the dataset is curated.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - Playback
-
-    /// Piano labels by rel, the web's rule: the first spelling met
-    /// in arohana-then-avarohana order wins, rel 0…12 only; Western
-    /// names in Western mode, the Hindustani mapping when the
-    /// notation toggle is Hindustani.
-    private var pianoLabels: [Int: String] {
-        var map: [Int: String] = [:]
-        for token in raga.aro + raga.ava {
-            let (base, lift) = ScaleWalk.splitToken(token)
-            guard let semi = Swara.semitones[base] else { continue }
-            let rel = semi + lift * 12
-            guard (0...12).contains(rel), map[rel] == nil else { continue }
-            if labelMode == "western" {
-                map[rel] = ScaleNotation.western(pitchClass: saOffset + rel)
-            } else if notation == .hindustani {
-                map[rel] = ScaleNotation.hindustani(base) + (lift > 0 ? "'" : "")
-            } else {
-                map[rel] = base + (lift > 0 ? "'" : "")
-            }
-        }
-        return map
-    }
-
-    private func play(_ atTempo: Int) {
-        audioFocus.stopAll(except: focusToken)
-        player.play(semitones: walk.map { $0.semitone + saOffset },
-                    tempo: atTempo)
-        status = "Audio: ready · harmonium"
     }
 
     private var metaLine: String {
