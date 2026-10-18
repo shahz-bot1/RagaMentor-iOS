@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import RagaCore
+import AudioKit
 import PersistenceKit
 import SwaraEditor
 import RagaBrowser
@@ -14,6 +15,9 @@ import DesignSystem
 struct LoopsView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
+    /// Cross-studio audio focus (P6): phrase playback stops the
+    /// other studios.
+    @EnvironmentObject private var audioFocus: StudioAudioFocus
     let song: Song
 
     @State private var showNewGroup = false
@@ -183,7 +187,10 @@ struct LoopsView: View {
             onSongRaga: { [weak controller] id in
                 controller?.noteSongRaga(id, context: modelContext)
             },
-            onPlayStart: { [weak controller] in controller?.pause() })
+            onPlayStart: { [weak controller] in
+                controller?.pause()
+                audioFocus.stopAll()
+            })
     }
 
     // MARK: Tree construction
