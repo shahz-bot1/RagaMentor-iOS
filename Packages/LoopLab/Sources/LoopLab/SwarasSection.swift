@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioKit
 import SwiftData
 import RagaCore
 import PersistenceKit
@@ -15,7 +16,7 @@ struct SwarasSectionView: View {
     /// Plain value: the play button and chip strip observe the
     /// player in leaves, so this section no longer re-renders per
     /// chip pulse.
-    let player: PhrasePlayer
+    let player: PhraseAdapter
     let song: Song
     var onEdit: (LoopRegion) -> Void
 
@@ -46,7 +47,7 @@ struct SwarasSectionView: View {
             Spacer()
             if let loop = controller.selectedLoop {
                 if let phrase = controller.phrase(for: loop), !phrase.chips.isEmpty {
-                    SectionPlayButton(player: player, loop: loop)
+                    SectionPlayButton(player: player.player, loop: loop)
                     Button("✎ Edit") { onEdit(loop) }
                         .buttonStyle(StudioSecondaryButtonStyle())
                 } else {
@@ -59,7 +60,7 @@ struct SwarasSectionView: View {
 
     private func phraseBody(loop: LoopRegion, phrase: Phrase) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            LivePhraseChipsView(player: player, chips: phrase.chips,
+            LivePhraseChipsView(player: player.player, chips: phrase.chips,
                                 contextKey: controller.sectionKey(for: loop))
             HStack {
                 Text("Tempo").foregroundStyle(.secondary)
@@ -92,7 +93,7 @@ struct SwarasSectionView: View {
 /// section header).
 struct SectionPlayButton: View {
     @EnvironmentObject private var controller: PlaybackController
-    @ObservedObject var player: PhrasePlayer
+    @ObservedObject var player: SequencePlayer
     let loop: LoopRegion
 
     var body: some View {
