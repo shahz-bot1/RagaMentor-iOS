@@ -93,12 +93,73 @@ public struct WaveformWindow: Equatable {
     }
 }
 
+/// One coloured span under the waveform peaks: a group band or a
+/// loop region, the web's paintWave shading model.
+struct WaveRegion: Equatable {
+    let start: Double
+    let end: Double
+    let color: Color
+    let alpha: Double
+}
+
+enum WaveformRegions {
+    /// Group bands first (parents before nested groups, lighter
+    /// with depth), then every loop tinted with its direct parent
+    /// group's colour — accent blue when ungrouped. The selected
+    /// loop/group paints strongest. Alphas are the web's exactly.
+    static func build(song: Song, selectedLoopID: UUID?,
+                      selectedGroupID: UUID?) -> [WaveRegion] {
+        let accent = Color(red: 0.357, green: 0.616, blue: 1.0)
+        // Direct-parent lookup from membership.
+        var parentOf: [UUID: LoopGroup] = [:]
+        for group in song.groups {
+            for member in group.memberIDs {
+                parentOf[member] = group
+            }
+        }
+        func depth(of group: LoopGroup) -> Int {
+            var d = 0
+            var current: LoopGroup? = group
+            var guardCount = 0
+            while let c = current, let parent = parentOf[c.id], guardCount < 8 {
+                d += 1
+                current = parent
+                guardCount += 1
+            }
+            return d
+        }
+        var regions: [WaveRegion] = []
+        for group in song.groups.sorted(by: { depth(of: $0) < depth(of: $1) }) {
+            guard let range = LoopsView.derivedRange(of: group, song: song) else { continue }
+            let selected = group.id == selectedGroupID
+            let alpha = selected ? 0.30 : max(0.07, 0.13 - Double(depth(of: group)) * 0.05)
+            regions.append(WaveRegion(start: range.start, end: range.end,
+                                      color: Color(hex: group.colorHex), alpha: alpha))
+        }
+        for loop in song.loops {
+            let selected = loop.id == selectedLoopID
+            if let parent = parentOf[loop.id] {
+                regions.append(WaveRegion(start: loop.start, end: loop.end,
+                                          color: Color(hex: parent.colorHex),
+                                          alpha: selected ? 0.45 : 0.20))
+            } else {
+                regions.append(WaveRegion(start: loop.start, end: loop.end,
+                                          color: accent,
+                                          alpha: selected ? 0.30 : 0.12))
+            }
+        }
+        return regions
+    }
+}
+
 struct WaveformView: View {
     let peaks: [Float]
     let duration: Double
     let position: Double
     var loopStart: Double? = nil
     var loopEnd: Double? = nil
+    /// Coloured spans (group bands + loop regions) under the peaks.
+    var regions: [WaveRegion] = []
     @Binding var window: WaveformWindow
     var seekEnabled: Bool = true
     var zoomPanEnabled: Bool = false
@@ -113,6 +174,13 @@ struct WaveformView: View {
             let width = Double(geo.size.width)
             Canvas { context, size in
                 let height = Double(size.height)
+                // Coloured spans: group bands + loop regions (web model)
+                for region in regions {
+                    let x1 = window.x(forTime: region.start, width: width)
+                    let x2 = window.x(forTime: region.end, width: width)
+                    context.fill(Path(CGRect(x: x1, y: 0, width: max(1, x2 - x1), height: height)),
+                                 with: .color(region.color.opacity(region.alpha)))
+                }
                 // Loop region tint
                 if let ls = loopStart, let le = loopEnd {
                     let x1 = window.x(forTime: ls, width: width)
