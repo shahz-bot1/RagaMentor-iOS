@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import LoopLab
 import PersistenceKit
+import Composer
 
 struct ContentView: View {
     @StateObject private var controller = PlaybackController()
@@ -9,10 +10,24 @@ struct ContentView: View {
     /// The shared theme setting (PARITY-PLAN §10): one in-app
     /// setting for all studios, default dark like the web.
     @AppStorage("ragamentor-theme") private var theme = "dark"
+    /// Compose Studio storage (P2).
+    private let compositionStore = UserDefaultsCompositionStore()
 
     var body: some View {
-        NavigationStack {
-            LibraryView()
+        TabView {
+            NavigationStack {
+                LibraryView()
+            }
+            .tabItem { Label("LoopLab", systemImage: "waveform") }
+
+            NavigationStack {
+                CompositionListView(
+                    store: compositionStore,
+                    library: controller.ragaLibrary,
+                    player: controller.phrasePlayer,
+                    onPlayStart: { controller.pause() })
+            }
+            .tabItem { Label("Compose", systemImage: "square.and.pencil") }
         }
         .preferredColorScheme(theme == "light" ? .light : .dark)
         .environmentObject(controller)
