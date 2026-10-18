@@ -1,5 +1,6 @@
 import SwiftUI
 import RagaCore
+import AudioKit
 import DesignSystem
 
 /// The RagaBrowser (web raga/index.html): Search, Favourites,
@@ -15,7 +16,7 @@ public struct RagaBrowserView: View {
     private let onPick: ((Raga) -> Void)?
     private let onCancel: (() -> Void)?
 
-    @StateObject private var adapter = ScaleAdapter()
+    @StateObject private var adapter: ScaleAdapter
     @State private var section: Tab = .search
     @State private var query = ""
     @State private var selectedClasses: Set<String> = []
@@ -26,12 +27,14 @@ public struct RagaBrowserView: View {
     private enum Tab: Hashable { case search, favourites, melakartas, hindustani }
 
     public init(library: any RagaLibrary, mode: Mode = .browse,
+                sequencePlayer: SequencePlayer,
                 onPick: ((Raga) -> Void)? = nil,
                 onCancel: (() -> Void)? = nil) {
         self.library = library
         self.mode = mode
         self.onPick = onPick
         self.onCancel = onCancel
+        _adapter = StateObject(wrappedValue: ScaleAdapter(player: sequencePlayer))
     }
 
     public var body: some View {
