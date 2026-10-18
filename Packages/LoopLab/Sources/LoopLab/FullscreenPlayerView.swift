@@ -75,8 +75,10 @@ struct FullscreenWaveformArea: View {
             WaveformView(peaks: peaks,
                          duration: song.duration,
                          position: controller.position,
-                         loopStart: controller.armedLoopRange?.start,
-                         loopEnd: controller.armedLoopRange?.end,
+                         regions: WaveformRegions.build(
+                            song: song,
+                            selectedLoopID: controller.selectedLoopID,
+                            selectedGroupID: controller.selectedGroupID),
                          window: $window,
                          zoomPanEnabled: true,
                          onSeek: hardSeek)
