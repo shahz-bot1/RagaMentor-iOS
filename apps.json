@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.1.1",
-      "versionDate": "2026-10-18T16:10:00Z",
-      "versionDescription": "v1.1.1 \u2014 Loops screens now follow the web layout and order exactly: chips, then the selected loop name/delete row and note line, then Swaras (header play/Edit/Add, loop sub-line, strip, tempo, meta); backup lives only in More. The A\u2013B tab matches the web rows (head, A/B steppers with Set, Loop toggle + Split, add-loop row), and the fullscreen transport sits above the tabs like the web.",
+      "version": "1.1.2",
+      "versionDate": "2026-10-18T16:15:00Z",
+      "versionDescription": "v1.1.2 \u2014 design consistency pass: the Varisai notation grid now fills its container with equal-width cells (the web flex model); the Varisai lesson follows the web order with the Patterns card added; verbose icon+text buttons trimmed to the web text style (Split, Loop, Export/Import).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.1.1",
-          "date": "2026-10-18T16:10:00Z",
-          "localizedDescription": "Loops/A\u2013B screens reordered to the web layout.",
+          "version": "1.1.2",
+          "date": "2026-10-18T16:15:00Z",
+          "localizedDescription": "Varisai grid equal-fill + lesson order + button trims.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
