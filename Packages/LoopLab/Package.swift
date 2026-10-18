@@ -13,5 +13,5 @@ let package = Package(
         .package(path: "../DesignSystem"),
         .package(path: "../SwaraEditor")
     ],
-    targets: [.target(name: "LoopLab", dependencies: ["RagaCore", "AudioKit", "PersistenceKit", "DesignSystem", "SwaraEditor"])]
+    targets: [.target(name: "LoopLab", dependencies: ["RagaCore", "AudioKit", "PersistenceKit", "DesignSystem", "SwaraEditor", "RagaBrowser"])]
 )
