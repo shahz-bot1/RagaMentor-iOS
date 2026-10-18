@@ -237,9 +237,9 @@ public struct RagaBrowserView: View {
     }
 
     private func subtitle(_ raga: Raga) -> String {
-        if let n = raga.melakartaNumber { return "Melakarta \(n) · \(raga.jati)" }
-        if let parent = raga.parentMelakarta { return "Janya of \(parent) · \(raga.jati)" }
+        if let n = raga.melakartaNumber { return "Melakarta \(n) · \(raga.jati ?? "")" }
+        if let parent = raga.parentMelakarta { return "Janya of \(parent) · \(raga.jati ?? "")" }
         if let thaat = raga.thaat { return "Hindustani · Thaat \(thaat)" }
-        return raga.jati
+        return raga.jati ?? ""
     }
 }
