@@ -5,6 +5,7 @@ import PersistenceKit
 import Composer
 import RagaBrowser
 import Varisai
+import Tala
 
 struct ContentView: View {
     @StateObject private var controller = PlaybackController()
@@ -39,6 +40,12 @@ struct ContentView: View {
                 controller.phrasePlayer.stop()
             })
             .tabItem { Label("Varisai", systemImage: "music.note.list") }
+
+            TalaStudioView(onPlayStart: {
+                controller.pause()
+                controller.phrasePlayer.stop()
+            })
+            .tabItem { Label("Tala", systemImage: "metronome") }
         }
         .preferredColorScheme(theme == "light" ? .light : .dark)
         .environmentObject(controller)
