@@ -20,6 +20,9 @@ struct LoopsView: View {
     @EnvironmentObject private var audioFocus: StudioAudioFocus
     let song: Song
 
+    /// The group currently drilled into (web's fsGroupView); nil =
+    /// the top level.
+    @State private var openGroupID: UUID?
     @State private var showNewGroup = false
     @State private var newGroupName = ""
     @State private var editingGroup: LoopGroup?
@@ -30,61 +33,33 @@ struct LoopsView: View {
     @State private var importFailed = false
 
     var body: some View {
-        List {
-            if let loop = controller.selectedLoop {
-                Section("Selected loop") {
-                    LoopEditorView(song: song, loop: loop)
-                }
-            }
-
-            Section("Swaras") {
-                SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
-                    // Build the model ONCE, here in the action — never
-                    // inside the cover's content closure. Creating it
-                    // there rebuilt a fresh model on every controller
-                    // publish, which swapped the editor's model and
-                    // killed the picker sheet instantly (v0.8.0 bug).
-                    editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
-                }
-                .environmentObject(controller)
-            }
-
-            Section {
-                ForEach(topLevelItems, id: \.id) { item in
-                    itemView(item, depth: 0)
-                }
-                if song.loops.isEmpty {
-                    Text("No loops yet. Use Set A and Set B on the player to mark a section.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                Text("Loops")
-            }
-
-            Section {
-                Button {
-                    newGroupName = ""
-                    showNewGroup = true
-                } label: {
-                    Label("New group", systemImage: "folder.badge.plus")
-                }
-            }
-
-            Section("Backup") {
-                if let data = controller.backupJSON() {
-                    ShareLink(item: BackupDocument(data: data),
-                              preview: SharePreview("\(song.title) loops")) {
-                        Label("Export loops…", systemImage: "square.and.arrow.up")
+        ScrollView {
+            VStack(spacing: 14) {
+                loopsCard
+                if let loop = controller.selectedLoop {
+                    StudioCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            StudioSectionTitle("Selected loop")
+                            LoopEditorView(song: song, loop: loop)
+                        }
                     }
                 }
-                Button {
-                    showImporter = true
-                } label: {
-                    Label("Import loops…", systemImage: "square.and.arrow.down")
+                StudioCard {
+                    VStack(alignment: .leading, spacing: 8) {
+                        StudioSectionTitle("Swaras")
+                        SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
+                            // Build the model ONCE, here in the action — never
+                            // inside a presentation closure (v0.8.0 bug).
+                            editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
+                        }
+                        .environmentObject(controller)
+                    }
                 }
+                backupCard
             }
+            .padding(16)
         }
+        .background(Studio.bg.ignoresSafeArea())
         .fileImporter(isPresented: $showImporter,
                       allowedContentTypes: [.json],
                       allowsMultipleSelection: false) { result in
@@ -116,7 +91,6 @@ struct LoopsView: View {
             Text("That file is not a valid RagaMentor loops backup.")
         }
         .navigationTitle("Loops")
-        .studioList()
         .navigationBarTitleDisplayMode(.inline)
         .alert("New group", isPresented: $showNewGroup) {
             TextField("Group name", text: $newGroupName)
@@ -193,6 +167,153 @@ struct LoopsView: View {
             })
     }
 
+    // MARK: - Loops chip collection (web #fsChips)
+
+    private var openGroup: LoopGroup? {
+        openGroupID.flatMap { id in song.groups.first { $0.id == id } }
+    }
+
+    /// Loops and groups as wrapping chips, the web's model: group
+    /// chips (colour dot, name, member count, chevron) drill in and
+    /// arm the group's whole range; loop chips select; tapping the
+    /// selected loop chip again deselects it.
+    private var loopsCard: some View {
+        StudioCard {
+            VStack(alignment: .leading, spacing: 10) {
+                StudioSectionTitle("Loops")
+                FlowLayout(spacing: 8, rowSpacing: 8) {
+                    if openGroup != nil {
+                        chipButton(title: "‹ All", filled: false) { openGroupID = nil }
+                    }
+                    ForEach(levelItems, id: \.id) { item in
+                        switch item {
+                        case .loop(let loop):
+                            loopChip(loop)
+                        case .group(let group):
+                            groupChip(group)
+                        }
+                    }
+                    if let openGroup {
+                        chipButton(title: "＋ Add loops", filled: false) {
+                            editingGroup = openGroup
+                        }
+                    } else {
+                        chipButton(title: "＋ New group", filled: false) {
+                            newGroupName = ""
+                            showNewGroup = true
+                        }
+                    }
+                }
+                if song.loops.isEmpty {
+                    Text("No loops yet. Use Set A and Set B on the player to mark a section.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else if let group = openGroup {
+                    Text(memberSummary(of: group))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func loopChip(_ loop: LoopRegion) -> some View {
+        let selected = controller.selectedLoopID == loop.id
+        return Button {
+            if selected { controller.clearLoopSelection() }
+            else { controller.selectLoop(loop, context: modelContext) }
+        } label: {
+            HStack(spacing: 5) {
+                Text(loop.name)
+                if controller.hasPhrase(loop) {
+                    Text("♪").font(.caption)
+                }
+            }
+            .font(.subheadline.weight(selected ? .semibold : .regular))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(selected ? Studio.accent : Studio.panel2, in: Capsule())
+            .foregroundStyle(selected ? .white : Studio.text)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive) {
+                controller.deleteLoop(loop, context: modelContext)
+            } label: { Label("Delete loop", systemImage: "trash") }
+        }
+    }
+
+    private func groupChip(_ group: LoopGroup) -> some View {
+        let armed = controller.selectedGroupID == group.id
+        return Button {
+            openGroupID = group.id
+            controller.selectGroup(group, context: modelContext)
+        } label: {
+            HStack(spacing: 6) {
+                Circle().fill(Color(hex: group.colorHex)).frame(width: 9, height: 9)
+                Text(group.name)
+                Text("\(group.memberIDs.count)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(armed ? .white.opacity(0.8) : .secondary)
+                Text("▸").font(.caption).foregroundStyle(armed ? .white.opacity(0.8) : .secondary)
+            }
+            .font(.subheadline.weight(armed ? .semibold : .regular))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(armed ? Studio.accent : Studio.panel2, in: Capsule())
+            .overlay(Capsule().strokeBorder(Studio.border, lineWidth: armed ? 0 : 1))
+            .foregroundStyle(armed ? .white : Studio.text)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                editingGroup = group
+            } label: { Label("Edit group…", systemImage: "pencil") }
+        }
+    }
+
+    private func chipButton(title: String, filled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Studio.panel2, in: Capsule())
+                .overlay(Capsule().strokeBorder(Studio.border, lineWidth: 1))
+                .foregroundStyle(Studio.text)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func memberSummary(of group: LoopGroup) -> String {
+        let loops = GroupOps.descendantLoopIDs(of: group.id,
+                                               groups: controller.groupData(song),
+                                               loopIDs: Set(song.loops.map(\.id)))
+        if let range = LoopsView.derivedRange(of: group, song: song) {
+            return "\(loops.count) item\(loops.count == 1 ? "" : "s") · \(LibraryView.formatDuration(range.start)) – \(LibraryView.formatDuration(range.end))"
+        }
+        return "\(loops.count) items"
+    }
+
+    private var backupCard: some View {
+        StudioCard {
+            VStack(alignment: .leading, spacing: 10) {
+                StudioSectionTitle("Backup")
+                if let data = controller.backupJSON() {
+                    ShareLink(item: BackupDocument(data: data),
+                              preview: SharePreview("\(song.title) loops")) {
+                        Label("Export loops…", systemImage: "square.and.arrow.up")
+                    }
+                }
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("Import loops…", systemImage: "square.and.arrow.down")
+                }
+            }
+        }
+    }
+
     // MARK: Tree construction
 
     private enum TreeItem {
@@ -211,6 +332,12 @@ struct LoopsView: View {
         case .loop(let loop): return loop.start
         case .group(let group): return LoopsView.derivedRange(of: group, song: song)?.start ?? .greatestFiniteMagnitude
         }
+    }
+
+    /// Items at the current drill level.
+    private var levelItems: [TreeItem] {
+        if let openGroup { return memberItems(of: openGroup) }
+        return topLevelItems
     }
 
     /// Ungrouped loops + top-level groups, interleaved by start time.
@@ -233,25 +360,7 @@ struct LoopsView: View {
             if let sub = song.groups.first(where: { $0.id == id }) { return .group(sub) }
             return nil
         }
-    }
-
-    private func itemView(_ item: TreeItem, depth: Int) -> AnyView {
-        switch item {
-        case .loop(let loop):
-            return AnyView(
-                LoopRowView(song: song, loop: loop)
-                    .padding(.leading, CGFloat(depth) * 16)
-            )
-        case .group(let group):
-            return AnyView(
-                Group {
-                    GroupHeaderView(song: song, group: group) { editingGroup = group }
-                    ForEach(memberItems(of: group), id: \.id) { member in
-                        itemView(member, depth: depth + 1)
-                    }
-                }
-            )
-        }
+        .sorted { (start(of: $0), $0.id.uuidString) < (start(of: $1), $1.id.uuidString) }
     }
 
     static func derivedRange(of group: LoopGroup, song: Song) -> (start: Double, end: Double)? {
@@ -268,88 +377,6 @@ struct BackupDocument: Transferable {
     let data: Data
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .json) { $0.data }
-    }
-}
-
-struct LoopRowView: View {
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var controller: PlaybackController
-    let song: Song
-    let loop: LoopRegion
-
-    var body: some View {
-        Button {
-            controller.selectLoop(loop, context: modelContext)
-        } label: {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(loop.name)
-                        .foregroundStyle(.primary)
-                    Text("\(fmt(loop.start)) – \(fmt(loop.end))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if !loop.note.isEmpty {
-                        Text(loop.note)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer()
-                if controller.hasPhrase(loop) {
-                    Text("♪").foregroundStyle(.secondary)
-                }
-                if controller.selectedLoopID == loop.id {
-                    Image(systemName: controller.loopOn ? "repeat.circle.fill" : "checkmark.circle")
-                        .foregroundStyle(.tint)
-                }
-            }
-        }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                controller.deleteLoop(loop, context: modelContext)
-            } label: { Label("Delete", systemImage: "trash") }
-        }
-    }
-
-    private func fmt(_ t: Double) -> String { LibraryView.formatDuration(t) }
-}
-
-struct GroupHeaderView: View {
-    @EnvironmentObject private var controller: PlaybackController
-    let song: Song
-    let group: LoopGroup
-    var onEdit: () -> Void
-
-    var body: some View {
-        Button(action: onEdit) {
-            HStack {
-                Image(systemName: "folder.fill")
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(group.name)
-                        .font(.subheadline).bold()
-                        .foregroundStyle(.primary)
-                    Text(summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "pencil")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var summary: String {
-        let loops = GroupOps.descendantLoopIDs(of: group.id,
-                                               groups: controller.groupData(song),
-                                               loopIDs: Set(song.loops.map(\.id)))
-        if let range = LoopsView.derivedRange(of: group, song: song) {
-            return "\(loops.count) item\(loops.count == 1 ? "" : "s") · \(LibraryView.formatDuration(range.start)) – \(LibraryView.formatDuration(range.end))"
-        }
-        return "\(loops.count) items"
     }
 }
 
@@ -527,5 +554,17 @@ struct GroupEditorView: View {
             }
         }
         return out
+    }
+}
+
+extension Color {
+    /// A Color from a "#rrggbb" hex string (group colours).
+    init(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        let v = UInt64(s, radix: 16) ?? 0x5B9DFF
+        self.init(red: Double((v >> 16) & 0xFF) / 255,
+                  green: Double((v >> 8) & 0xFF) / 255,
+                  blue: Double(v & 0xFF) / 255)
     }
 }
