@@ -123,7 +123,7 @@ struct LoopsView: View {
             GroupEditorView(song: song, group: group)
                 .environmentObject(controller)
         }
-        .fullScreenCover(item: $editorSession) { session in
+        .navigationDestination(item: $editorSession) { session in
             SwaraEditorView(
                 model: session.model,
                 title: session.loop.name,
@@ -143,10 +143,25 @@ struct LoopsView: View {
     /// One editor presentation: the loop plus its model, created once
     /// when the user taps Add/Edit and held in @State for the whole
     /// presentation, so the editor's model identity is stable.
-    private struct EditorSession: Identifiable {
+    /// Hashable by loop id for the navigation destination.
+    ///
+    /// The editor is PUSHED, not covered: as a fullScreenCover it
+    /// oscillated (open, close, open, close) on device — the cover
+    /// lived deep inside the fullscreen player's tab switch under a
+    /// 20 Hz position publisher, and the modal layer kept tearing
+    /// down. A pushed destination is owned by the navigation stack
+    /// and does not oscillate. (Compose keeps its cover: its host is
+    /// a calm tab-root list, where the cover is stable.)
+    private struct EditorSession: Identifiable, Hashable {
         let loop: LoopRegion
         let model: SwaraEditorModel
         var id: UUID { loop.id }
+        static func == (lhs: EditorSession, rhs: EditorSession) -> Bool {
+            lhs.loop.id == rhs.loop.id
+        }
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(loop.id)
+        }
     }
 
     /// Build the swara editor's model for a loop, wired to the
