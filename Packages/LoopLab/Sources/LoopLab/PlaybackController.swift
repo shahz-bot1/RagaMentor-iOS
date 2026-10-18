@@ -60,7 +60,7 @@ public final class PlaybackController: ObservableObject {
     /// The shared raga-selection service (P1).
     public let ragaLibrary: any RagaLibrary
     /// Phrase playback shared by the Swaras section and the editor (P1).
-    public let phrasePlayer: PhrasePlayer
+    public let phraseAdapter: PhraseAdapter
     private var positionTimer: Timer?
     private var notificationTokens: [NSObjectProtocol] = []
     private var resumeAfterInterruption = false
@@ -70,7 +70,7 @@ public final class PlaybackController: ObservableObject {
                 tone: (any ToneEngine)? = nil) {
         self.engine = engine
         self.ragaLibrary = library ?? DefaultRagaLibrary()
-        self.phrasePlayer = PhrasePlayer(tone: tone ?? HarmoniumToneEngine())
+        self.phraseAdapter = PhraseAdapter(tone: tone ?? HarmoniumToneEngine())
         engine.rate = speed
         observeSessionNotifications()
         setupRemoteCommands()
@@ -259,7 +259,7 @@ public final class PlaybackController: ObservableObject {
 
     public func togglePlay() {
         guard currentSong != nil else { return }
-        phrasePlayer.stop()
+        phraseAdapter.stop()
         if isPlaying {
             engine.pause()
             isPlaying = false
@@ -701,7 +701,7 @@ public final class PlaybackController: ObservableObject {
         for group in song.groups { context.delete(group) }
         song.groups = []
 
-        phrasePlayer.stop()
+        phraseAdapter.stop()
         for planned in plan.loops {
             let loop = LoopRegion(id: planned.id, name: planned.name, note: planned.note,
                                   start: planned.start, end: planned.end,
@@ -738,9 +738,9 @@ public final class PlaybackController: ObservableObject {
     }
 
     public func clearPhrase(for loop: LoopRegion, context: ModelContext) {
-        if phrasePlayer.isPlaying(contextKey: sectionKey(for: loop))
-            || phrasePlayer.isPlaying(contextKey: editorKey(for: loop)) {
-            phrasePlayer.stop()
+        if phraseAdapter.isPlaying(contextKey: sectionKey(for: loop))
+            || phraseAdapter.isPlaying(contextKey: editorKey(for: loop)) {
+            phraseAdapter.stop()
         }
         loop.swarasJSON = nil
         try? context.save()
@@ -764,8 +764,8 @@ public final class PlaybackController: ObservableObject {
     public func editorKey(for loop: LoopRegion) -> String { "editor:\(loop.id.uuidString)" }
 
     public func toggleSectionPhrase(for loop: LoopRegion) {
-        if phrasePlayer.isPlaying(contextKey: sectionKey(for: loop)) {
-            phrasePlayer.stop()
+        if phraseAdapter.isPlaying(contextKey: sectionKey(for: loop)) {
+            phraseAdapter.stop()
             return
         }
         guard let phrase = phrase(for: loop), !phrase.chips.isEmpty else { return }
@@ -776,7 +776,7 @@ public final class PlaybackController: ObservableObject {
     private func startSectionPhrase(_ phrase: Phrase, for loop: LoopRegion) {
         onPhraseStart?()
         let songID = currentSong?.id
-        phrasePlayer.play(phrase: phrase, contextKey: sectionKey(for: loop)) { [weak self] in
+        phraseAdapter.play(phrase: phrase, contextKey: sectionKey(for: loop)) { [weak self] in
             // Web ctx validity: the fullscreen section for this loop.
             self?.selectedLoopID == loop.id && self?.currentSong?.id == songID
         }
@@ -788,7 +788,7 @@ public final class PlaybackController: ObservableObject {
         guard var phrase = phrase(for: loop) else { return }
         phrase.tempo = min(120, max(30, tempo))
         savePhrase(phrase, for: loop, context: context)
-        if phrasePlayer.isPlaying(contextKey: sectionKey(for: loop)) {
+        if phraseAdapter.isPlaying(contextKey: sectionKey(for: loop)) {
             startSectionPhrase(phrase, for: loop)
         }
     }
