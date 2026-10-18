@@ -12,7 +12,9 @@ import DesignSystem
 struct SwarasSectionView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
-    @ObservedObject var player: PhrasePlayer
+    /// Plain value: the phrase strip leaf observes the player, so
+    /// this section no longer re-renders per chip pulse.
+    let player: PhrasePlayer
     let song: Song
     var onEdit: (LoopRegion) -> Void
 
@@ -36,18 +38,8 @@ struct SwarasSectionView: View {
     }
 
     private func phraseBody(loop: LoopRegion, phrase: Phrase) -> some View {
-        let playing = player.isPlaying(contextKey: controller.sectionKey(for: loop))
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                StudioRoundButton(systemImage: playing ? "stop.fill" : "play.fill",
-                                  diameter: 44) {
-                    controller.toggleSectionPhrase(for: loop)
-                }
-
-                PhraseChipsView(
-                    chips: phrase.chips,
-                    currentIndex: playing ? player.currentChipIndex : -1)
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            SectionPhraseStrip(player: player, loop: loop, phrase: phrase)
 
             HStack {
                 Text("Tempo").foregroundStyle(.secondary)
@@ -77,5 +69,27 @@ struct SwarasSectionView: View {
         let ragaName = phrase.ragaId.flatMap { controller.ragaLibrary.raga(id: $0)?.name }
             ?? "Chromatic"
         return "\(ragaName) · \(Swara.formatBeats(phrase.totalBeats)) beats"
+    }
+}
+
+/// The round play button + chip strip for a loop's phrase. This leaf
+/// is the section's only observer of the phrase player, so the
+/// per-chip highlight pulse re-renders just this strip.
+struct SectionPhraseStrip: View {
+    @EnvironmentObject private var controller: PlaybackController
+    @ObservedObject var player: PhrasePlayer
+    let loop: LoopRegion
+    let phrase: Phrase
+
+    var body: some View {
+        let key = controller.sectionKey(for: loop)
+        HStack(spacing: 12) {
+            StudioRoundButton(
+                systemImage: player.isPlaying(contextKey: key) ? "stop.fill" : "play.fill",
+                diameter: 44) {
+                controller.toggleSectionPhrase(for: loop)
+            }
+            LivePhraseChipsView(player: player, chips: phrase.chips, contextKey: key)
+        }
     }
 }
