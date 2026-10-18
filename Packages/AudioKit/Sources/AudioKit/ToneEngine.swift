@@ -31,6 +31,19 @@ public final class HarmoniumToneEngine: ToneEngine {
     private var nodeFormat: AVAudioFormat?
     private var buffers: [String: AVAudioPCMBuffer] = [:] // file name → sample
     private var renderCache: [String: AVAudioPCMBuffer] = [:]
+    /// Silent-loop player that keeps the engine rendering across
+    /// the silent gap between phrase passes. Phrase loops restart
+    /// from a sleeping task (PhrasePlayer: pass end + 0.4 s); if
+    /// nothing is rendering when the last note ends, iOS suspends
+    /// the app in that gap and the restart never fires — the loop
+    /// played once and died in the background. A looping silent
+    /// buffer keeps the process alive; a deadline work item stops
+    /// it ~2.5 s after the last scheduled note, and stopAll()
+    /// stops it at once.
+    private let keepAlivePlayer = AVAudioPlayerNode()
+    private var keepAliveRunning = false
+    private let keepAliveQueue = DispatchQueue(label: "ragamentor.tone.keepalive")
+    private var keepAliveDeadline: DispatchWorkItem?
     public private(set) var samplesReady = false
 
     public init(playerCount: Int = 4) {
@@ -39,6 +52,7 @@ public final class HarmoniumToneEngine: ToneEngine {
             engine.attach(node)
             players.append(node)
         }
+        engine.attach(keepAlivePlayer)
     }
 
     public func prepare() async {
@@ -80,6 +94,7 @@ public final class HarmoniumToneEngine: ToneEngine {
             for player in players {
                 engine.connect(player, to: engine.mainMixerNode, format: nodeFormat)
             }
+            engine.connect(keepAlivePlayer, to: engine.mainMixerNode, format: nodeFormat)
         }
         engine.prepare()
         do {
@@ -93,6 +108,7 @@ public final class HarmoniumToneEngine: ToneEngine {
     public func playNote(semitone: Int, atOffset offset: Double, duration: Double) {
         ensureEngine()
         guard engineStarted, let format = nodeFormat else { return }
+        startKeepAlive(format: format, soundingFor: offset + duration)
         let rendered: AVAudioPCMBuffer?
         let cacheKey = "\(semitone)|\(Int((duration * 20).rounded()))"
         if let cached = renderCache[cacheKey] {
@@ -135,5 +151,36 @@ public final class HarmoniumToneEngine: ToneEngine {
             player.stop()
         }
         nextPlayer = 0
+        keepAliveDeadline?.cancel()
+        keepAliveDeadline = nil
+        if keepAliveRunning {
+            keepAlivePlayer.stop()
+            keepAliveRunning = false
+        }
+    }
+
+    // MARK: - Background keep-alive
+
+    private func startKeepAlive(format: AVAudioFormat, soundingFor seconds: Double) {
+        if !keepAliveRunning {
+            let frames = AVAudioFrameCount(format.sampleRate) // 1 s of silence
+            guard let silence = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)
+            else { return }
+            silence.frameLength = frames // PCM buffers are zero-filled
+            keepAlivePlayer.scheduleBuffer(silence, at: nil, options: .loops)
+            keepAlivePlayer.play()
+            keepAliveRunning = true
+        }
+        // (Re)arm the stop deadline: the silence outlives the last
+        // scheduled note by ~2.5 s, which spans the phrase loop's
+        // 0.4 s restart gap; the next pass's notes re-arm it.
+        keepAliveDeadline?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, keepAliveRunning else { return }
+            keepAlivePlayer.stop()
+            keepAliveRunning = false
+        }
+        keepAliveDeadline = item
+        keepAliveQueue.asyncAfter(deadline: .now() + seconds + 2.5, execute: item)
     }
 }
