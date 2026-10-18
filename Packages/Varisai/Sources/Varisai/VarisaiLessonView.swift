@@ -418,9 +418,14 @@ struct VarisaiTokenCell: View, Equatable {
 
 
 /// Holds the lesson's player without the lesson view subscribing
-/// to it (see the lesson view's note).
+/// to it (see the lesson view's note). The player is main-actor
+/// isolated; view state is always created on the main actor, so
+/// the isolated init is assumed, not awaited.
 final class VarisaiPlayerBox {
-    let player = VarisaiPlayer()
+    let player: VarisaiPlayer
+    init() {
+        player = MainActor.assumeIsolated { VarisaiPlayer() }
+    }
 }
 
 /// The big Play/Stop button — the only control that observes the
