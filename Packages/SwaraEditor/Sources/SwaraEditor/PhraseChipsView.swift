@@ -54,13 +54,26 @@ public struct PhraseChipsView: View {
         self.onTapAdd = onTapAdd
     }
 
-    public var body: some View {
-        FlowLayout(spacing: 6, rowSpacing: 6) {
-            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
-                PhraseChipView(chip: chip, isCurrent: index == currentIndex)
-                    .onTapGesture { onTapChip?(index) }
+    private enum FlowItem: Identifiable {
+        case chip(Int)
+        case add
+        var id: String {
+            switch self {
+            case .chip(let i): return "chip-\(i)"
+            case .add: return "add"
             }
-            if let onTapAdd {
+        }
+    }
+
+    public var body: some View {
+        var items: [FlowItem] = chips.indices.map { .chip($0) }
+        if onTapAdd != nil { items.append(.add) }
+        return FlowStack(items: items, spacing: 6, rowSpacing: 6) { item in
+            switch item {
+            case .chip(let index):
+                PhraseChipView(chip: chips[index], isCurrent: index == currentIndex)
+                    .onTapGesture { onTapChip?(index) }
+            case .add:
                 Text("＋")
                     .font(.callout.weight(.medium))
                     .foregroundStyle(.secondary)
@@ -70,7 +83,7 @@ public struct PhraseChipsView: View {
                         RoundedRectangle(cornerRadius: 9)
                             .stroke(Studio.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
                     )
-                    .onTapGesture { onTapAdd() }
+                    .onTapGesture { onTapAdd?() }
             }
         }
     }
