@@ -45,7 +45,7 @@ public enum PianoGeometry {
                 below = r
                 break
             }
-            for r in (rel + 1)...13 where isWhite(r) {
+            for r in stride(from: rel + 1, through: 13, by: 1) where isWhite(r) {
                 above = r
                 break
             }
