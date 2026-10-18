@@ -41,6 +41,8 @@ struct VarisaiLessonView: View {
                                 full: labels == "full")
                 controlsCard
                 playButton
+                playRow
+                patternsCard
             }
             .padding(16)
         }
@@ -183,7 +185,67 @@ struct VarisaiLessonView: View {
                     Text("\(tempo) bpm").font(.callout).monospacedDigit()
                         .frame(width: 64, alignment: .trailing)
                 }
-                Toggle("Loop", isOn: $loopOn)
+            }
+        }
+    }
+
+    /// The play row under the big Play button (web .playrow): the
+    /// Loop toggle as a button, on-state tinted.
+    private var playRow: some View {
+        HStack(spacing: 10) {
+            Button {
+                loopOn.toggle()
+            } label: {
+                Text("🔁 Loop")
+                    .font(.callout.weight(.medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(loopOn ? Studio.accentSoft : Studio.panel2,
+                                in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(loopOn ? Studio.accent : Studio.border, lineWidth: 1))
+                    .foregroundStyle(Studio.text)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// The Patterns card (web's second card): every pattern in the
+    /// lesson, the current one marked; a tap jumps to it.
+    private var patternsCard: some View {
+        StudioCard {
+            VStack(alignment: .leading, spacing: 8) {
+                StudioSectionTitle("Patterns")
+                Text("\(lesson.patterns.count) patterns")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(lesson.patterns.indices, id: \.self) { i in
+                    Button {
+                        patternIndex = i
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(lesson.patterns[i].title)
+                                    .font(.callout.weight(i == patternIndex ? .semibold : .regular))
+                                    .foregroundStyle(i == patternIndex ? Studio.accent : Studio.text)
+                                if !lesson.patterns[i].sub.isEmpty {
+                                    Text(lesson.patterns[i].sub)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if i == patternIndex {
+                                Text("●").font(.caption).foregroundStyle(Studio.accent)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if i < lesson.patterns.count - 1 {
+                        Divider()
+                    }
+                }
             }
         }
     }
@@ -243,6 +305,11 @@ struct VarisaiLessonView: View {
 /// re-renders only the grid — the header's pattern menu and the
 /// controls stay untouched while playing (they used to rebuild on
 /// every tick, which starved the highlight and flickered the menu).
+///
+/// Layout is the web's flex model exactly: each line fills the
+/// container width; a group takes a share proportional to its
+/// token count, so EVERY token cell on a line has the same width —
+/// (container − gaps) / tokens in the line.
 struct VarisaiGridView: View {
     @ObservedObject var player: VarisaiPlayer
     let lines: [[[(token: String, index: Int)]]]
@@ -250,44 +317,80 @@ struct VarisaiGridView: View {
 
     var body: some View {
         let current = player.isPlaying ? player.currentToken : -1
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach(lines.indices, id: \.self) { lineIndex in
-                HStack(spacing: 6) {
-                    ForEach(lines[lineIndex].indices, id: \.self) { groupIndex in
-                        HStack(spacing: 3) {
-                            ForEach(lines[lineIndex][groupIndex], id: \.index) { item in
-                                VarisaiTokenCell(
-                                    text: VarisaiToken.label(item.token, full: full),
-                                    isCurrent: item.index == current)
-                                    .equatable()
-                            }
-                        }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 5)
-                        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Studio.border, lineWidth: 1))
-                    }
-                    Spacer(minLength: 0)
+                lineView(lines[lineIndex], current: current)
+            }
+        }
+    }
+
+    private func lineView(_ line: [[(token: String, index: Int)]],
+                          current: Int) -> some View {
+        let total = max(1, line.reduce(0) { $0 + $1.count })
+        return GeometryReader { geo in
+            let gap: CGFloat = 8
+            let unit = (geo.size.width - gap * CGFloat(max(0, line.count - 1)))
+                / CGFloat(total)
+            HStack(spacing: gap) {
+                ForEach(line.indices, id: \.self) { groupIndex in
+                    groupView(line[groupIndex],
+                              width: unit * CGFloat(line[groupIndex].count),
+                              current: current)
                 }
             }
+        }
+        .frame(height: 40)
+    }
+
+    @ViewBuilder
+    private func groupView(_ group: [(token: String, index: Int)],
+                           width: CGFloat, current: Int) -> some View {
+        if group.count == 1, VarisaiToken.isRest(group[0].token) {
+            // A lone rest/hold group: a bare chip with one token's
+            // share of the line (web: flex 1 1 0, no group box).
+            Text(VarisaiToken.label(group[0].token, full: full))
+                .font(.system(size: 13.5))
+                .foregroundStyle(.secondary)
+                .frame(width: width, height: 40)
+        } else {
+            HStack(spacing: 2) {
+                ForEach(group, id: \.index) { item in
+                    VarisaiTokenCell(
+                        text: VarisaiToken.label(item.token, full: full),
+                        isCurrent: item.index == current,
+                        isLow: item.token.hasPrefix(",") && item.token != ",")
+                        .equatable()
+                }
+            }
+            .padding(4)
+            .frame(width: width, height: 40)
+            .background(Studio.panel2, in: RoundedRectangle(cornerRadius: 9))
+            .overlay(RoundedRectangle(cornerRadius: 9)
+                .strokeBorder(Studio.border, lineWidth: 1))
         }
     }
 }
 
 /// One notation token. Equatable, so SwiftUI skips re-rendering
-/// every cell whose highlight state did not change.
+/// every cell whose highlight state did not change. Cells share
+/// their group equally (web: flex 1 1 0) at the web's 13.5 pt size.
 struct VarisaiTokenCell: View, Equatable {
     let text: String
     let isCurrent: Bool
+    let isLow: Bool
 
     var body: some View {
         Text(text)
-            .font(.system(.body, design: .monospaced))
-            .padding(.horizontal, 3)
-            .padding(.vertical, 1)
+            .font(.system(size: 13.5, weight: .medium))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(isCurrent ? Studio.accent : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 4))
+                        in: RoundedRectangle(cornerRadius: 6))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(isLow && !isCurrent ? Studio.muted.opacity(0.4)
+                                                      : Color.clear,
+                                  style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+            )
             .foregroundStyle(isCurrent ? .white : Studio.text)
     }
 }
