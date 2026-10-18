@@ -32,6 +32,10 @@ struct FullscreenPlayerView: View {
                     selection: $tab)
                 .padding(.horizontal)
 
+                FullscreenTransport(song: song)
+
+                Divider()
+
                 Group {
                     switch tab {
                     case .loops:
@@ -43,9 +47,6 @@ struct FullscreenPlayerView: View {
                     }
                 }
                 .frame(maxHeight: .infinity)
-
-                Divider()
-                FullscreenTransport(song: song)
             }
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(song.title)
@@ -160,49 +161,106 @@ struct FullscreenTransport: View {
     }
 }
 
-/// A–B tab: pending marks with steppers, creation, and the selected
-/// loop's editor (PLAN §10).
+/// A–B tab (web #fsPageAB): a head line, the A and B stepper rows
+/// (tag, −, value, +, Set), the Loop toggle + Split row, and the
+/// add-loop row. With a loop selected the steppers and Set write
+/// into that loop's edges; without one they work on the pending
+/// marks.
 struct ABTabView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
+    @State private var newName = ""
 
     var body: some View {
         List {
-            Section("Mark a section") {
-                markRow(title: "A", value: controller.pendingA, edge: .start) { controller.setA() }
-                markRow(title: "B", value: controller.pendingB, edge: .end) { controller.setB() }
-                if controller.pendingA != nil || controller.pendingB != nil {
-                    Button("Clear marks") { controller.clearPendingMarks() }
+            Section {
+                if let loop = controller.selectedLoop {
+                    Text("\(loop.name) · \(LibraryView.formatDuration(loop.start)) – \(LibraryView.formatDuration(loop.end))")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("No loop selected")
+                        .foregroundStyle(.secondary)
                 }
-                Text("Set A and B at the playhead (in any order). The loop is created when both are set; if B is before A they swap automatically.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+            }
+            Section {
+                stepperRow(edge: .start, tag: "A")
+                stepperRow(edge: .end, tag: "B")
             }
             if let loop = controller.selectedLoop {
-                Section("Selected loop") {
-                    LoopEditorView(song: song, loop: loop)
+                Section {
+                    HStack {
+                        Button {
+                            controller.toggleLoopOn()
+                        } label: {
+                            Label("Loop", systemImage: controller.loopOn ? "repeat.circle.fill" : "repeat")
+                        }
+                        Spacer()
+                        Button {
+                            controller.splitLoop(loop, context: modelContext)
+                        } label: {
+                            Label("Split", systemImage: "scissors")
+                        }
+                        .disabled(!LoopRules.canSplit(loopStart: loop.start, loopEnd: loop.end,
+                                                       at: controller.position))
+                    }
+                }
+            }
+            Section {
+                HStack {
+                    TextField("Loop name (optional)", text: $newName)
+                    Button("＋ Add loop") { addFromMarks() }
+                        .disabled(controller.pendingA == nil || controller.pendingB == nil)
+                }
+                if controller.pendingA != nil || controller.pendingB != nil {
+                    Button("Clear marks") { controller.clearPendingMarks() }
                 }
             }
         }
         .studioList()
     }
 
-    @ViewBuilder
-    private func markRow(title: String, value: Double?, edge: PlaybackController.Edge, action: @escaping () -> Void) -> some View {
-        HStack {
-            Button("Set \(title)") { action() }
-                .buttonStyle(.bordered)
+    private func stepperRow(edge: PlaybackController.Edge, tag: String) -> some View {
+        let loop = controller.selectedLoop
+        let value: Double? = loop.map { edge == .start ? $0.start : $0.end }
+            ?? (edge == .start ? controller.pendingA : controller.pendingB)
+        return HStack {
+            Text(tag).font(.headline).frame(width: 18)
+            Button("−") {
+                if let loop { controller.nudgeLoop(loop, edge: edge, by: -0.1, context: modelContext) }
+                else { controller.nudgePending(edge: edge, by: -0.1) }
+            }
+            .buttonStyle(.bordered)
+            .disabled(value == nil)
             Text(value.map { LibraryView.formatDuration($0) } ?? "—")
+                .frame(minWidth: 52)
                 .foregroundStyle(.secondary)
+            Button("+") {
+                if let loop { controller.nudgeLoop(loop, edge: edge, by: 0.1, context: modelContext) }
+                else { controller.nudgePending(edge: edge, by: 0.1) }
+            }
+            .buttonStyle(.bordered)
+            .disabled(value == nil)
             Spacer()
-            Button("−0.1") { controller.nudgePending(edge: edge, by: -0.1) }
-                .buttonStyle(.bordered)
-                .disabled(value == nil)
-            Button("+0.1") { controller.nudgePending(edge: edge, by: 0.1) }
-                .buttonStyle(.bordered)
-                .disabled(value == nil)
+            Button("Set") {
+                if let loop {
+                    controller.setLoopEdge(loop, edge: edge, at: controller.position, context: modelContext)
+                } else if edge == .start { controller.setA() } else { controller.setB() }
+            }
+            .buttonStyle(.bordered)
         }
+    }
+
+    private func addFromMarks() {
+        guard let a = controller.pendingA, let b = controller.pendingB else { return }
+        controller.clearPendingMarks()
+        if let loop = controller.createLoop(start: a, end: b, context: modelContext) {
+            let name = newName.trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty {
+                controller.renameLoop(loop, to: name, context: modelContext)
+            }
+        }
+        newName = ""
     }
 }
 
