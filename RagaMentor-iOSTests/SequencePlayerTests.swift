@@ -83,12 +83,7 @@ final class SequencePlayerTests: XCTestCase {
     }
 
     @MainActor
-    private func waitFor(_ seconds: Double) async {
-        try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-    }
-
-    @MainActor
-    private func poll(until condition: () -> Bool, timeout: Double = 3.0) async -> Bool {
+    private func poll(until condition: @MainActor () -> Bool, timeout: Double = 3.0) async -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if condition() { return true }
