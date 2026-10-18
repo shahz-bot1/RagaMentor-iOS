@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.4.3",
-      "versionDate": "2026-10-18T21:30:00Z",
-      "versionDescription": "v1.4.3 \u2014 SequencePlayer migration Phase P-D: Varisai patterns now play through the shared SequencePlayer core via a thin VarisaiAdapter with the seamless loop policy. The 60 ms-early seam wake and the live loop toggle move into the core; same steps, dheergam holds and legato overlaps. Ear-test gates: Varisai loop at 8x with the seam on the highlight grid; toggle flipped mid-pass takes effect at the seam.",
+      "version": "1.4.4",
+      "versionDate": "2026-10-18T21:45:00Z",
+      "versionDescription": "v1.4.4 \u2014 SequencePlayer migration Phase P-E (final): one tone engine and one SequencePlayer, built once in the app shell. Every studio adapter (scales, phrases, Varisai) wraps that shared player; per-studio stop guards keep a stop aimed at one studio from touching another's pass. This completes the SequencePlayer unification \u2014 one playback core for all swara sequences, with the song player and Tala clock separate as designed.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.4.3",
-          "date": "2026-10-18T21:30:00Z",
+          "version": "1.4.4",
+          "date": "2026-10-18T21:45:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
