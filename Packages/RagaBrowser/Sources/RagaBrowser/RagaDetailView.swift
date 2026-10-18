@@ -200,10 +200,9 @@ struct RagaDetailView: View {
                 }
                 PianoView(
                     saPitchClass: saOffset,
-                    scalePitchClasses: ScaleWalk.pitchClasses(aro: raga.aro, ava: raga.ava),
+                    labels: pianoLabels,
                     highlightRel: player.currentIndex >= 0 && player.currentIndex < walk.count
-                        ? walk[player.currentIndex].semitone : nil,
-                    westernLabels: labelMode == "western")
+                        ? walk[player.currentIndex].semitone : nil)
             }
         }
     }
@@ -243,6 +242,28 @@ struct RagaDetailView: View {
     }
 
     // MARK: - Playback
+
+    /// Piano labels by rel, the web's rule: the first spelling met
+    /// in arohana-then-avarohana order wins, rel 0…12 only; Western
+    /// names in Western mode, the Hindustani mapping when the
+    /// notation toggle is Hindustani.
+    private var pianoLabels: [Int: String] {
+        var map: [Int: String] = [:]
+        for token in raga.aro + raga.ava {
+            let (base, lift) = ScaleWalk.splitToken(token)
+            guard let semi = Swara.semitones[base] else { continue }
+            let rel = semi + lift * 12
+            guard (0...12).contains(rel), map[rel] == nil else { continue }
+            if labelMode == "western" {
+                map[rel] = ScaleNotation.western(pitchClass: saOffset + rel)
+            } else if notation == .hindustani {
+                map[rel] = ScaleNotation.hindustani(base) + (lift > 0 ? "'" : "")
+            } else {
+                map[rel] = base + (lift > 0 ? "'" : "")
+            }
+        }
+        return map
+    }
 
     private func play(_ atTempo: Int) {
         audioFocus.stopAll(except: focusToken)
