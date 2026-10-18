@@ -87,9 +87,11 @@ public enum CompositionFile {
         return .success((name: name, phrase: phrase))
     }
 
-    /// Export filename slug (web slugify): the registry slug rules.
+    /// Export filename slug (web slugify): the registry slug rules,
+    /// minus the registry's "rb-" id prefix; empty falls back.
     public static func fileSlug(for name: String) -> String {
-        let slug = RagaCatalog.registryId(forName: name)
+        var slug = RagaCatalog.registryId(forName: name)
+        if slug.hasPrefix("rb-") { slug.removeFirst(3) }
         return slug.isEmpty ? "composition" : slug
     }
 }
