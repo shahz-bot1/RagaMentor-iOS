@@ -157,8 +157,17 @@ public struct RagaBrowserView: View {
                 .padding(.horizontal)
                 .onChange(of: melSegment) { _, _ in openChakra = nil }
             List {
-                ForEach(chakraGroups, id: \.chakra) { group in
-                    chakraSection(group)
+                if melSegment == 2 {
+                    // All 72: one flat list, no chakra grouping.
+                    Section {
+                        ForEach(flatMelakartas, id: \.id) { raga in
+                            NavigationLink(value: raga.id) { rowLabel(raga) }
+                        }
+                    }
+                } else {
+                    ForEach(chakraGroups, id: \.chakra) { group in
+                        chakraSection(group)
+                    }
                 }
             }
             .studioList()
@@ -188,6 +197,12 @@ public struct RagaBrowserView: View {
             }
             .textCase(nil)
         }
+    }
+
+    private var flatMelakartas: [Raga] {
+        RagaCatalog.all
+            .filter { $0.melakartaNumber != nil }
+            .sorted { ($0.melakartaNumber ?? 0) < ($1.melakartaNumber ?? 0) }
     }
 
     private var chakraGroups: [(chakra: Int, ragas: [Raga])] {
