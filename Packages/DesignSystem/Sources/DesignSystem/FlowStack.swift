@@ -14,7 +14,7 @@ public struct FlowStack<Item: Identifiable, Content: View>: View {
     public var rowSpacing: CGFloat = 8
     @ViewBuilder public var content: (Item) -> Content
 
-    @State private var sizes: [Item.ID: CGSize] = [:]
+    @State private var sizes: [AnyHashable: CGSize] = [:]
     @State private var containerWidth: CGFloat = 0
 
     public init(items: [Item], spacing: CGFloat = 8, rowSpacing: CGFloat = 8,
@@ -78,7 +78,7 @@ public struct FlowStack<Item: Identifiable, Content: View>: View {
         var row: [Item] = []
         var rowWidth: CGFloat = 0
         for item in items {
-            let w = sizes[item.id]?.width ?? 0
+            let w = sizes[AnyHashable(item.id)]?.width ?? 0
             let added = row.isEmpty ? w : w + spacing
             if !row.isEmpty, rowWidth + added > containerWidth {
                 out.append(row)
