@@ -62,7 +62,7 @@ public struct CompositionListView: View {
                     refresh()
                     openEditor(comp)
                 } label: {
-                    Text("＋ New composition")
+                    Text("＋").font(.title3.weight(.semibold))
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
@@ -86,7 +86,10 @@ public struct CompositionListView: View {
         } message: {
             Text(importError ?? "")
         }
-        .fullScreenCover(item: $editorSession) { session in
+        .navigationDestination(isPresented: Binding(
+            get: { editorSession != nil },
+            set: { if !$0 { closeEditor() } })) {
+            if let session = editorSession {
             SwaraEditorView(
                 model: session.model,
                 title: name(of: session.id),
@@ -102,12 +105,15 @@ public struct CompositionListView: View {
                 },
                 deleteTitle: "Delete composition",
                 deleteMessage: "Delete this composition?",
-                onClose: {
-                    editorSession = nil
-                    openEditorID = nil
-                    refresh()
-                })
+                onClose: { closeEditor() })
+            }
         }
+    }
+
+    private func closeEditor() {
+        editorSession = nil
+        openEditorID = nil
+        refresh()
     }
 
     // MARK: - Rows
