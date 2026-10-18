@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "0.8.1",
-      "versionDate": "2026-10-17T22:00:00Z",
-      "versionDescription": "v0.8.1 \u2014 Design pass: the web studio look (dark theme, cards, segmented controls, chips) across LoopLab and the swara editor, a theme setting in Settings, and a fix for the swara picker sheet closing instantly.",
+      "version": "0.9.0",
+      "versionDate": "2026-10-18T08:15:00Z",
+      "versionDescription": "v0.9.0 \u2014 Compose Studio: write, save, play, import and export swara compositions, using the same editor as loop phrases. Plus the v0.8.1 design pass.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "0.8.1",
-          "date": "2026-10-17T22:00:00Z",
-          "localizedDescription": "Design pass (web studio look) + picker sheet fix.",
+          "version": "0.9.0",
+          "date": "2026-10-18T08:15:00Z",
+          "localizedDescription": "Compose Studio (P2): compositions list + editor, import/export in the web format.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
