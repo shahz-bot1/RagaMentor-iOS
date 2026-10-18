@@ -1,6 +1,7 @@
 import XCTest
 import RagaCore
 import AudioKit
+import RagaBrowser
 
 // SequencePlayer tests (design P-A) — the pure timeline math, the
 // two P-A loop policies, and the core's scheduling/state behaviour
@@ -155,6 +156,35 @@ final class SequencePlayerTests: XCTestCase {
         let settled = await poll(until: { player.state == .idle }, timeout: 4.0)
         XCTAssertTrue(settled)
         XCTAssertEqual(tone.played.count, 3) // never re-entered
+    }
+
+    // MARK: - ScaleAdapter timeline (P-B)
+
+    func testScaleTimelineShape() {
+        // Mohanam's walk shape: aro + ava with the upper-Sa wrap.
+        let semis = ScaleWalk.semitones(aro: ["S", "R2", "G3", "P", "D2", "S'"],
+                                        ava: ["S'", "D2", "P", "G3", "R2", "S"])
+        let timeline = ScaleAdapter.timeline(semitones: semis, tempo: 120)
+        XCTAssertEqual(timeline.leadIn, 0.1)
+        XCTAssertEqual(timeline.highlightCount, semis.count)
+        XCTAssertEqual(timeline.notes.count, semis.count)
+        // step = 0.5 at 120 bpm; duration = 0.5 × (1 + min(1.5, 0.15)).
+        XCTAssertEqual(timeline.notes[0].start, 0)
+        XCTAssertEqual(timeline.notes[1].start, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(timeline.notes[0].duration, 0.575, accuracy: 1e-9)
+        XCTAssertEqual(timeline.notes.map(\.highlight), Array(0..<semis.count))
+        // The pass ends 0.30 s after the last note's step.
+        XCTAssertEqual(timeline.passDuration,
+                       Double(semis.count) * 0.5 + 0.3, accuracy: 1e-9)
+        XCTAssertEqual(timeline.highlightStarts, timeline.notes.map(\.start))
+    }
+
+    func testScaleTimelineAtTempo240() {
+        let timeline = ScaleAdapter.timeline(semitones: [0, 2, 4], tempo: 240)
+        // step = 0.25; duration = 0.25 × (1 + min(1.5, 0.3)) = 0.325.
+        XCTAssertEqual(timeline.notes[1].start, 0.25, accuracy: 1e-9)
+        XCTAssertEqual(timeline.notes[0].duration, 0.325, accuracy: 1e-9)
+        XCTAssertEqual(timeline.passDuration, 3 * 0.25 + 0.3, accuracy: 1e-9)
     }
 
     func testStopCancelsPlayback() async {
