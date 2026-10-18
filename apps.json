@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.4.6",
-      "versionDate": "2026-10-18T22:15:00Z",
-      "versionDescription": "v1.4.6 \u2014 Varisai lesson layout restored to the web order: the Laya/Tala row sits above the swara grid again, and Sa, Speed and Labels move onto the playback card. The card (Sa/Speed/Labels, Tempo, Play + Loop) floats at the bottom like a collection accessory \u2014 the swaras scroll beneath it and the last line always scrolls clear.",
+      "version": "1.4.7",
+      "versionDate": "2026-10-18T22:30:00Z",
+      "versionDescription": "v1.4.7 \u2014 LoopLab fix: tapping Edit on a loop's Swaras now pushes the swara editor reliably. The push was registered inside the Loops tab content, which the lazy page stack could tear down mid-push, collapsing navigation back to the song list; the presentation state and the push now live on the song detail page itself.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.4.6",
-          "date": "2026-10-18T22:15:00Z",
+          "version": "1.4.7",
+          "date": "2026-10-18T22:30:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
