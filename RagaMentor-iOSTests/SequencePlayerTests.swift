@@ -2,6 +2,7 @@ import XCTest
 import RagaCore
 import AudioKit
 import RagaBrowser
+import SwaraEditor
 
 // SequencePlayer tests (design P-A) — the pure timeline math, the
 // two P-A loop policies, and the core's scheduling/state behaviour
@@ -188,6 +189,42 @@ final class SequencePlayerTests: XCTestCase {
         XCTAssertEqual(timeline.notes[1].start, 0.25, accuracy: 1e-9)
         XCTAssertEqual(timeline.notes[0].duration, 0.325, accuracy: 1e-9)
         XCTAssertEqual(timeline.passDuration, 3 * 0.25 + 0.3, accuracy: 1e-9)
+    }
+
+    // MARK: - PhraseAdapter timeline (P-C)
+
+    func testPhraseTimelineWithStackHoldAndGap() {
+        // Tempo 60 → one beat = 1 s. Chip 0: single S. Chip 1:
+        // a two-note stack. Chip 2: a hold (extends the stack's
+        // final unit). Chip 3: a gap (silent). Chip 4: P.
+        let phrase = Phrase(ragaId: nil, saOffset: 0, tempo: 60, loop: false, chips: [
+            .note([StackEntry(st: "S", oct: 0)], beats: 1),
+            .note([StackEntry(st: "R2", oct: 0), StackEntry(st: "G3", oct: 0)], beats: 1),
+            .hold(beats: 1),
+            .gap(beats: 1),
+            .note([StackEntry(st: "P", oct: 0)], beats: 1),
+        ])
+        let timeline = PhraseAdapter.timeline(for: phrase)
+        XCTAssertEqual(timeline.leadIn, 0.1)
+        XCTAssertEqual(timeline.passDuration, 5.0, accuracy: 1e-9)
+        XCTAssertEqual(timeline.highlightCount, 5)
+        XCTAssertEqual(timeline.highlightStarts, [0, 1, 2, 3, 4])
+        XCTAssertEqual(timeline.notes.count, 4)
+        let semis = timeline.notes.map { $0.semitone }
+        XCTAssertEqual(semis, [0, 2, 4, 7])
+        let starts = timeline.notes.map { $0.start }
+        XCTAssertEqual(starts, [0, 1, 1.5, 4])
+        let highlights = timeline.notes.map { $0.highlight }
+        XCTAssertEqual(highlights, [0, 1, 1, 4])
+        // soundDur = slice + min(0.28, slice × 0.7): S slice 1 →
+        // 1.28; R2 slice 0.5 → 0.78; G3 slice 0.5 + 1 hold = 1.5
+        // → 1.78; P slice 1 → 1.28.
+        let durations = timeline.notes.map { $0.duration }
+        XCTAssertEqual(durations.count, 4)
+        XCTAssertEqual(durations[0], 1.28, accuracy: 1e-9)
+        XCTAssertEqual(durations[1], 0.78, accuracy: 1e-9)
+        XCTAssertEqual(durations[2], 1.78, accuracy: 1e-9)
+        XCTAssertEqual(durations[3], 1.28, accuracy: 1e-9)
     }
 
     func testStopCancelsPlayback() async {
