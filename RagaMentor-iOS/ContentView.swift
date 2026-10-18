@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import LoopLab
+import AudioKit
 import PersistenceKit
 import Composer
 import RagaBrowser
@@ -9,6 +10,9 @@ import Tala
 
 struct ContentView: View {
     @StateObject private var controller = PlaybackController()
+    /// Cross-studio audio focus (P6): one registry shared with
+    /// every studio through the environment.
+    @StateObject private var audioFocus = StudioAudioFocus()
     @Environment(\.scenePhase) private var scenePhase
     /// The shared theme setting (PARITY-PLAN §10): one in-app
     /// setting for all studios, default dark like the web.
@@ -49,6 +53,13 @@ struct ContentView: View {
         }
         .preferredColorScheme(theme == "light" ? .light : .dark)
         .environmentObject(controller)
+        .environmentObject(audioFocus)
+        .onAppear {
+            // Song and section-phrase playback stop every other
+            // studio (P6 focus).
+            controller.onSongStart = { audioFocus.stopAll() }
+            controller.onPhraseStart = { audioFocus.stopAll() }
+        }
         .onChange(of: scenePhase) {
             // Persist the resume point when leaving the foreground
             // (PLAN §11 state restore).
