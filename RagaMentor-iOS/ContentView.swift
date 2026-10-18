@@ -9,7 +9,19 @@ import Varisai
 import Tala
 
 struct ContentView: View {
-    @StateObject private var controller = PlaybackController()
+    @StateObject private var controller: PlaybackController
+    /// The app's ONE tone engine and ONE sequence player (P-E):
+    /// built here in the shell; every studio's adapter wraps
+    /// this player and nothing else constructs an engine.
+    @StateObject private var sequencePlayer: SequencePlayer
+
+    init() {
+        let tone = HarmoniumToneEngine()
+        let player = SequencePlayer(tone: tone)
+        _sequencePlayer = StateObject(wrappedValue: player)
+        _controller = StateObject(wrappedValue:
+            PlaybackController(sequencePlayer: player))
+    }
     /// Cross-studio audio focus (P6): one registry shared with
     /// every studio through the environment.
     @StateObject private var audioFocus = StudioAudioFocus()
@@ -36,13 +48,14 @@ struct ContentView: View {
             }
             .tabItem { Label("Compose", systemImage: "square.and.pencil") }
 
-            RagaBrowserView(library: controller.ragaLibrary)
+            RagaBrowserView(library: controller.ragaLibrary,
+                            sequencePlayer: sequencePlayer)
                 .tabItem { Label("Ragas", systemImage: "music.note.house") }
 
             VarisaiView(onPlayStart: {
                 controller.pause()
                 controller.phraseAdapter.stop()
-            })
+            }, sequencePlayer: sequencePlayer)
             .tabItem { Label("Varisai", systemImage: "music.note.list") }
 
             TalaStudioView(onPlayStart: {
