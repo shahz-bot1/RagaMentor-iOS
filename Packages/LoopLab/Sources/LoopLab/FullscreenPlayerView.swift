@@ -5,13 +5,15 @@ import RagaCore
 import PersistenceKit
 import DesignSystem
 
-// Fullscreen player (PLAN §10): waveform on top, a tabbed panel
-// (Loops / A–B / More), and a persistent mini-transport. The waveform
-// auto-follows the playhead while playing; a tap is a hard seek that
-// overrides an active loop (PLAN §9).
+// Song detail (PLAN §10): waveform on top, the transport, and a
+// tabbed panel (Loops / A–B / More), pushed from the library list.
+// The waveform auto-follows the playhead while playing; a tap is a
+// hard seek that overrides an active loop (PLAN §9).
 
-struct FullscreenPlayerView: View {
-    @Environment(\.dismiss) private var dismiss
+/// The song detail screen, pushed from the library list: the
+/// waveform, the transport, and the Loops / A–B / More tabs (the
+/// web fullscreen player's content, as a stack page).
+struct SongDetailView: View {
     let song: Song
 
     @State private var tab: Tab = .loops
@@ -21,10 +23,9 @@ struct FullscreenPlayerView: View {
     // This view deliberately holds NO playback controller: the
     // waveform and transport leaves below own the subscriptions,
     // so the 20 Hz position publish no longer rebuilds the tab
-    // content (the audit's P1 fix).
+    // content (the audit's P1 fix). The library opens the song.
     var body: some View {
-        NavigationStack {
-            GeometryReader { geo in
+        GeometryReader { geo in
                 VStack(spacing: 10) {
                     FullscreenWaveformArea(
                         song: song,
@@ -51,16 +52,10 @@ struct FullscreenPlayerView: View {
                     }
                     .frame(maxHeight: .infinity)
                 }
-            }
-            .background(Studio.bg.ignoresSafeArea())
-            .navigationTitle(song.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
+        .background(Studio.bg.ignoresSafeArea())
+        .navigationTitle(song.title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -282,6 +277,11 @@ struct MoreTabView: View {
 
     var body: some View {
         List {
+            Section("Song") {
+                TextField("Song title", text: Binding(
+                    get: { song.title },
+                    set: { song.title = $0 }))
+            }
             Section("Speed") {
                 HStack {
                     Text("Fine speed")
