@@ -51,7 +51,7 @@ public final class SwaraEditorModel: ObservableObject {
     @Published public var copyConfirmed = false
 
     public let library: any RagaLibrary
-    public let player: PhrasePlayer
+    public let player: PhraseAdapter
     /// Playback context key for the editor surface.
     public let contextKey: String
 
@@ -66,7 +66,7 @@ public final class SwaraEditorModel: ObservableObject {
                 hadSavedPhrase: Bool,
                 contextKey: String,
                 library: any RagaLibrary,
-                player: PhrasePlayer,
+                player: PhraseAdapter,
                 onSave: @escaping (Phrase) -> Void,
                 onDelete: @escaping () -> Void,
                 onSongRaga: @escaping (String?) -> Void,
