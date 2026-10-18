@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "0.10.0",
-      "versionDate": "2026-10-18T09:45:00Z",
-      "versionDescription": "v0.10.0 \u2014 RagaBrowser: all 87 ragas with search, favourites, melakarta chakras and thaats, the detail piano, harmonium playback, and the live raga picker in both editors.",
+      "version": "0.10.1",
+      "versionDate": "2026-10-18T10:20:00Z",
+      "versionDescription": "v0.10.1 \u2014 Fix: the LoopLab swara editor no longer opens and closes in a loop; it is now a pushed page instead of a modal cover.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "0.10.0",
-          "date": "2026-10-18T09:45:00Z",
-          "localizedDescription": "RagaBrowser + live RagaPicker (P3).",
+          "version": "0.10.1",
+          "date": "2026-10-18T10:20:00Z",
+          "localizedDescription": "LoopLab editor presentation fix.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
