@@ -162,28 +162,18 @@ public struct SwaraEditorView: View {
                     .frame(width: 64, alignment: .trailing)
             }
 
-            HStack(spacing: 12) {
-                Button {
-                    model.togglePlay()
-                } label: {
-                    Text(model.isPlaying || player.isPlaying(contextKey: model.contextKey)
-                         ? "■ Stop" : "▶ Play")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(StudioPrimaryButtonStyle())
+            EditorPlayRow(model: model, player: player)
 
-                Button {
-                    model.setLoop(!model.phrase.loop)
-                } label: {
-                    Text("Loop")
-                        .frame(maxWidth: .infinity)
+            HStack {
+                Spacer()
+                Button { confirmDelete = true } label: {
+                    Image(systemName: "trash")
+                        .font(.body)
+                        .foregroundStyle(Color(red: 0.878, green: 0.322, blue: 0.322))
                 }
-                .buttonStyle(StudioSecondaryButtonStyle())
-                .foregroundStyle(model.phrase.loop ? Studio.accent : Studio.text)
+                .buttonStyle(.plain)
+                .accessibilityLabel(deleteTitle)
             }
-
-            Button(deleteTitle, role: .destructive) { confirmDelete = true }
-                .font(.callout)
         }
         .padding()
         .background(Studio.panel, in: RoundedRectangle(cornerRadius: 14))
@@ -294,5 +284,45 @@ public struct SwaraEditorView: View {
         .padding()
         .background(Studio.panel, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Studio.border, lineWidth: 1))
+    }
+}
+
+
+/// The editor's Play + Loop row. It observes BOTH the model and
+/// the player: the play state lives on the player (the setup card
+/// never saw its changes, so Play never flipped to Stop), and the
+/// loop state lives on the model's phrase. The loop button carries
+/// its own styling — the shared secondary style forces the text
+/// colour and swallowed the on-state tint.
+struct EditorPlayRow: View {
+    @ObservedObject var model: SwaraEditorModel
+    @ObservedObject var player: PhrasePlayer
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button {
+                model.togglePlay()
+            } label: {
+                Text(player.isPlaying(contextKey: model.contextKey) ? "■ Stop" : "▶ Play")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(StudioPrimaryButtonStyle())
+
+            Button {
+                model.setLoop(!model.phrase.loop)
+            } label: {
+                Text("Loop")
+                    .font(.body)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 9)
+                    .background(model.phrase.loop ? Studio.accentSoft : Studio.panel2,
+                                in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(model.phrase.loop ? Studio.accent : Studio.border,
+                                      lineWidth: 1))
+                    .foregroundStyle(model.phrase.loop ? Studio.accent : Studio.text)
+            }
+            .buttonStyle(.plain)
+        }
     }
 }
