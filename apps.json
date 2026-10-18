@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.4.5",
-      "versionDate": "2026-10-18T22:00:00Z",
-      "versionDescription": "v1.4.5 \u2014 Song detail waveform touches fixed by touch forwarding: the pinned-scroll ScrollView still fronts the page, but a transparent top layer now hands touches in the wave strip to the waveform while the page rests at the top \u2014 Follow, Fit, the armed-loop badge, tap-seek and pinch all work. Scrolling, content sliding over the wave, and the pinned playback header are unchanged.",
+      "version": "1.4.6",
+      "versionDate": "2026-10-18T22:15:00Z",
+      "versionDescription": "v1.4.6 \u2014 Varisai lesson layout restored to the web order: the Laya/Tala row sits above the swara grid again, and Sa, Speed and Labels move onto the playback card. The card (Sa/Speed/Labels, Tempo, Play + Loop) floats at the bottom like a collection accessory \u2014 the swaras scroll beneath it and the last line always scrolls clear.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.4.5",
-          "date": "2026-10-18T22:00:00Z",
+          "version": "1.4.6",
+          "date": "2026-10-18T22:15:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
