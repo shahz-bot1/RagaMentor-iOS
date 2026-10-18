@@ -1,5 +1,6 @@
 import SwiftUI
 import RagaCore
+import AudioKit
 import DesignSystem
 
 /// Tala Studio (web tala/index.html): the wheel, the tala and
@@ -8,6 +9,9 @@ import DesignSystem
 public struct TalaStudioView: View {
     @StateObject private var clock = TalaClock()
     private let onPlayStart: () -> Void
+    /// Cross-studio audio focus registration (P6).
+    @EnvironmentObject private var audioFocus: StudioAudioFocus
+    @State private var focusToken: UUID?
 
     public init(onPlayStart: @escaping () -> Void) {
         self.onPlayStart = onPlayStart
@@ -38,12 +42,16 @@ public struct TalaStudioView: View {
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle("Tala Studio")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                focusToken = clock.attachFocus(audioFocus)
+            }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 6) {
                     Button {
                         if clock.isPlaying {
                             clock.stop()
                         } else {
+                            audioFocus.stopAll(except: focusToken)
                             onPlayStart()
                             clock.start()
                         }
