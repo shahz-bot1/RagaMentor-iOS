@@ -1,5 +1,6 @@
 import SwiftUI
 import RagaCore
+import AudioKit
 import DesignSystem
 
 /// One lesson's practice screen (web varisai player): pattern
@@ -16,6 +17,9 @@ struct VarisaiLessonView: View {
     @State private var loopOn = true
     @State private var showTalaLegend = false
     @State private var tempoToken = 0
+    /// Cross-studio audio focus registration (P6).
+    @EnvironmentObject private var audioFocus: StudioAudioFocus
+    @State private var focusToken: UUID?
 
     @AppStorage("varisai-sa") private var saOffset = 0
     @AppStorage("varisai-tempo") private var tempo = 60
@@ -38,7 +42,17 @@ struct VarisaiLessonView: View {
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(lesson.name)
         .navigationBarTitleDisplayMode(.inline)
-        .onDisappear { player.stop() }
+        .onAppear {
+            focusToken = audioFocus.register { player.stop() }
+        }
+        .onDisappear {
+            player.stop()
+            if let focusToken { audioFocus.unregister(focusToken) }
+        }
+        .onChange(of: loopOn) { _, newValue in
+            // The player reads the toggle live at the loop seam.
+            player.loopEnabled = newValue
+        }
         .onChange(of: patternIndex) { _, _ in player.stop() }
         .onChange(of: saOffset) { _, _ in restartIfPlaying(debounced: false) }
         .onChange(of: speed) { _, _ in restartIfPlaying(debounced: false) }
@@ -227,6 +241,7 @@ struct VarisaiLessonView: View {
     // MARK: - Playback control
 
     private func start() {
+        audioFocus.stopAll(except: focusToken)
         player.play(pattern: pattern, saOffset: saOffset, tempo: tempo,
                     speed: speedValue, loop: loopOn)
     }
