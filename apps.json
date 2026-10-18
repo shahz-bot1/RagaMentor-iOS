@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.4.7",
-      "versionDate": "2026-10-18T22:30:00Z",
-      "versionDescription": "v1.4.7 \u2014 LoopLab fix: tapping Edit on a loop's Swaras now pushes the swara editor reliably. The push was registered inside the Loops tab content, which the lazy page stack could tear down mid-push, collapsing navigation back to the song list; the presentation state and the push now live on the song detail page itself.",
+      "version": "1.4.8",
+      "versionDate": "2026-10-18T22:45:00Z",
+      "versionDescription": "v1.4.8 \u2014 Loops parity: inside a group, the web's three dashed chips are back in web order \u2014 \uff0b New loop (define it in the A\u2013B tab and it joins this group), \uff0b Add loops, and \uff0b New group (creates a sub-group, top-level groups only \u2014 the 2-level cap). They were dropped in the native port, which kept only Add loops in-group.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.4.7",
-          "date": "2026-10-18T22:30:00Z",
+          "version": "1.4.8",
+          "date": "2026-10-18T22:45:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
