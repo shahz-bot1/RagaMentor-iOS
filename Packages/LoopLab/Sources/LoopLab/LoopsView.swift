@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
 import SwaraEditor
+import RagaBrowser
 import DesignSystem
 
 // Loops tab content (PLAN §10): loop rows with range + note, groups with
@@ -126,6 +127,15 @@ struct LoopsView: View {
             SwaraEditorView(
                 model: session.model,
                 title: session.loop.name,
+                browseSheet: { model, dismiss in
+                    AnyView(RagaBrowserView(
+                        library: model.library, mode: .pick,
+                        onPick: { raga in
+                            model.applyBrowsedRaga(raga)
+                            dismiss()
+                        },
+                        onCancel: dismiss))
+                },
                 onClose: { editorSession = nil })
         }
     }
