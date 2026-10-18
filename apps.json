@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.2.0",
-      "versionDate": "2026-10-18T17:45:00Z",
-      "versionDescription": "v1.2.0 \u2014 LoopLab navigation: tapping a song now PUSHES a song detail screen (waveform, transport, Loops/A\u2013B/More) instead of expanding a player card inline; the library is a clean list again. Includes v1.1.3: transport above the tabs, waveform at 34% screen height, flat web-style loop chips with correct wrapping, and a Song title field in More.",
+      "version": "1.2.1",
+      "versionDate": "2026-10-18T17:55:00Z",
+      "versionDescription": "v1.2.1 \u2014 Varisai fixes: the highlight is now derived from the playback timeline by a single ticker (no drift, no skipped tokens); the pattern menu no longer flickers during playback; Sa/Speed/Labels are the web three-dropdown bar with the web tempo row; the Laya and Tala info is the web boxed component with group boxes and the tala beat math.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.2.0",
-          "date": "2026-10-18T17:45:00Z",
-          "localizedDescription": "Song detail push navigation + player layout fixes.",
+          "version": "1.2.1",
+          "date": "2026-10-18T17:55:00Z",
+          "localizedDescription": "Varisai highlight sync, menu flicker, web controls + laya/tala boxes.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
