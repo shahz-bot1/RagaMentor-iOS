@@ -62,14 +62,14 @@ public struct CompositionListView: View {
                     refresh()
                     openEditor(comp)
                 } label: {
-                    Label("New composition", systemImage: "plus")
+                    Text("＋ New composition")
                 }
             }
             ToolbarItem(placement: .topBarLeading) {
                 Button {
                     showImporter = true
                 } label: {
-                    Label("Import", systemImage: "square.and.arrow.down")
+                    Text("Import")
                 }
             }
         }
