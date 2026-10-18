@@ -86,3 +86,41 @@ final class RagaBrowserTests: XCTestCase {
         XCTAssertEqual(RagaCatalog.all.count, 87)
     }
 }
+
+extension RagaBrowserTests {
+    /// The v14 piano geometry (P6 fix): keys resize to the
+    /// container, Sa's left edge is at 0 and Sa′ ends at exactly
+    /// 100, with the neighbours bleeding off both ends.
+    func testPianoGeometrySaWhite() {
+        // Sa = C: 8 white keys in rel 0…12, so ww = 12.5%.
+        let keys = PianoGeometry.keys(saPitchClass: 0)
+        let sa = keys.first { $0.rel == 0 }!
+        XCTAssertEqual(sa.left, 0, accuracy: 0.001)
+        XCTAssertEqual(sa.width, 12.5, accuracy: 0.001)
+        let top = keys.first { $0.rel == 12 }!
+        XCTAssertEqual(top.left + top.width, 100, accuracy: 0.001)
+        // The rel −1 neighbour bleeds off the left edge.
+        let below = keys.first { $0.rel == -1 }!
+        XCTAssertLessThan(below.left, 0)
+        // Black keys are 0.62× and centred on their boundary:
+        // rel 1 sits between Sa (0–12.5) and rel 2 (12.5–25).
+        let black = keys.first { $0.rel == 1 }!
+        XCTAssertTrue(black.isBlack)
+        XCTAssertEqual(black.width, 12.5 * 0.62, accuracy: 0.001)
+        XCTAssertEqual(black.left + black.width / 2, 12.5, accuracy: 0.001)
+    }
+
+    func testPianoGeometrySaBlack() {
+        // Sa = C#: 7 white keys in rel 0…12, corrected denominator.
+        let keys = PianoGeometry.keys(saPitchClass: 1)
+        let sa = keys.first { $0.rel == 0 }!
+        XCTAssertTrue(sa.isBlack)
+        XCTAssertEqual(sa.left, 0, accuracy: 0.001)
+        let ww = 100.0 / (7.0 + 0.62)
+        XCTAssertEqual(sa.width, ww * 0.62, accuracy: 0.001)
+        // The last white (rel 11) still ends inside the strip and
+        // the top neighbour (rel 12, black) reaches ~100.
+        let topBlack = keys.first { $0.rel == 12 }!
+        XCTAssertEqual(topBlack.left + topBlack.width, 100, accuracy: 0.6)
+    }
+}
