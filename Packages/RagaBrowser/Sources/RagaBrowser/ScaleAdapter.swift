@@ -45,7 +45,9 @@ public final class ScaleAdapter: ObservableObject {
 
     // MARK: - Timeline (the adapter's contract; unit-tested)
 
-    public static func timeline(semitones: [Int], tempo: Int) -> Timeline {
+    /// Pure value construction — nonisolated so tests and callers
+    /// never need the main actor for it.
+    public nonisolated static func timeline(semitones: [Int], tempo: Int) -> Timeline {
         let step = 60.0 / Double(tempo)
         let duration = step * (1 + min(1.5, 0.075 / step))
         let notes = semitones.enumerated().map { index, semitone in
