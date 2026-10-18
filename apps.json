@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.3.1",
-      "versionDate": "2026-10-18T19:05:00Z",
-      "versionDescription": "v1.3.1 \u2014 Background playback fix: phrase loops (LoopLab Swaras, Raga Listen, Compose) played one pass and stopped when the app was backgrounded, because the loop restart fires after a silent gap and iOS suspends the app in that gap. The tone engine now runs a silent loop under phrase playback so the app stays alive across the gap; it stops a few seconds after the last note. Includes v1.3.0 (Varisai Practice Dock layout).",
+      "version": "1.3.2",
+      "versionDate": "2026-10-18T19:10:00Z",
+      "versionDescription": "v1.3.2 \u2014 Varisai loop seam fix: the seam timer did not count the pass lead-in, so from the second pass onward the audio started about 80 ms ahead of the pass boundary (and of the highlight grid). The seam now lands exactly on the boundary, like the web. Includes v1.3.1 (background keep-alive for phrase loops) and v1.3.0 (Varisai Practice Dock).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.3.1",
-          "date": "2026-10-18T19:05:00Z",
-          "localizedDescription": "Phrase loops keep playing in the background; Varisai Practice Dock.",
+          "version": "1.3.2",
+          "date": "2026-10-18T19:10:00Z",
+          "localizedDescription": "Varisai seam timing fix; background phrase loops; Practice Dock.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
