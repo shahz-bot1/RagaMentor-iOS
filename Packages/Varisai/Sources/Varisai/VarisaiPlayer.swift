@@ -3,9 +3,13 @@ import AudioKit
 
 /// Varisai playback (web player semantics): all notes scheduled up
 /// front from t0 = +0.08 on the harmonium tone engine — sampled
-/// playback, not the sustain chain — with a per-token highlight.
-/// Looping re-enters at exactly one pattern length, woken 60 ms
-/// early like the web's seamless loop timer.
+/// playback, not the sustain chain. The highlight is DERIVED from
+/// the pass timeline by one ticker (20 ms): index = elapsed ÷ step
+/// from a single origin, published only when it changes. The old
+/// per-token sleeping tasks drifted against the audio and could
+/// coalesce at high speed, which read as late and skipped
+/// highlights. Looping re-enters at exactly one pattern length,
+/// woken 60 ms early like the web's seamless loop timer.
 @MainActor
 public final class VarisaiPlayer: ObservableObject {
     public enum State: Equatable { case idle, loading, playing }
@@ -15,6 +19,7 @@ public final class VarisaiPlayer: ObservableObject {
     private let tone: any ToneEngine
     private var generation = 0
     private var tasks: [Task<Void, Never>] = []
+    private var tickerTask: Task<Void, Never>?
     /// Whether the next seam re-enters (read live at the seam,
     /// like the web's loop toggle — flipping it mid-play takes
     /// effect at the end of the current pass).
@@ -41,9 +46,42 @@ public final class VarisaiPlayer: ObservableObject {
             await tone.prepare()
             guard gen == generation else { return }
             state = .playing
+            let origin = Date().addingTimeInterval(0.08)
             schedulePass(events: events, tokenCount: tokenCount,
                          step: step, speed: speed, gen: gen, loop: loop,
                          leadIn: 0.08)
+            startTicker(origin: origin, step: step,
+                        tokenCount: tokenCount, gen: gen)
+        }
+    }
+
+    /// The highlight ticker: derives the current token from the
+    /// elapsed time since the pass origin. With looping, the
+    /// position wraps at exactly one pattern length (the audio
+    /// seam lands the next pass on the same boundary).
+    private func startTicker(origin: Date, step: Double,
+                             tokenCount: Int, gen: Int) {
+        tickerTask?.cancel()
+        let passSeconds = Double(tokenCount) * step
+        tickerTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 20_000_000)
+                guard gen == generation, state == .playing else { return }
+                let elapsed = Date().timeIntervalSince(origin)
+                if elapsed < 0 {
+                    if currentToken != -1 { currentToken = -1 }
+                    continue
+                }
+                if elapsed >= passSeconds, !loopEnabled {
+                    finish()
+                    return
+                }
+                let pos = loopEnabled
+                    ? elapsed.truncatingRemainder(dividingBy: passSeconds)
+                    : elapsed
+                let index = min(tokenCount - 1, Int(pos / step))
+                if index != currentToken { currentToken = index }
+            }
         }
     }
 
@@ -57,13 +95,6 @@ public final class VarisaiPlayer: ObservableObject {
                 duration: VarisaiPlayback.duration(
                     of: event, isLast: index == events.count - 1,
                     step: step, speed: speed))
-        }
-        for index in 0..<tokenCount {
-            let delay = UInt64((leadIn + Double(index) * step) * 1_000_000_000)
-            tasks.append(Task { @MainActor in
-                try? await Task.sleep(nanoseconds: delay)
-                if gen == generation { currentToken = index }
-            })
         }
         let passSeconds = Double(tokenCount) * step
         // Wake 60 ms before the exact pass boundary (the web's
@@ -82,12 +113,6 @@ public final class VarisaiPlayer: ObservableObject {
                     schedulePass(events: events, tokenCount: tokenCount,
                                  step: step, speed: speed, gen: gen, loop: true,
                                  leadIn: 0.06)
-                } else {
-                    let endDelay = UInt64((leadIn + 0.16) * 1_000_000_000)
-                    tasks.append(Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: endDelay)
-                        if gen == generation { finish() }
-                    })
                 }
             }
         })
@@ -97,6 +122,8 @@ public final class VarisaiPlayer: ObservableObject {
         generation += 1
         tasks.forEach { $0.cancel() }
         tasks = []
+        tickerTask?.cancel()
+        tickerTask = nil
         tone.stopAll()
         finish()
     }
