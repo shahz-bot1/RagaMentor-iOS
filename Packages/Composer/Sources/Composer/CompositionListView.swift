@@ -18,7 +18,9 @@ import DesignSystem
 public struct CompositionListView: View {
     private let store: any CompositionStore
     private let library: any RagaLibrary
-    @ObservedObject private var player: PhrasePlayer
+    /// The player as a plain value: row play buttons observe it in
+    /// leaves, so the list no longer re-renders per chip pulse.
+    private let player: PhrasePlayer
     private let onPlayStart: () -> Void
     /// Cross-studio audio focus (P6): composition playback stops
     /// the other studios.
@@ -112,7 +114,6 @@ public struct CompositionListView: View {
 
     private func row(_ comp: Composition) -> some View {
         let key = "compose-list:\(comp.id)"
-        let playing = player.isPlaying(contextKey: key)
         return HStack(spacing: 12) {
             Button {
                 openEditor(comp)
@@ -131,8 +132,7 @@ public struct CompositionListView: View {
             }
             .buttonStyle(.plain)
 
-            StudioRoundButton(systemImage: playing ? "stop.fill" : "play.fill",
-                              diameter: 38) {
+            CompositionPlayButton(player: player, contextKey: key) { playing in
                 toggleListPlay(comp, key: key, playing: playing)
             }
         }
@@ -254,5 +254,21 @@ struct CompositionDocument: Transferable {
     let data: Data
     static var transferRepresentation: some TransferRepresentation {
         DataRepresentation(exportedContentType: .json) { $0.data }
+    }
+}
+
+/// A composition row's play/stop button — the row's only observer
+/// of the phrase player, so playback pulses stay inside the button.
+struct CompositionPlayButton: View {
+    @ObservedObject var player: PhrasePlayer
+    let contextKey: String
+    var onTap: (Bool) -> Void
+
+    var body: some View {
+        let playing = player.isPlaying(contextKey: contextKey)
+        StudioRoundButton(systemImage: playing ? "stop.fill" : "play.fill",
+                          diameter: 38) {
+            onTap(playing)
+        }
     }
 }
