@@ -87,6 +87,7 @@ struct FullscreenWaveformArea: View {
 
     @State private var peaks: [Float] = []
     @State private var window = WaveformWindow(duration: 1)
+    @State private var follow = true
 
     /// The armed loop's name, else the armed group's (web badge).
     private var armedName: String? {
@@ -129,6 +130,35 @@ struct FullscreenWaveformArea: View {
                     .padding(8)
                 }
             }
+            .overlay(alignment: .bottomLeading) {
+                Button {
+                    follow.toggle()
+                } label: {
+                    Image(systemName: follow ? "location.fill" : "location")
+                        .font(.system(size: 13))
+                        .frame(width: 30, height: 30)
+                        .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
+                                    in: Circle())
+                        .foregroundStyle(follow ? Studio.accent : .white)
+                }
+                .buttonStyle(.plain)
+                .padding(8)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    window = WaveformWindow(duration: song.duration)
+                } label: {
+                    Text("Fit")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
+                                    in: Capsule())
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .padding(8)
+            }
             .overlay(alignment: .bottom) {
                 Text("\(Self.fmtTenths(controller.position)) / \(Self.fmtTenths(song.duration))")
                     .font(.system(size: 12))
@@ -145,9 +175,9 @@ struct FullscreenWaveformArea: View {
                 peaks = await SongPeaks.peaks(for: song)
             }
             .onChange(of: controller.position) {
-                // Auto-follow is always on (the web has no toggle):
-                // keep the playhead in view while playing.
-                if controller.isPlaying {
+                // Follow (the on-wave toggle, lower left): keep the
+                // playhead in view while playing.
+                if follow && controller.isPlaying {
                     window = window.following(controller.position)
                 }
             }
