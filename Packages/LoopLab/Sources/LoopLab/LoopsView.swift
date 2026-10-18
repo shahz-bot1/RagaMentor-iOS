@@ -32,8 +32,9 @@ struct LoopsView: View {
     @State private var editorSession: EditorSession?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 14) {
+        // Content-sized (no own scrolling): the song detail's page
+        // scrolls everything and pins the playback section.
+        VStack(spacing: 14) {
                 loopsChips
                 if let loop = controller.selectedLoop {
                     SelectedLoopBar(song: song, loop: loop)
@@ -46,12 +47,8 @@ struct LoopsView: View {
                     }
                     .environmentObject(controller)
                 }
-            }
-            .padding(16)
         }
-        .background(Studio.bg.ignoresSafeArea())
-        .navigationTitle("Loops")
-        .navigationBarTitleDisplayMode(.inline)
+        .padding(16)
         .alert("New group", isPresented: $showNewGroup) {
             TextField("Group name", text: $newGroupName)
             Button("Create") { controller.createGroup(name: newGroupName, context: modelContext) }
