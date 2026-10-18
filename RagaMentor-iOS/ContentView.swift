@@ -31,7 +31,7 @@ struct ContentView: View {
                 CompositionListView(
                     store: compositionStore,
                     library: controller.ragaLibrary,
-                    player: controller.phrasePlayer,
+                    player: controller.phraseAdapter,
                     onPlayStart: { controller.pause() })
             }
             .tabItem { Label("Compose", systemImage: "square.and.pencil") }
@@ -41,13 +41,13 @@ struct ContentView: View {
 
             VarisaiView(onPlayStart: {
                 controller.pause()
-                controller.phrasePlayer.stop()
+                controller.phraseAdapter.stop()
             })
             .tabItem { Label("Varisai", systemImage: "music.note.list") }
 
             TalaStudioView(onPlayStart: {
                 controller.pause()
-                controller.phrasePlayer.stop()
+                controller.phraseAdapter.stop()
             })
             .tabItem { Label("Tala", systemImage: "metronome") }
         }
