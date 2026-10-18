@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.2.3",
-      "versionDate": "2026-10-18T18:25:00Z",
-      "versionDescription": "v1.2.3 \u2014 Song detail: icon-only Follow toggle at the waveform lower left and a Fit button at the lower right (reset zoom), alongside the time badge (bottom centre) and loop badge (top right) from v1.2.2, whose pinned playback-section scrolling is included.",
+      "version": "1.2.4",
+      "versionDate": "2026-10-18T18:40:00Z",
+      "versionDescription": "v1.2.4 \u2014 Compose: the new button is just \uff0b; tapping a composition PUSHES the editor (no more modal to dismiss before switching tabs); the editor delete is a red trash icon; the editor Play button now flips to Stop and the Loop button shows its state (both were stale rendering). Raga browser: All 72 lists flat without chakra grouping. Includes v1.2.3 (waveform Follow/Fit corner buttons + pinned playback scrolling).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.2.3",
-          "date": "2026-10-18T18:25:00Z",
-          "localizedDescription": "Follow + Fit buttons on the waveform corners.",
+          "version": "1.2.4",
+          "date": "2026-10-18T18:40:00Z",
+          "localizedDescription": "Compose push navigation + editor button fixes; All 72 flat.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
