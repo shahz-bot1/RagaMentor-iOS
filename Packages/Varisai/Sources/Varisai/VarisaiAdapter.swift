@@ -19,6 +19,8 @@ public final class VarisaiAdapter {
     /// The shared core; observing leaves subscribe to this.
     public let player: SequencePlayer
 
+    public static let contextKey = "varisai"
+
     /// The live loop toggle, read by the policy at the seam.
     public var loopEnabled = true
 
@@ -48,10 +50,14 @@ public final class VarisaiAdapter {
             policy: SeamlessPolicy(isLoopOn: { [weak self] in
                 self?.loopEnabled ?? false
             }),
-            contextKey: "varisai")
+            contextKey: Self.contextKey)
     }
 
-    public func stop() { player.stop() }
+    /// Stop only a Varisai pass: on the shared core (P-E) a stop
+    /// aimed at Varisai must not kill another studio's pass.
+    public func stop() {
+        if player.contextKey == Self.contextKey { player.stop() }
+    }
 
     // MARK: - Timeline (the adapter's contract; unit-tested)
 
