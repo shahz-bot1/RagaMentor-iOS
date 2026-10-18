@@ -14,8 +14,9 @@ let package = Package(
         .package(path: "../PersistenceKit"),
         .package(path: "../DesignSystem"),
         .package(path: "../SwaraEditor"),
+        .package(path: "../RagaBrowser"),
     ],
     targets: [.target(name: "Composer",
                       dependencies: ["RagaCore", "AudioKit", "PersistenceKit",
-                                     "DesignSystem", "SwaraEditor"])]
+                                     "DesignSystem", "SwaraEditor", "RagaBrowser"])]
 )
