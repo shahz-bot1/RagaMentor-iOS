@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.3.3",
-      "versionDate": "2026-10-18T19:15:00Z",
-      "versionDescription": "v1.3.3 \u2014 The swara editor Phrase card now carries its actions in the header, like the LoopLab Swaras card: round Play/Stop, a Loop toggle chip and the red delete trash at the top right. They moved out of the Setup card, which is now settings only. Includes v1.3.2 (Varisai seam fix), v1.3.1 (background phrase loops) and v1.3.0 (Varisai Practice Dock).",
+      "version": "1.4.0",
+      "versionDate": "2026-10-18T20:30:00Z",
+      "versionDescription": "v1.4.0 \u2014 Internal (design Phase P-A): the shared SequencePlayer core lands in AudioKit with the TimelineIndex math in RagaCore and unit tests. No studio uses it yet and nothing user-visible changes; the studios migrate onto it one at a time in the following phases.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.3.3",
-          "date": "2026-10-18T19:15:00Z",
-          "localizedDescription": "Phrase card header actions (Play/Loop/Delete).",
+          "version": "1.4.0",
+          "date": "2026-10-18T20:30:00Z",
+          "localizedDescription": "Internal: SequencePlayer core (Phase P-A). No behaviour change.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
