@@ -64,6 +64,7 @@ public final class PlaybackController: ObservableObject {
         self.phrasePlayer = PhrasePlayer(tone: tone ?? HarmoniumToneEngine())
         engine.rate = speed
         observeSessionNotifications()
+        setupRemoteCommands()
     }
 
     // MARK: - Interruptions & route changes (M6, PLAN §8.7)
@@ -127,7 +128,60 @@ public final class PlaybackController: ObservableObject {
         }
     }
 
-    // MARK: - Now Playing info (metadata only; remote commands are v1.1)
+    // MARK: - Now Playing (metadata + remote commands, P6)
+
+    /// Fired when song playback starts, so AppShell can stop the
+    /// other studios (P6 audio focus).
+    public var onSongStart: (() -> Void)?
+    /// Fired when a Swaras section phrase starts (same purpose).
+    public var onPhraseStart: (() -> Void)?
+
+    private var remoteCommandsInstalled = false
+
+    /// Lock-screen / Control Centre / headphone controls: play,
+    /// pause, toggle, ±10 s skips and position scrubbing, all
+    /// delegating to the same transport the UI uses.
+    private func setupRemoteCommands() {
+        guard !remoteCommandsInstalled else { return }
+        remoteCommandsInstalled = true
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            return self.remoteResult { $0.play() }
+        }
+        center.pauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            return self.remoteResult { $0.pause() }
+        }
+        center.togglePlayPauseCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            return self.remoteResult { $0.togglePlay() }
+        }
+        center.skipForwardCommand.preferredIntervals = [10]
+        center.skipForwardCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            return self.remoteResult { $0.skip(by: 10) }
+        }
+        center.skipBackwardCommand.preferredIntervals = [10]
+        center.skipBackwardCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            return self.remoteResult { $0.skip(by: -10) }
+        }
+        center.changePlaybackPositionCommand.addTarget { [weak self] event in
+            guard let self,
+                  let positionEvent = event as? MPChangePlaybackPositionCommandEvent
+            else { return .commandFailed }
+            let target = positionEvent.positionTime
+            return self.remoteResult { $0.seek(to: target) }
+        }
+    }
+
+    /// Remote handlers run off the main queue; hop and report.
+    private func remoteResult(_ action: @escaping (PlaybackController) -> Void)
+        -> MPRemoteCommandHandlerStatus {
+        Task { @MainActor in action(self) }
+        return currentSong == nil ? .noSuchContent : .success
+    }
 
     private func updateNowPlayingInfo() {
         guard let song = currentSong else {
@@ -209,6 +263,7 @@ public final class PlaybackController: ObservableObject {
             // was merely paused mid-schedule this is still correct because
             // the schedule restarts from the published position.
             isPlaying = true
+            onSongStart?()
         }
         updateNowPlayingInfo()
     }
@@ -646,6 +701,7 @@ public final class PlaybackController: ObservableObject {
     }
 
     private func startSectionPhrase(_ phrase: Phrase, for loop: LoopRegion) {
+        onPhraseStart?()
         let songID = currentSong?.id
         phrasePlayer.play(phrase: phrase, contextKey: sectionKey(for: loop)) { [weak self] in
             // Web ctx validity: the fullscreen section for this loop.
