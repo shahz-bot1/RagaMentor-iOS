@@ -359,6 +359,13 @@ public final class PlaybackController: ObservableObject {
     /// transport controls needs it stored).
     public var modelContext: ModelContext?
 
+    /// The group the NEXT created loop joins (the web's in-group
+    /// ＋ New loop: "define a new loop anywhere in the song — it
+    /// will join this group"). Set by the Loops tab chips, consumed
+    /// by createLoop, cleared when the Loops tab reappears without
+    /// a creation.
+    public var pendingLoopGroupID: UUID?
+
     /// Create a loop from two marks: normalises (auto-swap when B <= A,
     /// with a haptic — PLAN §12), names it, selects and arms it.
     @discardableResult
@@ -373,9 +380,27 @@ public final class PlaybackController: ObservableObject {
                               song: song)
         song.loops.append(loop)
         resortLoops(song)
+        if let groupID = pendingLoopGroupID {
+            pendingLoopGroupID = nil
+            if let group = song.groups.first(where: { $0.id == groupID }) {
+                fileLoop(loop, into: group, song: song, context: context)
+            }
+        }
         selectLoop(loop, context: context, autoplay: isPlaying)
         try? context.save()
         return loop
+    }
+
+    /// File a loop into a group: append to the group's members,
+    /// kept in range order (GroupOps sorting handles loops and
+    /// subgroups alike).
+    private func fileLoop(_ loop: LoopRegion, into group: LoopGroup,
+                          song: Song, context: ModelContext) {
+        var data = groupData(song)
+        guard let idx = data.firstIndex(where: { $0.id == group.id }) else { return }
+        data[idx].memberIDs = GroupOps.sortedMemberIDs(
+            data[idx].memberIDs + [loop.id], groups: data, spans: spans(song))
+        applyGroupData(data, to: song, context: context)
     }
 
     private func nextLoopName(song: Song) -> String {
@@ -570,12 +595,25 @@ public final class PlaybackController: ObservableObject {
         Dictionary(uniqueKeysWithValues: song.loops.map { ($0.id, LoopSpan(id: $0.id, start: $0.start, end: $0.end)) })
     }
 
-    public func createGroup(name: String, context: ModelContext) {
+    /// Create a group; with a parent, the new group is filed as
+    /// the parent's subgroup (the web's in-group ＋ New group —
+    /// the view enforces the 2-level cap by only offering it for
+    /// parentless groups).
+    public func createGroup(name: String, inside parent: LoopGroup? = nil,
+                            context: ModelContext) {
         guard let song = currentSong else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let group = LoopGroup(name: trimmed, song: song)
         song.groups.append(group)
+        if let parent, song.groups.contains(where: { $0.id == parent.id }) {
+            var data = groupData(song)
+            if let idx = data.firstIndex(where: { $0.id == parent.id }) {
+                data[idx].memberIDs = GroupOps.sortedMemberIDs(
+                    data[idx].memberIDs + [group.id], groups: data, spans: spans(song))
+                applyGroupData(data, to: song, context: context)
+            }
+        }
         try? context.save()
     }
 
