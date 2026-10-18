@@ -56,8 +56,10 @@ public struct Timeline: Equatable, Sendable {
 
 public enum BoundaryDecision: Equatable {
     case stop
-    /// Re-enter for another pass; its first note lands `leadIn`
-    /// seconds after the pass boundary.
+    /// Re-enter for another pass. `leadIn` is measured from the
+    /// policy's wake point (the boundary minus its `wakeEarly`);
+    /// for a policy that wakes at the boundary the core adds the
+    /// timeline's own lead-in on top (see armBoundary).
     case again(leadIn: Double)
 }
 
@@ -97,6 +99,24 @@ public final class RestartAfterGapPolicy: LoopPolicy {
         // lead-in on top for policies that wake at the boundary
         // (see armBoundary).
         isLoopOn() ? .again(leadIn: gap) : .stop
+    }
+}
+
+/// Varisai: the seamless loop (design §7.1). The core wakes
+/// 60 ms before the boundary and asks; the toggle is read live
+/// at the seam, so flipping it mid-pass takes effect at the end
+/// of the current pass (the web's loop semantics). The returned
+/// lead-in is measured from the wake point: 0.06 from a wake
+/// 60 ms early lands the next pass's first note exactly on the
+/// boundary — the v1.3.2 seam arithmetic as core code.
+public final class SeamlessPolicy: LoopPolicy {
+    public var isLoopOn: () -> Bool
+    public init(isLoopOn: @escaping () -> Bool) {
+        self.isLoopOn = isLoopOn
+    }
+    public var wakeEarly: Double { 0.06 }
+    public func boundary() -> BoundaryDecision {
+        isLoopOn() ? .again(leadIn: 0.06) : .stop
     }
 }
 
@@ -251,17 +271,18 @@ public final class SequencePlayer: ObservableObject {
                 finish()
             case .again(let policyLeadIn):
                 guard contextValid() else { finish(); return }
-                // Gap-style policies return the gap alone; the
-                // pass's own lead-in rides on top (the old phrase
-                // player composed +0.4 gap and +0.1 lead-in the
-                // same way). A policy that already accounts for
-                // its lead-in (seamless) returns the total itself
-                // via `BoundaryDecision.again(leadIn:)` measured
-                // from the boundary — the core treats the value
-                // as the full boundary-to-first-note distance and
-                // adds nothing when the policy woke early.
+                // A policy's lead-in is measured from its own
+                // wake point. Gap-style policies wake AT the
+                // boundary and return the gap alone; the pass's
+                // own lead-in rides on top (the old phrase player
+                // composed +0.4 gap and +0.1 lead-in the same
+                // way). An early-wake policy returns the full
+                // wake-to-first-note distance, so its offset from
+                // the boundary is leadIn − wakeEarly: the seamless
+                // policy's 0.06 from a wake 60 ms early lands the
+                // next pass's first note exactly on the boundary.
                 let leadIn = policy.wakeEarly > 0
-                    ? policyLeadIn
+                    ? policyLeadIn - policy.wakeEarly
                     : policyLeadIn + timeline.leadIn
                 let nextStart = passOffset + timeline.passDuration + leadIn
                 scheduleNotes(timeline: timeline, passStart: nextStart)
