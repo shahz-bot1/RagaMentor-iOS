@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioKit
 import RagaCore
 import DesignSystem
 #if canImport(UIKit)
@@ -14,7 +15,7 @@ public struct SwaraEditorView: View {
     /// The player as a plain value: the chip strip observes it in a
     /// leaf (LivePhraseChipsView), so this screen no longer
     /// re-renders on every chip pulse.
-    private let player: PhrasePlayer
+    private let player: PhraseAdapter
     public var title: String
     public var onBrowseRaga: (() -> Void)?
     public var onClose: () -> Void
@@ -162,18 +163,6 @@ public struct SwaraEditorView: View {
                     .frame(width: 64, alignment: .trailing)
             }
 
-            EditorPlayRow(model: model, player: player)
-
-            HStack {
-                Spacer()
-                Button { confirmDelete = true } label: {
-                    Image(systemName: "trash")
-                        .font(.body)
-                        .foregroundStyle(Color(red: 0.878, green: 0.322, blue: 0.322))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(deleteTitle)
-            }
         }
         .padding()
         .background(Studio.panel, in: RoundedRectangle(cornerRadius: 14))
@@ -221,13 +210,20 @@ public struct SwaraEditorView: View {
 
     private var phraseCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            StudioSectionTitle("Phrase")
+            HStack {
+                StudioSectionTitle("Phrase")
+                Spacer()
+                PhraseCardActions(model: model, player: player.player,
+                                  deleteLabel: deleteTitle) {
+                    confirmDelete = true
+                }
+            }
             if model.phrase.chips.isEmpty {
                 Text("No swaras yet — tap ＋ to add the first chip.")
                     .foregroundStyle(.secondary)
             }
             LivePhraseChipsView(
-                player: player,
+                player: player.player,
                 chips: model.phrase.chips,
                 contextKey: model.contextKey,
                 onTapChip: { model.openEditPicker(index: $0) },
@@ -288,41 +284,51 @@ public struct SwaraEditorView: View {
 }
 
 
-/// The editor's Play + Loop row. It observes BOTH the model and
-/// the player: the play state lives on the player (the setup card
-/// never saw its changes, so Play never flipped to Stop), and the
-/// loop state lives on the model's phrase. The loop button carries
-/// its own styling — the shared secondary style forces the text
-/// colour and swallowed the on-state tint.
-struct EditorPlayRow: View {
+/// The Phrase card header's actions (top right, like the
+/// LoopLab Swaras card header): a round Play/Stop button, a Loop
+/// toggle chip and the delete trash. It observes BOTH the model
+/// and the player: the play state lives on the player (the setup
+/// card never saw its changes, so Play never flipped to Stop),
+/// and the loop state lives on the model's phrase. Moved here
+/// from the Setup card at Shahzin's direction (v1.3.3).
+struct PhraseCardActions: View {
     @ObservedObject var model: SwaraEditorModel
-    @ObservedObject var player: PhrasePlayer
+    @ObservedObject var player: SequencePlayer
+    let deleteLabel: String
+    let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Button {
+        HStack(spacing: 8) {
+            StudioRoundButton(
+                systemImage: player.isPlaying(contextKey: model.contextKey)
+                    ? "stop.fill" : "play.fill",
+                diameter: 32) {
                 model.togglePlay()
-            } label: {
-                Text(player.isPlaying(contextKey: model.contextKey) ? "■ Stop" : "▶ Play")
-                    .frame(maxWidth: .infinity)
             }
-            .buttonStyle(StudioPrimaryButtonStyle())
 
             Button {
                 model.setLoop(!model.phrase.loop)
             } label: {
                 Text("Loop")
-                    .font(.body)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 9)
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
                     .background(model.phrase.loop ? Studio.accentSoft : Studio.panel2,
-                                in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(model.phrase.loop ? Studio.accent : Studio.border,
-                                      lineWidth: 1))
+                                in: Capsule())
+                    .overlay(Capsule().strokeBorder(
+                        model.phrase.loop ? Studio.accent : Studio.border, lineWidth: 1))
                     .foregroundStyle(model.phrase.loop ? Studio.accent : Studio.text)
             }
             .buttonStyle(.plain)
+
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 15))
+                    .frame(width: 30, height: 30)
+                    .foregroundStyle(Color(red: 0.878, green: 0.322, blue: 0.322))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(deleteLabel)
         }
     }
 }
