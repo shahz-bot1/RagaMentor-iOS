@@ -11,14 +11,24 @@ import DesignSystem
 struct VarisaiLessonView: View {
     let lesson: VarisaiLesson
     let onPlayStart: () -> Void
+    /// The app's one shared sequence player (P-E).
+    let sequencePlayer: SequencePlayer
 
     /// The adapter lives in a plain box the lesson view does NOT
     /// observe: only the grid and the play button subscribe to
     /// its SequencePlayer, so a highlight tick never rebuilds
     /// this screen (the pattern menu flickered while the whole
     /// screen was subscribed).
-    @State private var adapterBox = VarisaiAdapterBox()
+    @State private var adapterBox: VarisaiAdapterBox
     private var adapter: VarisaiAdapter { adapterBox.adapter }
+
+    init(lesson: VarisaiLesson, onPlayStart: @escaping () -> Void,
+         sequencePlayer: SequencePlayer) {
+        self.lesson = lesson
+        self.onPlayStart = onPlayStart
+        self.sequencePlayer = sequencePlayer
+        _adapterBox = State(initialValue: VarisaiAdapterBox(player: sequencePlayer))
+    }
     @State private var patternIndex = 0
     /// The pattern's display lines with flat playback indices,
     /// rebuilt only when the pattern changes — never per highlight
@@ -460,10 +470,8 @@ struct VarisaiTokenCell: View, Equatable {
 /// main actor, so the isolated init is assumed, not awaited.
 final class VarisaiAdapterBox {
     let adapter: VarisaiAdapter
-    init() {
-        adapter = MainActor.assumeIsolated {
-            VarisaiAdapter(tone: HarmoniumToneEngine())
-        }
+    init(player: SequencePlayer) {
+        adapter = MainActor.assumeIsolated { VarisaiAdapter(player: player) }
     }
 }
 
