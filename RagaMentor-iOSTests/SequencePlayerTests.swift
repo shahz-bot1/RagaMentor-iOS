@@ -163,7 +163,8 @@ final class SequencePlayerTests: XCTestCase {
     func testScaleTimelineShape() {
         // Mohanam's walk shape: aro + ava with the upper-Sa wrap.
         let semis = ScaleWalk.semitones(aro: ["S", "R2", "G3", "P", "D2", "S'"],
-                                        ava: ["S'", "D2", "P", "G3", "R2", "S"])
+                                        ava: ["S'", "D2", "P", "G3", "R2", "S"],
+                                        saOffset: 0)
         let timeline = ScaleAdapter.timeline(semitones: semis, tempo: 120)
         XCTAssertEqual(timeline.leadIn, 0.1)
         XCTAssertEqual(timeline.highlightCount, semis.count)
@@ -172,11 +173,13 @@ final class SequencePlayerTests: XCTestCase {
         XCTAssertEqual(timeline.notes[0].start, 0)
         XCTAssertEqual(timeline.notes[1].start, 0.5, accuracy: 1e-9)
         XCTAssertEqual(timeline.notes[0].duration, 0.575, accuracy: 1e-9)
-        XCTAssertEqual(timeline.notes.map(\.highlight), Array(0..<semis.count))
+        let highlights = timeline.notes.map { $0.highlight }
+        XCTAssertEqual(highlights, Array(0..<semis.count))
         // The pass ends 0.30 s after the last note's step.
         XCTAssertEqual(timeline.passDuration,
                        Double(semis.count) * 0.5 + 0.3, accuracy: 1e-9)
-        XCTAssertEqual(timeline.highlightStarts, timeline.notes.map(\.start))
+        let starts = timeline.notes.map { $0.start }
+        XCTAssertEqual(timeline.highlightStarts, starts)
     }
 
     func testScaleTimelineAtTempo240() {
