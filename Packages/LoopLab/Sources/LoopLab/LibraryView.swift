@@ -142,8 +142,10 @@ struct NowPlayingCard: View {
             WaveformView(peaks: peaks,
                          duration: song.duration,
                          position: controller.position,
-                         loopStart: controller.armedLoopRange?.start,
-                         loopEnd: controller.armedLoopRange?.end,
+                         regions: WaveformRegions.build(
+                            song: song,
+                            selectedLoopID: controller.selectedLoopID,
+                            selectedGroupID: controller.selectedGroupID),
                          window: $window,
                          onSeek: { controller.seek(to: $0) })
                 .frame(height: 44)
