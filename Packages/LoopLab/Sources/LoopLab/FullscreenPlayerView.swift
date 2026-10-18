@@ -26,36 +26,54 @@ struct SongDetailView: View {
     // content (the audit's P1 fix). The library opens the song.
     var body: some View {
         GeometryReader { geo in
-                VStack(spacing: 10) {
-                    FullscreenWaveformArea(
-                        song: song,
-                        height: min(440, max(180, geo.size.height * 0.34)))
+            let waveHeight = min(440, max(180, geo.size.height * 0.34))
+            ZStack(alignment: .top) {
+                // The waveform does not scroll; the page slides
+                // over it.
+                FullscreenWaveformArea(song: song, height: waveHeight)
 
-                    FullscreenTransport(song: song)
-
-                    StudioSegmented(
-                        items: Tab.allCases.map { ($0, $0.rawValue) },
-                        selection: $tab)
-                    .padding(.horizontal)
-
-                    Divider()
-
-                    Group {
-                        switch tab {
-                        case .loops:
-                            LoopsView(song: song) { tab = .ab }
-                        case .ab:
-                            ABTabView(song: song)
-                        case .more:
-                            MoreTabView(song: song)
+                ScrollView {
+                    LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        Section {
+                            Group {
+                                switch tab {
+                                case .loops:
+                                    LoopsView(song: song) { tab = .ab }
+                                case .ab:
+                                    ABTabView(song: song)
+                                case .more:
+                                    MoreTabView(song: song)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .background(Studio.bg)
+                        } header: {
+                            pinnedHeader
                         }
                     }
-                    .frame(maxHeight: .infinity)
+                    .padding(.top, waveHeight)
                 }
+            }
         }
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(song.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// The playback section: transport + tabs. It starts below the
+    /// waveform and pins to the top once scrolled there; the tab
+    /// content keeps scrolling beneath it.
+    private var pinnedHeader: some View {
+        VStack(spacing: 10) {
+            FullscreenTransport(song: song)
+            StudioSegmented(
+                items: Tab.allCases.map { ($0, $0.rawValue) },
+                selection: $tab)
+            .padding(.horizontal)
+            Divider()
+        }
+        .padding(.top, 10)
+        .background(Studio.bg)
     }
 }
 
@@ -69,51 +87,84 @@ struct FullscreenWaveformArea: View {
 
     @State private var peaks: [Float] = []
     @State private var window = WaveformWindow(duration: 1)
-    @State private var follow = true
+
+    /// The armed loop's name, else the armed group's (web badge).
+    private var armedName: String? {
+        if let loop = controller.selectedLoop { return loop.name }
+        if let id = controller.selectedGroupID {
+            return song.groups.first { $0.id == id }?.name
+        }
+        return nil
+    }
 
     var body: some View {
-        VStack(spacing: 10) {
-            WaveformView(peaks: peaks,
-                         duration: song.duration,
-                         position: controller.position,
-                         regions: WaveformRegions.build(
-                            song: song,
-                            selectedLoopID: controller.selectedLoopID,
-                            selectedGroupID: controller.selectedGroupID),
-                         window: $window,
-                         zoomPanEnabled: true,
-                         onSeek: hardSeek)
-                .frame(height: height)
-                .padding(.horizontal)
-
-            HStack {
-                Text("\(LibraryView.formatDuration(window.start)) – \(LibraryView.formatDuration(window.end)) of \(LibraryView.formatDuration(song.duration))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    follow.toggle()
-                } label: {
-                    Label("Follow", systemImage: follow ? "location.fill" : "location")
-                        .font(.caption)
-                }
-                .buttonStyle(.bordered)
-                .tint(follow ? .accentColor : .gray)
-                Button("Reset zoom") { window = WaveformWindow(duration: song.duration) }
-                    .font(.caption)
-                    .buttonStyle(.bordered)
-            }
+        WaveformView(peaks: peaks,
+                     duration: song.duration,
+                     position: controller.position,
+                     regions: WaveformRegions.build(
+                        song: song,
+                        selectedLoopID: controller.selectedLoopID,
+                        selectedGroupID: controller.selectedGroupID),
+                     window: $window,
+                     zoomPanEnabled: true,
+                     onSeek: hardSeek)
+            .frame(height: height)
             .padding(.horizontal)
-        }
-        .task(id: song.id) {
-            window = WaveformWindow(duration: song.duration)
-            peaks = await SongPeaks.peaks(for: song)
-        }
-        .onChange(of: controller.position) {
-            if follow && controller.isPlaying {
-                window = window.following(controller.position)
+            .overlay(alignment: .topTrailing) {
+                if let name = armedName {
+                    Button {
+                        restartArmed()
+                    } label: {
+                        Text(name)
+                            .lineLimit(1)
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
+                                        in: Capsule())
+                            .foregroundStyle(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: 240, alignment: .trailing)
+                    .padding(8)
+                }
             }
-        }
+            .overlay(alignment: .bottom) {
+                Text("\(Self.fmtTenths(controller.position)) / \(Self.fmtTenths(song.duration))")
+                    .font(.system(size: 12))
+                    .monospacedDigit()
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
+                                in: Capsule())
+                    .foregroundStyle(.white)
+                    .padding(.bottom, 8)
+            }
+            .task(id: song.id) {
+                window = WaveformWindow(duration: song.duration)
+                peaks = await SongPeaks.peaks(for: song)
+            }
+            .onChange(of: controller.position) {
+                // Auto-follow is always on (the web has no toggle):
+                // keep the playhead in view while playing.
+                if controller.isPlaying {
+                    window = window.following(controller.position)
+                }
+            }
+    }
+
+    /// The time badge format: m:ss.t (web fmt).
+    static func fmtTenths(_ t: Double) -> String {
+        let total = max(0, t)
+        let minutes = Int(total) / 60
+        let seconds = total - Double(minutes * 60)
+        return String(format: "%d:%04.1f", minutes, seconds)
+    }
+
+    /// The loop badge tap: restart the armed loop/group (web).
+    private func restartArmed() {
+        guard let range = controller.armedLoopRange else { return }
+        controller.seek(to: range.start)
     }
 
     /// Waveform tap: hard seek; disarms the loop when the target is
@@ -149,9 +200,6 @@ struct FullscreenTransport: View {
                 }
                 Spacer()
             }
-            Text("\(LibraryView.formatDuration(controller.position)) / \(LibraryView.formatDuration(song.duration))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
             StudioSegmented(
                 items: PlaybackController.speedPresets.map { (preset: Float) in (preset, String(format: "%gx", preset)) },
                 selection: $controller.speed)
@@ -173,8 +221,8 @@ struct ABTabView: View {
     @State private var newName = ""
 
     var body: some View {
-        List {
-            Section {
+        VStack(spacing: 14) {
+            StudioCard {
                 if let loop = controller.selectedLoop {
                     Text("\(loop.name) · \(LibraryView.formatDuration(loop.start)) – \(LibraryView.formatDuration(loop.end))")
                         .foregroundStyle(.secondary)
@@ -183,12 +231,15 @@ struct ABTabView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Section {
-                stepperRow(edge: .start, tag: "A")
-                stepperRow(edge: .end, tag: "B")
+            StudioCard {
+                VStack(spacing: 12) {
+                    stepperRow(edge: .start, tag: "A")
+                    Divider()
+                    stepperRow(edge: .end, tag: "B")
+                }
             }
             if let loop = controller.selectedLoop {
-                Section {
+                StudioCard {
                     HStack {
                         Button {
                             controller.toggleLoopOn()
@@ -207,18 +258,20 @@ struct ABTabView: View {
                     }
                 }
             }
-            Section {
-                HStack {
-                    TextField("Loop name (optional)", text: $newName)
-                    Button("＋ Add loop") { addFromMarks() }
-                        .disabled(controller.pendingA == nil || controller.pendingB == nil)
-                }
-                if controller.pendingA != nil || controller.pendingB != nil {
-                    Button("Clear marks") { controller.clearPendingMarks() }
+            StudioCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        TextField("Loop name (optional)", text: $newName)
+                        Button("＋ Add loop") { addFromMarks() }
+                            .disabled(controller.pendingA == nil || controller.pendingB == nil)
+                    }
+                    if controller.pendingA != nil || controller.pendingB != nil {
+                        Button("Clear marks") { controller.clearPendingMarks() }
+                    }
                 }
             }
         }
-        .studioList()
+        .padding(16)
     }
 
     private func stepperRow(edge: PlaybackController.Edge, tag: String) -> some View {
@@ -276,43 +329,53 @@ struct MoreTabView: View {
     @State private var importFailed = false
 
     var body: some View {
-        List {
-            Section("Song") {
-                TextField("Song title", text: Binding(
-                    get: { song.title },
-                    set: { song.title = $0 }))
+        VStack(spacing: 14) {
+            StudioCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    StudioSectionTitle("Song")
+                    TextField("Song title", text: Binding(
+                        get: { song.title },
+                        set: { song.title = $0 }))
+                        .textFieldStyle(.roundedBorder)
+                }
             }
-            Section("Speed") {
-                HStack {
-                    Text("Fine speed")
-                    Spacer()
-                    Text("\(Int((controller.speed * 100).rounded()))%")
+            StudioCard {
+                VStack(alignment: .leading, spacing: 8) {
+                    StudioSectionTitle("Speed")
+                    HStack {
+                        Text("Fine speed")
+                        Spacer()
+                        Text("\(Int((controller.speed * 100).rounded()))%")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $controller.speed, in: 0.10...1.00, step: 0.01)
+                        .tint(Studio.accent)
+                    Text("Presets: 25% · 50% · 75% · 100% (on the transport bar). Pitch never changes.")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-                Slider(value: $controller.speed, in: 0.10...1.00, step: 0.01)
-                    .tint(Studio.accent)
-                Text("Presets: 25% · 50% · 75% · 100% (on the transport bar). Pitch never changes.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
-            Section("Loops backup") {
-                if let data = controller.backupJSON() {
-                    ShareLink(item: BackupDocument(data: data),
-                              preview: SharePreview("\(song.title) loops")) {
-                        Text("Export loops…")
+            StudioCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    StudioSectionTitle("Loops backup")
+                    if let data = controller.backupJSON() {
+                        ShareLink(item: BackupDocument(data: data),
+                                  preview: SharePreview("\(song.title) loops")) {
+                            Text("Export loops…")
+                        }
                     }
+                    Button {
+                        showImporter = true
+                    } label: {
+                        Text("Import loops…")
+                    }
+                    Text("Import replaces all loops and groups for this song.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                Button {
-                    showImporter = true
-                } label: {
-                    Text("Import loops…")
-                }
-                Text("Import replaces all loops and groups for this song.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
         }
-        .studioList()
+        .padding(16)
         .fileImporter(isPresented: $showImporter,
                       allowedContentTypes: [.json],
                       allowsMultipleSelection: false) { result in
