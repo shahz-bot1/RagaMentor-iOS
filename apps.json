@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.4.0",
-      "versionDate": "2026-10-18T20:30:00Z",
-      "versionDescription": "v1.4.0 \u2014 Internal (design Phase P-A): the shared SequencePlayer core lands in AudioKit with the TimelineIndex math in RagaCore and unit tests. No studio uses it yet and nothing user-visible changes; the studios migrate onto it one at a time in the following phases.",
+      "version": "1.4.1",
+      "versionDate": "2026-10-18T20:55:00Z",
+      "versionDescription": "v1.4.1 \u2014 SequencePlayer migration Phase P-B: Raga Listen scales now play through the shared SequencePlayer core via a thin ScaleAdapter (same notes, durations and end timing; the piano highlight comes from the unified ticker). The 880 Hz test beep moved to its own helper. Ear-test gate: a scale at tempo 240 with the piano highlight tracking the sound.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.4.0",
-          "date": "2026-10-18T20:30:00Z",
-          "localizedDescription": "Internal: SequencePlayer core (Phase P-A). No behaviour change.",
+          "version": "1.4.1",
+          "date": "2026-10-18T20:55:00Z",
+          "localizedDescription": "Scales migrate to the shared SequencePlayer (P-B).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
