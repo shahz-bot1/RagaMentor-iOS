@@ -3,6 +3,7 @@ import SwiftData
 import LoopLab
 import PersistenceKit
 import Composer
+import RagaBrowser
 
 struct ContentView: View {
     @StateObject private var controller = PlaybackController()
@@ -28,6 +29,9 @@ struct ContentView: View {
                     onPlayStart: { controller.pause() })
             }
             .tabItem { Label("Compose", systemImage: "square.and.pencil") }
+
+            RagaBrowserView(library: controller.ragaLibrary)
+                .tabItem { Label("Ragas", systemImage: "music.note.house") }
         }
         .preferredColorScheme(theme == "light" ? .light : .dark)
         .environmentObject(controller)
