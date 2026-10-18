@@ -12,49 +12,20 @@ import DesignSystem
 
 struct FullscreenPlayerView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var controller: PlaybackController
     let song: Song
 
-    @State private var peaks: [Float] = []
-    @State private var window = WaveformWindow(duration: 1)
-    @State private var follow = true
     @State private var tab: Tab = .loops
 
     enum Tab: String, CaseIterable { case loops = "Loops", ab = "A–B", more = "More" }
 
+    // This view deliberately holds NO playback controller: the
+    // waveform and transport leaves below own the subscriptions,
+    // so the 20 Hz position publish no longer rebuilds the tab
+    // content (the audit's P1 fix).
     var body: some View {
         NavigationStack {
             VStack(spacing: 10) {
-                WaveformView(peaks: peaks,
-                             duration: song.duration,
-                             position: controller.position,
-                             loopStart: controller.selectedLoop?.start,
-                             loopEnd: controller.selectedLoop?.end,
-                             window: $window,
-                             zoomPanEnabled: true,
-                             onSeek: hardSeek)
-                    .frame(height: 150)
-                    .padding(.horizontal)
-
-                HStack {
-                    Text("\(LibraryView.formatDuration(window.start)) – \(LibraryView.formatDuration(window.end)) of \(LibraryView.formatDuration(song.duration))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        follow.toggle()
-                    } label: {
-                        Label("Follow", systemImage: follow ? "location.fill" : "location")
-                            .font(.caption)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(follow ? .accentColor : .gray)
-                    Button("Reset zoom") { window = WaveformWindow(duration: song.duration) }
-                        .font(.caption)
-                        .buttonStyle(.bordered)
-                }
-                .padding(.horizontal)
+                FullscreenWaveformArea(song: song)
 
                 StudioSegmented(
                     items: Tab.allCases.map { ($0, $0.rawValue) },
@@ -74,7 +45,7 @@ struct FullscreenPlayerView: View {
                 .frame(maxHeight: .infinity)
 
                 Divider()
-                miniTransport
+                FullscreenTransport(song: song)
             }
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(song.title)
@@ -84,19 +55,82 @@ struct FullscreenPlayerView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .task(id: song.id) {
-                window = WaveformWindow(duration: song.duration)
-                peaks = await SongPeaks.peaks(for: song)
-            }
-            .onChange(of: controller.position) {
-                if follow && controller.isPlaying {
-                    window = window.following(controller.position)
+        }
+    }
+}
+
+/// The waveform + window controls. The only fullscreen leaf that
+/// follows the playhead: it re-renders at the position rate so the
+/// playhead and window stay live, and nothing else does.
+struct FullscreenWaveformArea: View {
+    @EnvironmentObject private var controller: PlaybackController
+    let song: Song
+
+    @State private var peaks: [Float] = []
+    @State private var window = WaveformWindow(duration: 1)
+    @State private var follow = true
+
+    var body: some View {
+        VStack(spacing: 10) {
+            WaveformView(peaks: peaks,
+                         duration: song.duration,
+                         position: controller.position,
+                         loopStart: controller.armedLoopRange?.start,
+                         loopEnd: controller.armedLoopRange?.end,
+                         window: $window,
+                         zoomPanEnabled: true,
+                         onSeek: hardSeek)
+                .frame(height: 150)
+                .padding(.horizontal)
+
+            HStack {
+                Text("\(LibraryView.formatDuration(window.start)) – \(LibraryView.formatDuration(window.end)) of \(LibraryView.formatDuration(song.duration))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    follow.toggle()
+                } label: {
+                    Label("Follow", systemImage: follow ? "location.fill" : "location")
+                        .font(.caption)
                 }
+                .buttonStyle(.bordered)
+                .tint(follow ? .accentColor : .gray)
+                Button("Reset zoom") { window = WaveformWindow(duration: song.duration) }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+            }
+            .padding(.horizontal)
+        }
+        .task(id: song.id) {
+            window = WaveformWindow(duration: song.duration)
+            peaks = await SongPeaks.peaks(for: song)
+        }
+        .onChange(of: controller.position) {
+            if follow && controller.isPlaying {
+                window = window.following(controller.position)
             }
         }
     }
 
-    private var miniTransport: some View {
+    /// Waveform tap: hard seek; disarms the loop when the target is
+    /// outside it (PLAN §9).
+    private func hardSeek(_ time: Double) {
+        if controller.loopOn, let range = controller.armedLoopRange,
+           time < range.start || time > range.end {
+            controller.toggleLoopOn()
+        }
+        controller.seek(to: time)
+        if !controller.isPlaying { controller.play() }
+    }
+}
+
+/// The persistent mini-transport (skip, play/pause, time, speed).
+struct FullscreenTransport: View {
+    @EnvironmentObject private var controller: PlaybackController
+    let song: Song
+
+    var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 22) {
                 Spacer()
@@ -121,17 +155,6 @@ struct FullscreenPlayerView: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 6)
-    }
-
-    /// Waveform tap: hard seek; disarms the loop when the target is
-    /// outside it (PLAN §9).
-    private func hardSeek(_ time: Double) {
-        if controller.loopOn, let loop = controller.selectedLoop,
-           time < loop.start || time > loop.end {
-            controller.toggleLoopOn()
-        }
-        controller.seek(to: time)
-        if !controller.isPlaying { controller.play() }
     }
 }
 
