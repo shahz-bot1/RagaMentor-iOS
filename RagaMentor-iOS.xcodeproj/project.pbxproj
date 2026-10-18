@@ -29,7 +29,7 @@
 		C0FFEE000000000000000408 /* ComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ComposerTests.swift"; sourceTree = "<group>"; };
 		C0FFEE000000000000000409 /* RagaBrowserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RagaBrowserTests.swift"; sourceTree = "<group>"; };
 		C0FFEE000000000000000410 /* VarisaiTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarisaiTests.swift"; sourceTree = "<group>"; };
-		C0FFEE000000000000000411 /* TalaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TalaTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000430 /* TalaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TalaTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
@@ -62,7 +62,7 @@
 		C0FFEE000000000000000418 /* ComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000408 /* ComposerTests.swift */; };
 		C0FFEE000000000000000419 /* RagaBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000409 /* RagaBrowserTests.swift */; };
 		C0FFEE000000000000000420 /* VarisaiTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000410 /* VarisaiTests.swift */; };
-		C0FFEE000000000000000421 /* TalaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000411 /* TalaTests.swift */; };
+		C0FFEE000000000000000431 /* TalaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000430 /* TalaTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -147,7 +147,7 @@
 				C0FFEE000000000000000408 /* ComposerTests.swift */,
 				C0FFEE000000000000000409 /* RagaBrowserTests.swift */,
 				C0FFEE000000000000000410 /* VarisaiTests.swift */,
-				C0FFEE000000000000000411 /* TalaTests.swift */,
+				C0FFEE000000000000000430 /* TalaTests.swift */,
 			);
 			path = "RagaMentor-iOSTests";
 			sourceTree = "<group>";
@@ -305,7 +305,7 @@
 				C0FFEE000000000000000418 /* ComposerTests.swift in Sources */,
 				C0FFEE000000000000000419 /* RagaBrowserTests.swift in Sources */,
 				C0FFEE000000000000000420 /* VarisaiTests.swift in Sources */,
-				C0FFEE000000000000000421 /* TalaTests.swift in Sources */,
+				C0FFEE000000000000000431 /* TalaTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
