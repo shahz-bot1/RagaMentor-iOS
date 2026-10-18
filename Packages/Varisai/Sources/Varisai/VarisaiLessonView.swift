@@ -3,11 +3,12 @@ import RagaCore
 import AudioKit
 import DesignSystem
 
-/// One lesson's practice screen (web varisai player): pattern
-/// prev/select/next, the grouped notation grid with per-token
-/// highlight, the laya line or tappable tala box, and the controls
-/// — Sa, speed, labels, the shared tempo slider (30–90, steps of
-/// 10), the loop toggle and the big Play button.
+/// One lesson's practice screen (web varisai player, web
+/// order): pattern prev/select/next, the laya line or tappable
+/// tala box, the grouped notation grid with per-token highlight,
+/// and the floating playback card — Sa, speed, labels, the
+/// shared tempo slider (30–90, steps of 10), the loop toggle
+/// and the big Play button.
 struct VarisaiLessonView: View {
     let lesson: VarisaiLesson
     let onPlayStart: () -> Void
@@ -38,6 +39,10 @@ struct VarisaiLessonView: View {
     @State private var showTalaLegend = false
     @State private var layaExpanded = false
     @State private var tempoToken = 0
+    /// Measured height of the floating playback card (with its
+    /// margins), so the scroll content can clear it. The estimate
+    /// is replaced by the real height on first layout.
+    @State private var cardHeight: CGFloat = 225
     /// Cross-studio audio focus registration (P6).
     @EnvironmentObject private var audioFocus: StudioAudioFocus
     @State private var focusToken: UUID?
@@ -51,18 +56,23 @@ struct VarisaiLessonView: View {
     private var speedValue: Int { Int(speed) ?? 2 }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                patternRow
-                metaLine
-                VarisaiGridView(player: adapter.player, lines: indexedLines,
-                                full: labels == "full")
-                layaSection
-                settingsRow
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(spacing: 12) {
+                    patternRow
+                    metaLine
+                    layaSection
+                    VarisaiGridView(player: adapter.player, lines: indexedLines,
+                                    full: labels == "full")
+                }
+                .padding(16)
+                // Clear the floating playback card: the swaras
+                // scroll beneath it, and the last line can always
+                // scroll clear of it.
+                .padding(.bottom, cardHeight)
             }
-            .padding(16)
+            playbackCard
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { dock }
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(lesson.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -239,8 +249,8 @@ struct VarisaiLessonView: View {
 
     // MARK: - Controls & play
 
-    /// Sa / Speed / Labels as a bare chip row (no card): the
-    /// three web ctl-drops without the box around them.
+    /// Sa / Speed / Labels: the web's three ctl-drops, carried
+    /// on the playback card.
     private var settingsRow: some View {
         HStack(alignment: .top, spacing: 10) {
             ctlDrop(label: "Sa", value: Swara.saNames[saOffset]) {
@@ -290,28 +300,14 @@ struct VarisaiLessonView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// The sticky bottom dock: Play + Loop on one row, the
-    /// tempo slider under it. Always visible, so the notation
-    /// owns the scrolling area.
-    private var dock: some View {
+    /// The playback card, floating at the bottom like a
+    /// collection accessory: Sa/Speed/Labels, the tempo row and
+    /// Play/Loop, in the web's control order. The swaras scroll
+    /// beneath it; the scroll content clears it by the measured
+    /// cardHeight.
+    private var playbackCard: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                playButton
-                Button {
-                    loopOn.toggle()
-                } label: {
-                    Text("🔁 Loop")
-                        .font(.callout.weight(.medium))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 13)
-                        .background(loopOn ? Studio.accentSoft : Studio.panel2,
-                                    in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(loopOn ? Studio.accent : Studio.border, lineWidth: 1))
-                        .foregroundStyle(Studio.text)
-                }
-                .buttonStyle(.plain)
-            }
+            settingsRow
             HStack(spacing: 10) {
                 Text("Tempo").foregroundStyle(Studio.text)
                 Slider(value: Binding(
@@ -322,12 +318,43 @@ struct VarisaiLessonView: View {
                 Text("\(tempo) BPM").font(.callout).monospacedDigit()
                     .foregroundStyle(Studio.text)
             }
+            HStack(spacing: 10) {
+                playButton
+                loopButton
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 12)
-        .background(Studio.panel)
-        .overlay(alignment: .top) { Divider() }
+        .padding(14)
+        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(Studio.border, lineWidth: 1))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
+        .background {
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { cardHeight = geo.size.height }
+                    .onChange(of: geo.size.height) { _, height in
+                        cardHeight = height
+                    }
+            }
+        }
+    }
+
+    private var loopButton: some View {
+        Button {
+            loopOn.toggle()
+        } label: {
+            Text("🔁 Loop")
+                .font(.callout.weight(.medium))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .background(loopOn ? Studio.accentSoft : Studio.panel2,
+                            in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(loopOn ? Studio.accent : Studio.border, lineWidth: 1))
+                .foregroundStyle(Studio.text)
+        }
+        .buttonStyle(.plain)
     }
 
     private var playButton: some View {
