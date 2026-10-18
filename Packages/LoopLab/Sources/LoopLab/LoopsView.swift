@@ -40,7 +40,7 @@ struct LoopsView: View {
                     SelectedLoopBar(song: song, loop: loop)
                 }
                 StudioCard {
-                    SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
+                    SwarasSectionView(player: controller.phraseAdapter, song: song) { loop in
                         // Build the model ONCE, here in the action — never
                         // inside a presentation closure (v0.8.0 bug).
                         editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
@@ -108,7 +108,7 @@ struct LoopsView: View {
             hadSavedPhrase: existing != nil,
             contextKey: controller.editorKey(for: loop),
             library: controller.ragaLibrary,
-            player: controller.phrasePlayer,
+            player: controller.phraseAdapter,
             onSave: { [weak controller] phrase in
                 controller?.savePhrase(phrase, for: loop, context: modelContext)
             },
