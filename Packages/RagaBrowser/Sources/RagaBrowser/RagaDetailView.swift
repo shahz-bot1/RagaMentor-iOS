@@ -242,15 +242,15 @@ struct RagaDetailView: View {
 
     private var metaLine: String {
         if let n = raga.melakartaNumber {
-            return "Melakarta \(n) · Chakra \(Melakarta.chakraName(forNumber: n)) · \(raga.jati)"
+            return "Melakarta \(n) · Chakra \(Melakarta.chakraName(forNumber: n)) · \(raga.jati ?? "")"
         }
         if let parent = raga.parentMelakarta {
-            return "Janya of \(parent) · \(raga.jati)"
+            return "Janya of \(parent) · \(raga.jati ?? "")"
         }
         if let thaat = raga.thaat {
-            return "Hindustani · Thaat \(thaat) · \(raga.jati)"
+            return "Hindustani · Thaat \(thaat) · \(raga.jati ?? "")"
         }
-        return raga.jati
+        return raga.jati ?? ""
     }
 }
 
