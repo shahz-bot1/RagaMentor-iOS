@@ -15,6 +15,13 @@ public struct SwaraEditorView: View {
     public var title: String
     public var onBrowseRaga: (() -> Void)?
     public var onClose: () -> Void
+    /// Compose hosts pass a name binding: the editor gains a Name
+    /// row (web Compose renames via the editor title, live).
+    public var compositionName: Binding<String>?
+    /// Delete wording differs per host ("Delete swaras" in LoopLab,
+    /// "Delete composition" in Compose).
+    public var deleteTitle: String
+    public var deleteMessage: String
 
     @State private var confirmDelete = false
     @State private var rawError: String?
@@ -23,11 +30,17 @@ public struct SwaraEditorView: View {
 
     public init(model: SwaraEditorModel, title: String,
                 onBrowseRaga: (() -> Void)? = nil,
+                compositionName: Binding<String>? = nil,
+                deleteTitle: String = "Delete swaras",
+                deleteMessage: String = "Delete the swaras for this loop?",
                 onClose: @escaping () -> Void) {
         self.model = model
         self.player = model.player
         self.title = title
         self.onBrowseRaga = onBrowseRaga
+        self.compositionName = compositionName
+        self.deleteTitle = deleteTitle
+        self.deleteMessage = deleteMessage
         self.onClose = onClose
     }
 
@@ -69,9 +82,9 @@ public struct SwaraEditorView: View {
         } message: {
             Text(rawError ?? "")
         }
-        .confirmationDialog("Delete the swaras for this loop?",
+        .confirmationDialog(deleteMessage,
                             isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Delete swaras", role: .destructive) {
+            Button(deleteTitle, role: .destructive) {
                 model.deletePhrase()
                 onClose()
                 dismiss()
@@ -91,6 +104,16 @@ public struct SwaraEditorView: View {
                     if model.rawMode { model.exitRawMode() } else { model.enterRawMode() }
                 }
                 .font(.callout)
+            }
+
+            if let compositionName {
+                HStack {
+                    Text("Name").foregroundStyle(.secondary)
+                    Spacer()
+                    TextField("Name", text: compositionName)
+                        .multilineTextAlignment(.trailing)
+                        .textFieldStyle(.plain)
+                }
             }
 
             HStack {
@@ -143,7 +166,7 @@ public struct SwaraEditorView: View {
                 .foregroundStyle(model.phrase.loop ? Studio.accent : Studio.text)
             }
 
-            Button("Delete swaras", role: .destructive) { confirmDelete = true }
+            Button(deleteTitle, role: .destructive) { confirmDelete = true }
                 .font(.callout)
         }
         .padding()
