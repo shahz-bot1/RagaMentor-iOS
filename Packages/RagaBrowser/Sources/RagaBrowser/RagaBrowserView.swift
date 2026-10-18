@@ -15,7 +15,7 @@ public struct RagaBrowserView: View {
     private let onPick: ((Raga) -> Void)?
     private let onCancel: (() -> Void)?
 
-    @StateObject private var player = ScalePlayer()
+    @StateObject private var adapter = ScaleAdapter()
     @State private var section: Tab = .search
     @State private var query = ""
     @State private var selectedClasses: Set<String> = []
@@ -67,12 +67,12 @@ public struct RagaBrowserView: View {
             }
             .navigationDestination(for: String.self) { id in
                 if let raga = resolve(id) {
-                    RagaDetailView(raga: raga, library: library, player: player,
+                    RagaDetailView(raga: raga, library: library, adapter: adapter,
                                    onPick: mode == .pick ? onPick : nil)
                 }
             }
             .onAppear { favourites = library.favourites() }
-            .onDisappear { player.stop() }
+            .onDisappear { adapter.stop() }
         }
     }
 
