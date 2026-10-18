@@ -4,6 +4,8 @@ import UIKit
 import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
+import SwaraEditor
+import RagaBrowser
 import DesignSystem
 
 // Song detail (PLAN §10): waveform on top, the transport, and a
@@ -18,6 +20,11 @@ struct SongDetailView: View {
     let song: Song
 
     @State private var tab: Tab = .loops
+    /// The swara editor presentation, owned HERE (not by
+    /// LoopsView): the navigation destination must hang off a
+    /// view that lives for the whole page, not tab content inside
+    /// a LazyVStack (see LoopsView.EditorSession).
+    @State private var editorSession: LoopsView.EditorSession?
 
     enum Tab: String, CaseIterable { case loops = "Loops", ab = "A–B", more = "More" }
 
@@ -40,6 +47,7 @@ struct SongDetailView: View {
                                 switch tab {
                                 case .loops:
                                     LoopsView(song: song) { tab = .ab }
+                                        onEditSwaras: { editorSession = $0 }
                                 case .ab:
                                     ABTabView(song: song)
                                 case .more:
@@ -66,6 +74,22 @@ struct SongDetailView: View {
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(song.title)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $editorSession) { session in
+            SwaraEditorView(
+                model: session.model,
+                title: session.loop.name,
+                browseSheet: { model, dismiss in
+                    AnyView(RagaBrowserView(
+                        library: model.library, mode: .pick,
+                        sequencePlayer: model.player.player,
+                        onPick: { raga in
+                            model.applyBrowsedRaga(raga)
+                            dismiss()
+                        },
+                        onCancel: dismiss))
+                },
+                onClose: { editorSession = nil })
+        }
     }
 
     /// The playback section: transport + tabs. It starts below the
