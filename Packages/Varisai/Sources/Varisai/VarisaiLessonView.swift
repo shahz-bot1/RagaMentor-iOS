@@ -14,6 +14,10 @@ struct VarisaiLessonView: View {
 
     @StateObject private var player = VarisaiPlayer()
     @State private var patternIndex = 0
+    /// The pattern's display lines with flat playback indices,
+    /// rebuilt only when the pattern changes — never per highlight
+    /// tick (the grid re-renders at up to 12 ticks/second).
+    @State private var indexedLines: [[[(token: String, index: Int)]]] = []
     @State private var loopOn = true
     @State private var showTalaLegend = false
     @State private var tempoToken = 0
@@ -33,7 +37,8 @@ struct VarisaiLessonView: View {
         ScrollView {
             VStack(spacing: 14) {
                 patternHeader
-                notationGrid
+                VarisaiGridView(player: player, lines: indexedLines,
+                                full: labels == "full")
                 controlsCard
                 playButton
             }
@@ -44,6 +49,7 @@ struct VarisaiLessonView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             focusToken = audioFocus.register { player.stop() }
+            rebuildLines()
         }
         .onDisappear {
             player.stop()
@@ -53,7 +59,10 @@ struct VarisaiLessonView: View {
             // The player reads the toggle live at the loop seam.
             player.loopEnabled = newValue
         }
-        .onChange(of: patternIndex) { _, _ in player.stop() }
+        .onChange(of: patternIndex) { _, _ in
+            player.stop()
+            rebuildLines()
+        }
         .onChange(of: saOffset) { _, _ in restartIfPlaying(debounced: false) }
         .onChange(of: speed) { _, _ in restartIfPlaying(debounced: false) }
         .onChange(of: labels) { _, _ in player.stop() }
@@ -121,11 +130,10 @@ struct VarisaiLessonView: View {
         }
     }
 
-    /// The display lines with each token's flat playback index
-    /// (the lines flatten exactly to the note list).
-    private var indexedLines: [[[(token: String, index: Int)]]] {
+    /// Rebuild the cached display lines for the current pattern.
+    private func rebuildLines() {
         var next = -1
-        return pattern.dlines.map { line in
+        indexedLines = pattern.dlines.map { line in
             line.map { group in
                 group.map { token in
                     next += 1
@@ -133,41 +141,6 @@ struct VarisaiLessonView: View {
                 }
             }
         }
-    }
-
-    private var notationGrid: some View {
-        let full = labels == "full"
-        let current = player.isPlaying ? player.currentToken : -1
-        return VStack(alignment: .leading, spacing: 6) {
-            ForEach(indexedLines.indices, id: \.self) { lineIndex in
-                HStack(spacing: 6) {
-                    ForEach(indexedLines[lineIndex].indices, id: \.self) { groupIndex in
-                        HStack(spacing: 3) {
-                            ForEach(indexedLines[lineIndex][groupIndex], id: \.index) { item in
-                                tokenLabel(item.token, full: full,
-                                           isCurrent: item.index == current)
-                            }
-                        }
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 5)
-                        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 8))
-                        .overlay(RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Studio.border, lineWidth: 1))
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-        }
-    }
-
-    private func tokenLabel(_ token: String, full: Bool, isCurrent: Bool) -> some View {
-        Text(VarisaiToken.label(token, full: full))
-            .font(.system(.body, design: .monospaced))
-            .padding(.horizontal, 3)
-            .padding(.vertical, 1)
-            .background(isCurrent ? Studio.accent : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 4))
-            .foregroundStyle(isCurrent ? .white : Studio.text)
     }
 
     // MARK: - Controls & play
@@ -262,5 +235,59 @@ struct VarisaiLessonView: View {
                 start()
             }
         }
+    }
+}
+
+/// The notation grid, isolated from the lesson screen: it alone
+/// observes the player's per-token highlight, so a highlight tick
+/// re-renders only the grid — the header's pattern menu and the
+/// controls stay untouched while playing (they used to rebuild on
+/// every tick, which starved the highlight and flickered the menu).
+struct VarisaiGridView: View {
+    @ObservedObject var player: VarisaiPlayer
+    let lines: [[[(token: String, index: Int)]]]
+    let full: Bool
+
+    var body: some View {
+        let current = player.isPlaying ? player.currentToken : -1
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(lines.indices, id: \.self) { lineIndex in
+                HStack(spacing: 6) {
+                    ForEach(lines[lineIndex].indices, id: \.self) { groupIndex in
+                        HStack(spacing: 3) {
+                            ForEach(lines[lineIndex][groupIndex], id: \.index) { item in
+                                VarisaiTokenCell(
+                                    text: VarisaiToken.label(item.token, full: full),
+                                    isCurrent: item.index == current)
+                                    .equatable()
+                            }
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 5)
+                        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Studio.border, lineWidth: 1))
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+}
+
+/// One notation token. Equatable, so SwiftUI skips re-rendering
+/// every cell whose highlight state did not change.
+struct VarisaiTokenCell: View, Equatable {
+    let text: String
+    let isCurrent: Bool
+
+    var body: some View {
+        Text(text)
+            .font(.system(.body, design: .monospaced))
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1)
+            .background(isCurrent ? Studio.accent : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 4))
+            .foregroundStyle(isCurrent ? .white : Studio.text)
     }
 }
