@@ -27,69 +27,26 @@ struct LoopsView: View {
     @State private var newGroupName = ""
     @State private var editingGroup: LoopGroup?
     @State private var editorSession: EditorSession?
-    @State private var showImporter = false
-    @State private var confirmImport = false
-    @State private var pendingImportData: Data?
-    @State private var importFailed = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
                 loopsCard
                 if let loop = controller.selectedLoop {
-                    StudioCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            StudioSectionTitle("Selected loop")
-                            LoopEditorView(song: song, loop: loop)
-                        }
-                    }
+                    SelectedLoopBar(song: song, loop: loop)
                 }
                 StudioCard {
-                    VStack(alignment: .leading, spacing: 8) {
-                        StudioSectionTitle("Swaras")
-                        SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
-                            // Build the model ONCE, here in the action — never
-                            // inside a presentation closure (v0.8.0 bug).
-                            editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
-                        }
-                        .environmentObject(controller)
+                    SwarasSectionView(player: controller.phrasePlayer, song: song) { loop in
+                        // Build the model ONCE, here in the action — never
+                        // inside a presentation closure (v0.8.0 bug).
+                        editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
                     }
+                    .environmentObject(controller)
                 }
-                backupCard
             }
             .padding(16)
         }
         .background(Studio.bg.ignoresSafeArea())
-        .fileImporter(isPresented: $showImporter,
-                      allowedContentTypes: [.json],
-                      allowsMultipleSelection: false) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                let scoped = url.startAccessingSecurityScopedResource()
-                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                if let data = try? Data(contentsOf: url) {
-                    pendingImportData = data
-                    confirmImport = true
-                } else {
-                    importFailed = true
-                }
-            }
-        }
-        .confirmationDialog("Replace all loops for this song with the imported set?",
-                            isPresented: $confirmImport, titleVisibility: .visible) {
-            Button("Replace loops", role: .destructive) {
-                if let data = pendingImportData,
-                   !controller.importBackup(data: data, context: modelContext) {
-                    importFailed = true
-                }
-                pendingImportData = nil
-            }
-            Button("Cancel", role: .cancel) { pendingImportData = nil }
-        }
-        .alert("Import failed", isPresented: $importFailed) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("That file is not a valid RagaMentor loops backup.")
-        }
         .navigationTitle("Loops")
         .navigationBarTitleDisplayMode(.inline)
         .alert("New group", isPresented: $showNewGroup) {
@@ -295,25 +252,6 @@ struct LoopsView: View {
         return "\(loops.count) items"
     }
 
-    private var backupCard: some View {
-        StudioCard {
-            VStack(alignment: .leading, spacing: 10) {
-                StudioSectionTitle("Backup")
-                if let data = controller.backupJSON() {
-                    ShareLink(item: BackupDocument(data: data),
-                              preview: SharePreview("\(song.title) loops")) {
-                        Label("Export loops…", systemImage: "square.and.arrow.up")
-                    }
-                }
-                Button {
-                    showImporter = true
-                } label: {
-                    Label("Import loops…", systemImage: "square.and.arrow.down")
-                }
-            }
-        }
-    }
-
     // MARK: Tree construction
 
     private enum TreeItem {
@@ -380,50 +318,36 @@ struct BackupDocument: Transferable {
     }
 }
 
-/// Editor for the selected loop: rename, note, 0.1 s nudges, split, delete.
-struct LoopEditorView: View {
+/// The selected loop's bar (web #fsSelRow + #fsNote): the name
+/// field with a delete button, and the note line under it. Edge
+/// editing lives on the A–B tab, as on web.
+struct SelectedLoopBar: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
     let loop: LoopRegion
-    @State private var nameDraft: String = ""
-    @State private var noteDraft: String = ""
+    @State private var nameDraft = ""
+    @State private var noteDraft = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            TextField("Loop name", text: $nameDraft)
-                .onSubmit { controller.renameLoop(loop, to: nameDraft, context: modelContext) }
-            TextField("Note (key, swara cues…)", text: $noteDraft)
-                .onSubmit { controller.setLoopNote(loop, to: noteDraft, context: modelContext) }
-
-            HStack {
-                Text("A \(precise(loop.start))")
-                Spacer()
-                Button("−0.1") { controller.nudgeLoop(loop, edge: .start, by: -0.1, context: modelContext) }
-                    .buttonStyle(.bordered)
-                Button("+0.1") { controller.nudgeLoop(loop, edge: .start, by: 0.1, context: modelContext) }
-                    .buttonStyle(.bordered)
+        StudioCard {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    TextField("Loop name", text: $nameDraft)
+                        .font(.body.weight(.medium))
+                        .onSubmit { controller.renameLoop(loop, to: nameDraft, context: modelContext) }
+                    Button(role: .destructive) {
+                        controller.deleteLoop(loop, context: modelContext)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.plain)
+                }
+                TextField("Note (key, swara cues…)", text: $noteDraft)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .onSubmit { controller.setLoopNote(loop, to: noteDraft, context: modelContext) }
             }
-            HStack {
-                Text("B \(precise(loop.end))")
-                Spacer()
-                Button("−0.1") { controller.nudgeLoop(loop, edge: .end, by: -0.1, context: modelContext) }
-                    .buttonStyle(.bordered)
-                Button("+0.1") { controller.nudgeLoop(loop, edge: .end, by: 0.1, context: modelContext) }
-                    .buttonStyle(.bordered)
-            }
-
-            HStack {
-                Button {
-                    controller.splitLoop(loop, context: modelContext)
-                } label: { Label("Split at playhead", systemImage: "scissors") }
-                .disabled(!LoopRules.canSplit(loopStart: loop.start, loopEnd: loop.end, at: controller.position))
-                Spacer()
-                Button(role: .destructive) {
-                    controller.deleteLoop(loop, context: modelContext)
-                } label: { Label("Delete", systemImage: "trash") }
-            }
-            .font(.subheadline)
         }
         .onAppear {
             nameDraft = loop.name
@@ -433,12 +357,6 @@ struct LoopEditorView: View {
             nameDraft = loop.name
             noteDraft = loop.note
         }
-    }
-
-    private func precise(_ t: Double) -> String {
-        let m = Int(t) / 60
-        let s = t - Double(m * 60)
-        return String(format: "%d:%04.1f", m, s)
     }
 }
 
