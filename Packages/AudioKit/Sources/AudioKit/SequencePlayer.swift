@@ -244,7 +244,8 @@ public final class SequencePlayer: ObservableObject {
                 try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
             guard let self, generation == gen, state == .playing,
-                  let timeline, let policy else { return }
+                  let timeline = self.timeline,
+                  let policy = self.policy else { return }
             switch policy.boundary() {
             case .stop:
                 finish()
