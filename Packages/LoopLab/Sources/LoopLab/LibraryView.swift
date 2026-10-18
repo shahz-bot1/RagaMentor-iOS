@@ -202,11 +202,11 @@ struct NowPlayingCard: View {
                 Button {
                     controller.toggleLoopOn()
                 } label: {
-                    Label("Loop", systemImage: "repeat")
+                    Text("Loop")
                 }
                 .buttonStyle(StudioSecondaryButtonStyle())
                 .tint(controller.loopOn ? Studio.accent : .gray)
-                .disabled(controller.selectedLoop == nil)
+                .disabled(controller.armedLoopRange == nil)
             }
             .font(.subheadline)
 
