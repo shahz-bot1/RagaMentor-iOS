@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import RagaCore
+import AudioKit
 import PersistenceKit
 import SwaraEditor
 import RagaBrowser
@@ -19,6 +20,9 @@ public struct CompositionListView: View {
     private let library: any RagaLibrary
     @ObservedObject private var player: PhrasePlayer
     private let onPlayStart: () -> Void
+    /// Cross-studio audio focus (P6): composition playback stops
+    /// the other studios.
+    @EnvironmentObject private var audioFocus: StudioAudioFocus
 
     @State private var compositions: [Composition] = []
     @State private var editorSession: EditorSession?
@@ -163,11 +167,18 @@ public struct CompositionListView: View {
 
     // MARK: - Playback
 
+    /// Any composition playback (list row or editor): the host's
+    /// hook plus the cross-studio focus stop.
+    private func handlePlayStart() {
+        onPlayStart()
+        audioFocus.stopAll()
+    }
+
     private func toggleListPlay(_ comp: Composition, key: String, playing: Bool) {
         if playing {
             player.stop()
         } else {
-            onPlayStart()
+            handlePlayStart()
             var phrase = comp.phrase
             phrase.loop = false // list playback never loops (web rule)
             player.play(phrase: phrase, contextKey: key, contextValid: { true })
@@ -192,7 +203,7 @@ public struct CompositionListView: View {
             onSave: { phrase in store.save(phrase: phrase, for: id) },
             onDelete: { store.delete(id: id) },
             onSongRaga: { _ in },
-            onPlayStart: onPlayStart,
+            onPlayStart: handlePlayStart,
             contextValid: { openEditorID == id })
         openEditorID = id
         editorSession = EditorSession(id: id, model: model)
