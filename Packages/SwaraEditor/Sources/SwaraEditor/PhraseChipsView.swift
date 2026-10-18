@@ -1,4 +1,5 @@
 import SwiftUI
+import AudioKit
 import RagaCore
 import DesignSystem
 
@@ -94,13 +95,13 @@ public struct PhraseChipsView: View {
 /// host screen around it (the audit's isolation rule: the host takes
 /// the player as a plain value and stops subscribing).
 public struct LivePhraseChipsView: View {
-    @ObservedObject private var player: PhrasePlayer
+    @ObservedObject private var player: SequencePlayer
     public var chips: [Chip]
     public var contextKey: String
     public var onTapChip: ((Int) -> Void)?
     public var onTapAdd: (() -> Void)?
 
-    public init(player: PhrasePlayer, chips: [Chip], contextKey: String,
+    public init(player: SequencePlayer, chips: [Chip], contextKey: String,
                 onTapChip: ((Int) -> Void)? = nil, onTapAdd: (() -> Void)? = nil) {
         self.player = player
         self.chips = chips
@@ -113,7 +114,7 @@ public struct LivePhraseChipsView: View {
         PhraseChipsView(
             chips: chips,
             currentIndex: player.isPlaying(contextKey: contextKey)
-                ? player.currentChipIndex : -1,
+                ? player.currentIndex : -1,
             onTapChip: onTapChip,
             onTapAdd: onTapAdd)
     }
