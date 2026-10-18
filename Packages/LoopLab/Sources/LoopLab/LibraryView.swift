@@ -4,9 +4,9 @@ import UniformTypeIdentifiers
 import PersistenceKit
 import DesignSystem
 
-// Home screen per PLAN §10 (locked decision 10): the Now Playing card
-// sits above the library; all loop management lives in the fullscreen
-// view (M3/M5). Library rows: title, duration, "N loops".
+// The song library: rows PUSH a SongDetailView onto the stack
+// (waveform, transport, Loops/A–B/More) instead of expanding a
+// player card inline. Library rows: title, duration, "N loops".
 
 public struct LibraryView: View {
     public init() {}
@@ -15,14 +15,11 @@ public struct LibraryView: View {
     @Query(sort: \Song.dateAdded, order: .reverse) private var songs: [Song]
     @State private var showImporter = false
     @State private var showSettings = false
+    @State private var path: [Song] = []
 
     public var body: some View {
+        NavigationStack(path: $path) {
         List {
-            if let song = controller.currentSong {
-                Section {
-                    NowPlayingCard(song: song)
-                }
-            }
             Section {
                 if songs.isEmpty {
                     ContentUnavailableView {
@@ -32,9 +29,7 @@ public struct LibraryView: View {
                     }
                 } else {
                     ForEach(songs) { song in
-                        Button {
-                            controller.open(song)
-                        } label: {
+                        NavigationLink(value: song) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(song.title)
@@ -61,6 +56,17 @@ public struct LibraryView: View {
             }
         }
         .navigationTitle("RagaMentor")
+        .navigationDestination(for: Song.self) { song in
+            SongDetailView(song: song)
+                .onAppear {
+                    // Open the pushed song (a no-op when it is the
+                    // one already loaded, so popping back and forth
+                    // never restarts playback).
+                    if controller.currentSong?.id != song.id {
+                        controller.open(song)
+                    }
+                }
+        }
         .studioList()
         .onAppear { controller.modelContext = modelContext }
         .toolbar {
@@ -87,6 +93,7 @@ public struct LibraryView: View {
                       allowsMultipleSelection: true) { result in
             if case .success(let urls) = result, let last = controller.importFiles(urls, context: modelContext) {
                 controller.open(last)
+                path.append(last)
             }
         }
         .alert("Import", isPresented: Binding(
@@ -97,139 +104,11 @@ public struct LibraryView: View {
         } message: {
             Text(controller.importError ?? "")
         }
+        }
     }
 
     static func formatDuration(_ seconds: Double) -> String {
         let total = Int(seconds.rounded())
         return String(format: "%d:%02d", total / 60, total % 60)
     }
-}
-
-struct NowPlayingCard: View {
-    @EnvironmentObject private var controller: PlaybackController
-    let song: Song
-    @State private var peaks: [Float] = []
-    @State private var window = WaveformWindow(duration: 1)
-    @State private var showFullscreen = false
-
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(song.title)
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text("\(LibraryView.formatDuration(controller.position)) / \(LibraryView.formatDuration(song.duration))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button {
-                    showFullscreen = true
-                } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                }
-                .buttonStyle(.plain)
-                Button {
-                    controller.closeSong()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            WaveformView(peaks: peaks,
-                         duration: song.duration,
-                         position: controller.position,
-                         regions: WaveformRegions.build(
-                            song: song,
-                            selectedLoopID: controller.selectedLoopID,
-                            selectedGroupID: controller.selectedGroupID),
-                         window: $window,
-                         onSeek: { controller.seek(to: $0) })
-                .frame(height: 44)
-                .task(id: song.id) {
-                    window = WaveformWindow(duration: song.duration)
-                    peaks = await SongPeaks.peaks(for: song)
-                }
-
-            Slider(value: Binding(
-                get: { controller.position },
-                set: { controller.seek(to: $0) }
-            ), in: 0...max(song.duration, 0.01))
-            .tint(Studio.accent)
-            .disabled(song.duration <= 0)
-
-            HStack(spacing: 18) {
-                Spacer()
-                StudioRoundButton(systemImage: "gobackward.10", diameter: 42, filled: false) {
-                    controller.skip(by: -10)
-                }
-                StudioRoundButton(systemImage: controller.isPlaying ? "pause.fill" : "play.fill",
-                                  diameter: 56) {
-                    controller.togglePlay()
-                }
-                StudioRoundButton(systemImage: "goforward.10", diameter: 42, filled: false) {
-                    controller.skip(by: 10)
-                }
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-
-            StudioSegmented(
-                items: PlaybackController.speedPresets.map { (preset: Float) in (preset, String(format: "%gx", preset)) },
-                selection: $controller.speed)
-
-            HStack(spacing: 10) {
-                Button {
-                    controller.setA()
-                } label: {
-                    Text(controller.pendingA == nil ? "Set A" : "A \(short(controller.pendingA!))")
-                }
-                .buttonStyle(StudioSecondaryButtonStyle())
-                Button {
-                    controller.setB()
-                } label: {
-                    Text(controller.pendingB == nil ? "Set B" : "B \(short(controller.pendingB!))")
-                }
-                .buttonStyle(StudioSecondaryButtonStyle())
-                if controller.pendingA != nil || controller.pendingB != nil {
-                    Button("Clear") { controller.clearPendingMarks() }
-                        .buttonStyle(StudioSecondaryButtonStyle())
-                }
-                Spacer()
-                Button {
-                    controller.toggleLoopOn()
-                } label: {
-                    Text("Loop")
-                }
-                .buttonStyle(StudioSecondaryButtonStyle())
-                .tint(controller.loopOn ? Studio.accent : .gray)
-                .disabled(controller.armedLoopRange == nil)
-            }
-            .font(.subheadline)
-
-            NavigationLink {
-                LoopsView(song: song)
-            } label: {
-                HStack {
-                    Text("Loops")
-                    Spacer()
-                    Text("\(song.loops.count)")
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .fullScreenCover(isPresented: $showFullscreen) {
-            FullscreenPlayerView(song: song)
-                .environmentObject(controller)
-        }
-    }
-
-    private func short(_ t: Double) -> String { LibraryView.formatDuration(t) }
 }
