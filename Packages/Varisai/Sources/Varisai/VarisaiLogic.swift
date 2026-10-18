@@ -110,12 +110,47 @@ public enum VarisaiPlayback {
 
     /// Beat count of an alankaram tala string: I<n> = n beats
     /// (laghu), 0 = 2 (drutam), U = 1 (anudrutam).
+    /// Per-anga beat counts (web talaDisplay): I<n> = n,
+    /// 0 (drutam) = 2, U (anudrutam) = 1.
+    public static func angaBeats(_ tala: String) -> [Int] {
+        tala.split(separator: " ").map { anga in
+            if anga.hasPrefix("I"), let n = Int(anga.dropFirst()) { return n }
+            if anga == "0" { return 2 }
+            if anga == "U" { return 1 }
+            return 0
+        }
+    }
+
     public static func talaBeats(_ tala: String) -> Int {
         tala.split(separator: " ").reduce(0) { sum, part in
             if part == "0" { return sum + 2 }
             if part == "U" { return sum + 1 }
             if part.hasPrefix("I"), let n = Int(part.dropFirst()) { return sum + n }
             return sum
+        }
+    }
+}
+
+
+/// Laya string parsing (web layaDisplay): parts split on
+/// " and "; each part's groups split on "-" (a logical separator,
+/// never a rest); parenthesised count hints are stripped; a part
+/// without "-" is one group with its spaces removed.
+public enum LayaParts {
+    public static func parse(_ laya: String) -> [[String]] {
+        laya.components(separatedBy: " and ").map { part in
+            var text = part
+            while let open = text.firstIndex(of: "("),
+                  let close = text[open...].firstIndex(of: ")") {
+                text.removeSubrange(open...close)
+            }
+            text = text.trimmingCharacters(in: .whitespaces)
+            if !text.contains("-") {
+                return [text.replacingOccurrences(of: " ", with: "")]
+            }
+            return text.split(separator: " ").flatMap {
+                $0.split(separator: "-").map(String.init)
+            }.filter { !$0.isEmpty }
         }
     }
 }
