@@ -11,9 +11,9 @@ import DesignSystem
 struct RagaDetailView: View {
     let raga: Raga
     let library: any RagaLibrary
-    /// Plain value: the listen section observes the player, so this
-    /// page no longer re-renders on every note pulse.
-    let player: ScalePlayer
+    /// Plain value: the listen section observes the adapter's
+    /// player, so this page no longer re-renders on every note pulse.
+    let adapter: ScaleAdapter
     var onPick: ((Raga) -> Void)?
 
     @State private var notation: Notation
@@ -21,11 +21,11 @@ struct RagaDetailView: View {
 
     private enum Notation: Hashable { case carnatic, hindustani }
 
-    init(raga: Raga, library: any RagaLibrary, player: ScalePlayer,
+    init(raga: Raga, library: any RagaLibrary, adapter: ScaleAdapter,
          onPick: ((Raga) -> Void)?) {
         self.raga = raga
         self.library = library
-        self.player = player
+        self.adapter = adapter
         self.onPick = onPick
         self._notation = State(initialValue: raga.isHindustani ? .hindustani : .carnatic)
         self._isFavourite = State(initialValue: library.isFavourite(sourceId: raga.id))
@@ -44,7 +44,7 @@ struct RagaDetailView: View {
                     .buttonStyle(StudioPrimaryButtonStyle())
                 }
                 scaleCard
-                RagaListenSection(raga: raga, player: player,
+                RagaListenSection(raga: raga, adapter: adapter, player: adapter.player,
                                   hindustaniLabels: notation == .hindustani)
                 alliedCard
                 lakshanaCard
