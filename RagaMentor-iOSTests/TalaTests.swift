@@ -101,9 +101,11 @@ final class TalaTests: XCTestCase {
     func testWheelGeometry() {
         let dots = TalaSpec.wheelDots(talaId: "triputa", jatiId: "chatusra")
         XCTAssertEqual(dots.count, 8)
-        // First dot sits at the top of the R=108 circle.
-        XCTAssertEqual(dots[0].x, 140, accuracy: 0.6)
-        XCTAssertEqual(dots[0].y, 32, accuracy: 0.6)
+        // Dots sit at the centre of their akshara slot (the web
+        // formula), so the first dot is offset from the top by half
+        // a laghu share: -90° + (0.5/4) of the 4/8 segment.
+        XCTAssertEqual(dots[0].x, 179.45, accuracy: 0.6)
+        XCTAssertEqual(dots[0].y, 39.46, accuracy: 0.6)
         XCTAssertTrue(dots[0].isSamam)
         XCTAssertTrue(dots.dropFirst().allSatisfy { !$0.isSamam })
         XCTAssertEqual(dots[0].radius, 11)
