@@ -142,7 +142,6 @@ struct FullscreenWaveformArea: View {
                      zoomPanEnabled: true,
                      onSeek: hardSeek)
             .frame(height: height)
-            .padding(.horizontal)
             .overlay(alignment: .topTrailing) {
                 if let name = armedName {
                     Button {
