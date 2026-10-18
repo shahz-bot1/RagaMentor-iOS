@@ -1,0 +1,251 @@
+import SwiftUI
+import RagaCore
+import DesignSystem
+
+/// One lesson's practice screen (web varisai player): pattern
+/// prev/select/next, the grouped notation grid with per-token
+/// highlight, the laya line or tappable tala box, and the controls
+/// — Sa, speed, labels, the shared tempo slider (30–90, steps of
+/// 10), the loop toggle and the big Play button.
+struct VarisaiLessonView: View {
+    let lesson: VarisaiLesson
+    let onPlayStart: () -> Void
+
+    @StateObject private var player = VarisaiPlayer()
+    @State private var patternIndex = 0
+    @State private var loopOn = true
+    @State private var showTalaLegend = false
+    @State private var tempoToken = 0
+
+    @AppStorage("varisai-sa") private var saOffset = 0
+    @AppStorage("varisai-tempo") private var tempo = 60
+    @AppStorage("varisai-speed") private var speed = "2"
+    @AppStorage("varisai-labels") private var labels = "simple"
+
+    private var pattern: VarisaiPattern { lesson.patterns[patternIndex] }
+    private var speedValue: Int { Int(speed) ?? 2 }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                patternHeader
+                notationGrid
+                controlsCard
+                playButton
+            }
+            .padding(16)
+        }
+        .background(Studio.bg.ignoresSafeArea())
+        .navigationTitle(lesson.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { player.stop() }
+        .onChange(of: patternIndex) { _, _ in player.stop() }
+        .onChange(of: saOffset) { _, _ in restartIfPlaying(debounced: false) }
+        .onChange(of: speed) { _, _ in restartIfPlaying(debounced: false) }
+        .onChange(of: labels) { _, _ in player.stop() }
+        .onChange(of: tempo) { _, _ in restartIfPlaying(debounced: true) }
+    }
+
+    // MARK: - Header & grid
+
+    private var patternHeader: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Button { patternIndex -= 1 } label: {
+                    Image(systemName: "chevron.left")
+                }
+                .disabled(patternIndex == 0)
+                Spacer()
+                Menu {
+                    ForEach(lesson.patterns.indices, id: \.self) { i in
+                        Button(lesson.patterns[i].title) { patternIndex = i }
+                    }
+                } label: {
+                    VStack(spacing: 1) {
+                        Text(pattern.title).font(.headline)
+                            .foregroundStyle(Studio.text)
+                        Text(pattern.sub).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Button { patternIndex += 1 } label: {
+                    Image(systemName: "chevron.right")
+                }
+                .disabled(patternIndex == lesson.patterns.count - 1)
+            }
+            if let laya = pattern.laya {
+                Text("Laya · \(laya)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let tala = pattern.tala {
+                Button {
+                    showTalaLegend = true
+                } label: {
+                    Text("Tala · \(tala) · \(VarisaiPlayback.talaBeats(tala)) beats")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Studio.panel2, in: Capsule())
+                        .foregroundStyle(Studio.text)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showTalaLegend) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Tala angas").font(.headline)
+                        Text("I‹n› — Laghu, n beats")
+                        Text("0 — Drutam, 2 beats")
+                        Text("U — Anudrutam, 1 beat")
+                        Text("This pattern: \(tala) = \(VarisaiPlayback.talaBeats(tala)) beats per cycle.")
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.callout)
+                    .padding(16)
+                    .presentationCompactAdaptation(.popover)
+                }
+            }
+        }
+    }
+
+    /// The display lines with each token's flat playback index
+    /// (the lines flatten exactly to the note list).
+    private var indexedLines: [[[(token: String, index: Int)]]] {
+        var next = -1
+        return pattern.dlines.map { line in
+            line.map { group in
+                group.map { token in
+                    next += 1
+                    return (token: token, index: next)
+                }
+            }
+        }
+    }
+
+    private var notationGrid: some View {
+        let full = labels == "full"
+        let current = player.isPlaying ? player.currentToken : -1
+        return VStack(alignment: .leading, spacing: 6) {
+            ForEach(indexedLines.indices, id: \.self) { lineIndex in
+                HStack(spacing: 6) {
+                    ForEach(indexedLines[lineIndex].indices, id: \.self) { groupIndex in
+                        HStack(spacing: 3) {
+                            ForEach(indexedLines[lineIndex][groupIndex], id: \.index) { item in
+                                tokenLabel(item.token, full: full,
+                                           isCurrent: item.index == current)
+                            }
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 5)
+                        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(Studio.border, lineWidth: 1))
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+    }
+
+    private func tokenLabel(_ token: String, full: Bool, isCurrent: Bool) -> some View {
+        Text(VarisaiToken.label(token, full: full))
+            .font(.system(.body, design: .monospaced))
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1)
+            .background(isCurrent ? Studio.accent : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 4))
+            .foregroundStyle(isCurrent ? .white : Studio.text)
+    }
+
+    // MARK: - Controls & play
+
+    private var controlsCard: some View {
+        StudioCard {
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Sa").foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("Sa", selection: $saOffset) {
+                        ForEach(0..<12, id: \.self) { i in
+                            Text(Swara.saNames[i]).tag(i)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+                HStack {
+                    Text("Speed").foregroundStyle(.secondary)
+                    Spacer()
+                    StudioSegmented(items: [("1", "1x"), ("2", "2x"),
+                                            ("4", "4x"), ("8", "8x")],
+                                    selection: $speed)
+                        .frame(width: 190)
+                }
+                HStack {
+                    Text("Labels").foregroundStyle(.secondary)
+                    Spacer()
+                    StudioSegmented(items: [("simple", "Simple"), ("full", "Full")],
+                                    selection: $labels)
+                        .frame(width: 190)
+                }
+                HStack {
+                    Text("Tempo").foregroundStyle(.secondary)
+                    Slider(value: Binding(
+                        get: { Double(tempo) },
+                        set: { tempo = Int($0) }),
+                        in: 30...90, step: 10)
+                        .tint(Studio.accent)
+                    Text("\(tempo) bpm").font(.callout).monospacedDigit()
+                        .frame(width: 64, alignment: .trailing)
+                }
+                Toggle("Loop", isOn: $loopOn)
+            }
+        }
+    }
+
+    private var playButton: some View {
+        Button {
+            if player.state == .idle {
+                onPlayStart()
+                start()
+            } else {
+                player.stop()
+            }
+        } label: {
+            Text(player.state == .playing ? "■ Stop"
+                 : player.state == .loading ? "⏳ Loading…" : "▶ Play pattern")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(player.state == .playing
+                            ? Color(red: 0.878, green: 0.322, blue: 0.322)
+                            : Studio.accent,
+                            in: RoundedRectangle(cornerRadius: 12))
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Playback control
+
+    private func start() {
+        player.play(pattern: pattern, saOffset: saOffset, tempo: tempo,
+                    speed: speedValue, loop: loopOn)
+    }
+
+    /// Web restart rules: Sa and speed restart at once; tempo
+    /// restarts after a 350 ms debounce; labels only re-render.
+    private func restartIfPlaying(debounced: Bool) {
+        guard player.state == .playing else { return }
+        if !debounced {
+            start()
+            return
+        }
+        tempoToken += 1
+        let token = tempoToken
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if token == tempoToken, player.state == .playing {
+                start()
+            }
+        }
+    }
+}
