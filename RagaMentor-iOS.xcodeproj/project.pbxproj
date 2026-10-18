@@ -30,6 +30,7 @@
 		C0FFEE000000000000000409 /* RagaBrowserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RagaBrowserTests.swift"; sourceTree = "<group>"; };
 		C0FFEE000000000000000410 /* VarisaiTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "VarisaiTests.swift"; sourceTree = "<group>"; };
 		C0FFEE000000000000000430 /* TalaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TalaTests.swift"; sourceTree = "<group>"; };
+		C0FFEE000000000000000432 /* StudioAudioFocusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StudioAudioFocusTests.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXBuildFile section */
@@ -63,6 +64,7 @@
 		C0FFEE000000000000000419 /* RagaBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000409 /* RagaBrowserTests.swift */; };
 		C0FFEE000000000000000420 /* VarisaiTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000410 /* VarisaiTests.swift */; };
 		C0FFEE000000000000000431 /* TalaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000430 /* TalaTests.swift */; };
+		C0FFEE000000000000000433 /* StudioAudioFocusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000000000000000432 /* StudioAudioFocusTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -148,6 +150,7 @@
 				C0FFEE000000000000000409 /* RagaBrowserTests.swift */,
 				C0FFEE000000000000000410 /* VarisaiTests.swift */,
 				C0FFEE000000000000000430 /* TalaTests.swift */,
+				C0FFEE000000000000000432 /* StudioAudioFocusTests.swift */,
 			);
 			path = "RagaMentor-iOSTests";
 			sourceTree = "<group>";
@@ -306,6 +309,7 @@
 				C0FFEE000000000000000419 /* RagaBrowserTests.swift in Sources */,
 				C0FFEE000000000000000420 /* VarisaiTests.swift in Sources */,
 				C0FFEE000000000000000431 /* TalaTests.swift in Sources */,
+				C0FFEE000000000000000433 /* StudioAudioFocusTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,7 +492,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -499,7 +503,7 @@
 					"@executable_path/Frameworks",
 				);
 				INFOPLIST_KEY_UIBackgroundModes = audio;
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -515,7 +519,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -526,7 +530,7 @@
 					"@executable_path/Frameworks",
 				);
 				INFOPLIST_KEY_UIBackgroundModes = audio;
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -541,14 +545,14 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -563,14 +567,14 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.12.0;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = uk.co.shahz.ragamentor.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				TARGETED_DEVICE_FAMILY = "1,2";
