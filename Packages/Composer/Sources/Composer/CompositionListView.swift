@@ -97,6 +97,7 @@ public struct CompositionListView: View {
                 browseSheet: { model, dismiss in
                     AnyView(RagaBrowserView(
                         library: model.library, mode: .pick,
+                        sequencePlayer: model.player.player,
                         onPick: { raga in
                             model.applyBrowsedRaga(raga)
                             dismiss()
