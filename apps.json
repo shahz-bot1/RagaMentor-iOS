@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.3.2",
-      "versionDate": "2026-10-18T19:10:00Z",
-      "versionDescription": "v1.3.2 \u2014 Varisai loop seam fix: the seam timer did not count the pass lead-in, so from the second pass onward the audio started about 80 ms ahead of the pass boundary (and of the highlight grid). The seam now lands exactly on the boundary, like the web. Includes v1.3.1 (background keep-alive for phrase loops) and v1.3.0 (Varisai Practice Dock).",
+      "version": "1.3.3",
+      "versionDate": "2026-10-18T19:15:00Z",
+      "versionDescription": "v1.3.3 \u2014 The swara editor Phrase card now carries its actions in the header, like the LoopLab Swaras card: round Play/Stop, a Loop toggle chip and the red delete trash at the top right. They moved out of the Setup card, which is now settings only. Includes v1.3.2 (Varisai seam fix), v1.3.1 (background phrase loops) and v1.3.0 (Varisai Practice Dock).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.3.2",
-          "date": "2026-10-18T19:10:00Z",
-          "localizedDescription": "Varisai seam timing fix; background phrase loops; Practice Dock.",
+          "version": "1.3.3",
+          "date": "2026-10-18T19:15:00Z",
+          "localizedDescription": "Phrase card header actions (Play/Loop/Delete).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
