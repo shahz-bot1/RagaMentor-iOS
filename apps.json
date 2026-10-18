@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.0.1",
-      "versionDate": "2026-10-18T14:12:00Z",
-      "versionDescription": "v1.0.1 \u2014 fixes from on-device testing: Varisai highlighting is smooth (the grid no longer rebuilds the whole screen per note) and the pattern menu stays stable during playback; the Ragas piano now follows the exact v14 layout \u2014 keys sized to the container, Sa at the left edge, top Sa ending at the right edge.",
+      "version": "1.1.0",
+      "versionDate": "2026-10-18T15:05:00Z",
+      "versionDescription": "v1.1.0 \u2014 the audit fixes: swara chips now wrap onto the next line like the web; Loops is a chip collection (groups drill in, a group chip loops its whole section, tap the active loop chip again to deselect); playback highlights no longer rebuild whole screens; the fullscreen player waveform no longer re-renders the tabs 20 times a second.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.0.1",
-          "date": "2026-10-18T14:12:00Z",
-          "localizedDescription": "Varisai highlight performance + piano layout fixes.",
+          "version": "1.1.0",
+          "date": "2026-10-18T15:05:00Z",
+          "localizedDescription": "Audit fixes: chip wrap, loops chip collection, render isolation.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
