@@ -22,6 +22,10 @@ struct LoopsView: View {
     /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
     /// only the fullscreen host can switch tabs.
     var onRequestAB: (() -> Void)? = nil
+    /// Hand a built editor session UP to the host (the song
+    /// detail), which owns the presentation state and the
+    /// navigation destination — see EditorSession.
+    var onEditSwaras: ((EditorSession) -> Void)? = nil
 
     /// The group currently drilled into (web's fsGroupView); nil =
     /// the top level.
@@ -29,7 +33,6 @@ struct LoopsView: View {
     @State private var showNewGroup = false
     @State private var newGroupName = ""
     @State private var editingGroup: LoopGroup?
-    @State private var editorSession: EditorSession?
 
     var body: some View {
         // Content-sized (no own scrolling): the song detail's page
@@ -42,8 +45,10 @@ struct LoopsView: View {
                 StudioCard {
                     SwarasSectionView(player: controller.phraseAdapter, song: song) { loop in
                         // Build the model ONCE, here in the action — never
-                        // inside a presentation closure (v0.8.0 bug).
-                        editorSession = EditorSession(loop: loop, model: editorModel(for: loop))
+                        // inside a presentation closure (v0.8.0 bug) —
+                        // and hand the session to the host, which owns
+                        // the push (see EditorSession).
+                        onEditSwaras?(EditorSession(loop: loop, model: editorModel(for: loop)))
                     }
                     .environmentObject(controller)
                 }
@@ -58,22 +63,6 @@ struct LoopsView: View {
             GroupEditorView(song: song, group: group)
                 .environmentObject(controller)
         }
-        .navigationDestination(item: $editorSession) { session in
-            SwaraEditorView(
-                model: session.model,
-                title: session.loop.name,
-                browseSheet: { model, dismiss in
-                    AnyView(RagaBrowserView(
-                        library: model.library, mode: .pick,
-                        sequencePlayer: model.player.player,
-                        onPick: { raga in
-                            model.applyBrowsedRaga(raga)
-                            dismiss()
-                        },
-                        onCancel: dismiss))
-                },
-                onClose: { editorSession = nil })
-        }
     }
 
     /// One editor presentation: the loop plus its model, created once
@@ -81,14 +70,21 @@ struct LoopsView: View {
     /// presentation, so the editor's model identity is stable.
     /// Hashable by loop id for the navigation destination.
     ///
+    /// The @State and the navigationDestination live in the HOST
+    /// (SongDetailView), not here: this view sits inside the
+    /// detail's tab switch inside a LazyVStack, and when the push
+    /// started that lazy content could be torn down, unregistering
+    /// the destination — the stack then collapsed all the way back
+    /// to the song list (his bug report, fixed v1.4.7). The host
+    /// lives for the whole page, so the destination stays
+    /// registered.
+    ///
     /// The editor is PUSHED, not covered: as a fullScreenCover it
-    /// oscillated (open, close, open, close) on device — the cover
-    /// lived deep inside the fullscreen player's tab switch under a
-    /// 20 Hz position publisher, and the modal layer kept tearing
-    /// down. A pushed destination is owned by the navigation stack
-    /// and does not oscillate. (Compose keeps its cover: its host is
-    /// a calm tab-root list, where the cover is stable.)
-    private struct EditorSession: Identifiable, Hashable {
+    /// oscillated (open, close, open, close) on device. A pushed
+    /// destination is owned by the navigation stack and does not
+    /// oscillate. (Compose keeps its cover: its host is a calm
+    /// tab-root list, where the cover is stable.)
+    struct EditorSession: Identifiable, Hashable {
         let loop: LoopRegion
         let model: SwaraEditorModel
         var id: UUID { loop.id }
