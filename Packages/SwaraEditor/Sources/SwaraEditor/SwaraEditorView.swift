@@ -11,7 +11,10 @@ import UIKit
 /// edit through the model; Done only closes.
 public struct SwaraEditorView: View {
     @ObservedObject public var model: SwaraEditorModel
-    @ObservedObject private var player: PhrasePlayer
+    /// The player as a plain value: the chip strip observes it in a
+    /// leaf (LivePhraseChipsView), so this screen no longer
+    /// re-renders on every chip pulse.
+    private let player: PhrasePlayer
     public var title: String
     public var onBrowseRaga: (() -> Void)?
     public var onClose: () -> Void
@@ -233,10 +236,10 @@ public struct SwaraEditorView: View {
                 Text("No swaras yet — tap ＋ to add the first chip.")
                     .foregroundStyle(.secondary)
             }
-            PhraseChipsView(
+            LivePhraseChipsView(
+                player: player,
                 chips: model.phrase.chips,
-                currentIndex: player.isPlaying(contextKey: model.contextKey)
-                    ? player.currentChipIndex : -1,
+                contextKey: model.contextKey,
                 onTapChip: { model.openEditPicker(index: $0) },
                 onTapAdd: { model.openAppendPicker() })
             HStack {
