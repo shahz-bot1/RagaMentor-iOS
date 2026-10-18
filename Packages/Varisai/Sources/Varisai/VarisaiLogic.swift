@@ -55,6 +55,12 @@ public struct VarisaiEvent: Equatable, Sendable {
     public let semitone: Int
     public let startStep: Int
     public var slots: Int
+
+    public init(semitone: Int, startStep: Int, slots: Int) {
+        self.semitone = semitone
+        self.startStep = startStep
+        self.slots = slots
+    }
 }
 
 public enum VarisaiPlayback {
