@@ -7,16 +7,16 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.1.3",
-      "versionDate": "2026-10-18T17:35:00Z",
-      "versionDescription": "v1.1.3 \u2014 fullscreen player: transport now sits above the tabs (web order), waveform is 34% of screen height like the web; the Loops chips are flat on the page (no card) with the web chip format and dashed \uff0b New loop / \uff0b New group chips; the chip wrapping layout is rebuilt so rows size correctly.",
+      "version": "1.2.0",
+      "versionDate": "2026-10-18T17:45:00Z",
+      "versionDescription": "v1.2.0 \u2014 LoopLab navigation: tapping a song now PUSHES a song detail screen (waveform, transport, Loops/A\u2013B/More) instead of expanding a player card inline; the library is a clean list again. Includes v1.1.3: transport above the tabs, waveform at 34% screen height, flat web-style loop chips with correct wrapping, and a Song title field in More.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.1.3",
-          "date": "2026-10-18T17:35:00Z",
-          "localizedDescription": "Transport above tabs, waveform height, chips layout fix.",
+          "version": "1.2.0",
+          "date": "2026-10-18T17:45:00Z",
+          "localizedDescription": "Song detail push navigation + player layout fixes.",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
       ]
