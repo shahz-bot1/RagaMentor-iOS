@@ -57,6 +57,21 @@ public final class TalaClock: ObservableObject {
     private var subIdx = 0
     private var taps: [Double] = []
     private var highlightTasks: [Task<Void, Never>] = []
+    private var focusToken: UUID?
+
+    /// Register with the cross-studio audio focus (P6). The clock
+    /// keeps playing when its tab is left (the web page has no
+    /// visibility handler), so the registration lives as long as
+    /// the clock — another studio starting playback can stop it.
+    @discardableResult
+    public func attachFocus(_ focus: StudioAudioFocus) -> UUID {
+        if let focusToken { return focusToken }
+        let token = focus.register { [weak self] in
+            Task { @MainActor in self?.stop() }
+        }
+        focusToken = token
+        return token
+    }
 
     public init(store: TalaSettingsStore = TalaSettingsStore(),
                 clicks: any ClickEngine = SineClickEngine()) {
