@@ -23,6 +23,12 @@ public enum VarisaiToken {
         return .note(sthana: token, octave: 0)
     }
 
+    /// A rest/hold token (the web's isRest): a dheergam comma or a
+    /// dash.
+    public static func isRest(_ token: String) -> Bool {
+        token == "," || token == "-"
+    }
+
     /// Absolute semitone (Sa offset applied); nil for a hold.
     public static func semitone(_ token: String, saOffset: Int) -> Int? {
         guard case .note(let sthana, let octave) = parse(token) else { return nil }
