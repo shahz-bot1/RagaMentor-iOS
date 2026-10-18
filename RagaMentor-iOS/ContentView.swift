@@ -4,6 +4,7 @@ import LoopLab
 import PersistenceKit
 import Composer
 import RagaBrowser
+import Varisai
 
 struct ContentView: View {
     @StateObject private var controller = PlaybackController()
@@ -32,6 +33,12 @@ struct ContentView: View {
 
             RagaBrowserView(library: controller.ragaLibrary)
                 .tabItem { Label("Ragas", systemImage: "music.note.house") }
+
+            VarisaiView(onPlayStart: {
+                controller.pause()
+                controller.phrasePlayer.stop()
+            })
+            .tabItem { Label("Varisai", systemImage: "music.note.list") }
         }
         .preferredColorScheme(theme == "light" ? .light : .dark)
         .environmentObject(controller)
