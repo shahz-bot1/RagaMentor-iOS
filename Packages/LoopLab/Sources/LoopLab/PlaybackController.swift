@@ -59,6 +59,10 @@ public final class PlaybackController: ObservableObject {
     let engine: any FilePlaybackEngine
     /// The shared raga-selection service (P1).
     public let ragaLibrary: any RagaLibrary
+    /// The app's ONE sequence player (P-E), built by the app
+    /// shell over the shell's one tone engine and handed in;
+    /// every studio's adapter wraps it.
+    public let sequencePlayer: SequencePlayer
     /// Phrase playback shared by the Swaras section and the editor (P1).
     public let phraseAdapter: PhraseAdapter
     private var positionTimer: Timer?
@@ -67,10 +71,11 @@ public final class PlaybackController: ObservableObject {
 
     public init(engine: any FilePlaybackEngine = AudioEngine(),
                 library: (any RagaLibrary)? = nil,
-                tone: (any ToneEngine)? = nil) {
+                sequencePlayer: SequencePlayer) {
         self.engine = engine
         self.ragaLibrary = library ?? DefaultRagaLibrary()
-        self.phraseAdapter = PhraseAdapter(tone: tone ?? HarmoniumToneEngine())
+        self.sequencePlayer = sequencePlayer
+        self.phraseAdapter = PhraseAdapter(player: sequencePlayer)
         engine.rate = speed
         observeSessionNotifications()
         setupRemoteCommands()
