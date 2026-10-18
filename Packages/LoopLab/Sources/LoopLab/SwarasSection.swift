@@ -5,42 +5,62 @@ import PersistenceKit
 import SwaraEditor
 import DesignSystem
 
-/// The Swaras section on the Loops tab (web fsSwSection): for the
-/// selected loop — a prompt when no loop is selected, an Add button
-/// when the loop has no phrase, or the read-only phrase strip with the
-/// round play button, Edit, the tempo slider and the meta line.
+/// The Swaras section on the Loops tab (web #fsSwSection), in the
+/// web's order: header row (title + round play / Edit / Add
+/// buttons), the selected loop's sub-line, then — for a loop with a
+/// phrase — the chip strip, the tempo row and the meta line.
 struct SwarasSectionView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
-    /// Plain value: the phrase strip leaf observes the player, so
-    /// this section no longer re-renders per chip pulse.
+    /// Plain value: the play button and chip strip observe the
+    /// player in leaves, so this section no longer re-renders per
+    /// chip pulse.
     let player: PhrasePlayer
     let song: Song
     var onEdit: (LoopRegion) -> Void
 
     var body: some View {
-        if let loop = controller.selectedLoop {
-            if let phrase = controller.phrase(for: loop), !phrase.chips.isEmpty {
-                phraseBody(loop: loop, phrase: phrase)
-            } else {
-                HStack {
-                    Text("No swaras for this loop yet.")
+        VStack(alignment: .leading, spacing: 10) {
+            headerRow
+            if let loop = controller.selectedLoop {
+                Text("\(loop.name) · A \(fmt(loop.start)) – B \(fmt(loop.end))")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                if let phrase = controller.phrase(for: loop), !phrase.chips.isEmpty {
+                    phraseBody(loop: loop, phrase: phrase)
+                } else {
+                    Text("No swaras for this loop yet. Tap ＋ Add swaras to compose the phrase you hear in this loop.")
+                        .font(.callout)
                         .foregroundStyle(.secondary)
-                    Spacer()
+                }
+            } else {
+                Text("Select a loop to add its swaras.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var headerRow: some View {
+        HStack(spacing: 8) {
+            StudioSectionTitle("Swaras")
+            Spacer()
+            if let loop = controller.selectedLoop {
+                if let phrase = controller.phrase(for: loop), !phrase.chips.isEmpty {
+                    SectionPlayButton(player: player, loop: loop)
+                    Button("✎ Edit") { onEdit(loop) }
+                        .buttonStyle(StudioSecondaryButtonStyle())
+                } else {
                     Button("＋ Add swaras") { onEdit(loop) }
                         .buttonStyle(StudioSecondaryButtonStyle())
                 }
             }
-        } else {
-            Text("Select a loop to add or play its swaras.")
-                .foregroundStyle(.secondary)
         }
     }
 
     private func phraseBody(loop: LoopRegion, phrase: Phrase) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionPhraseStrip(player: player, loop: loop, phrase: phrase)
-
+            LivePhraseChipsView(player: player, chips: phrase.chips,
+                                contextKey: controller.sectionKey(for: loop))
             HStack {
                 Text("Tempo").foregroundStyle(.secondary)
                 Slider(value: Binding(
@@ -50,18 +70,11 @@ struct SwarasSectionView: View {
                        in: 30...120, step: 1)
                 .tint(Studio.accent)
                 Text("\(phrase.tempo) bpm")
-                    .font(.callout.monospacedDigit())
-                    .frame(width: 64, alignment: .trailing)
+                    .font(.callout).monospacedDigit()
             }
-
-            HStack {
-                Text(metaLine(phrase))
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("✎ Edit") { onEdit(loop) }
-                    .buttonStyle(StudioSecondaryButtonStyle())
-            }
+            Text(metaLine(phrase))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -70,26 +83,24 @@ struct SwarasSectionView: View {
             ?? "Chromatic"
         return "\(ragaName) · \(Swara.formatBeats(phrase.totalBeats)) beats"
     }
+
+    private func fmt(_ t: Double) -> String { LibraryView.formatDuration(t) }
 }
 
-/// The round play button + chip strip for a loop's phrase. This leaf
-/// is the section's only observer of the phrase player, so the
-/// per-chip highlight pulse re-renders just this strip.
-struct SectionPhraseStrip: View {
+/// The header's round play button for the selected loop's phrase —
+/// a leaf observer of the phrase player (web's roundplay in the
+/// section header).
+struct SectionPlayButton: View {
     @EnvironmentObject private var controller: PlaybackController
     @ObservedObject var player: PhrasePlayer
     let loop: LoopRegion
-    let phrase: Phrase
 
     var body: some View {
-        let key = controller.sectionKey(for: loop)
-        HStack(spacing: 12) {
-            StudioRoundButton(
-                systemImage: player.isPlaying(contextKey: key) ? "stop.fill" : "play.fill",
-                diameter: 44) {
-                controller.toggleSectionPhrase(for: loop)
-            }
-            LivePhraseChipsView(player: player, chips: phrase.chips, contextKey: key)
+        StudioRoundButton(
+            systemImage: player.isPlaying(contextKey: controller.sectionKey(for: loop))
+                ? "stop.fill" : "play.fill",
+            diameter: 32) {
+            controller.toggleSectionPhrase(for: loop)
         }
     }
 }
