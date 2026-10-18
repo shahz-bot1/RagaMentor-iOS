@@ -52,7 +52,16 @@ public final class PhraseAdapter {
         else { play(phrase: phrase, contextKey: key, contextValid: contextValid) }
     }
 
-    public func stop() { player.stop() }
+    /// Stop a phrase pass. On the shared core (P-E) a stop aimed
+    /// at phrases must not kill another studio's pass, so the
+    /// other adapters' well-known context keys are left alone
+    /// (ScaleAdapter's "scale", VarisaiAdapter's "varisai").
+    public func stop() {
+        if let key = player.contextKey, key == "scale" || key == "varisai" {
+            return
+        }
+        player.stop()
+    }
 
     // MARK: - Timeline (the adapter's contract; unit-tested)
 
