@@ -99,8 +99,14 @@ public final class VarisaiPlayer: ObservableObject {
         let passSeconds = Double(tokenCount) * step
         // Wake 60 ms before the exact pass boundary (the web's
         // seamless-loop timer). At the seam, the live loop toggle
-        // decides: re-enter for another pass, or finish.
-        let wake = UInt64(max(0, passSeconds - 0.06) * 1_000_000_000)
+        // decides: re-enter for another pass, or finish. The sleep
+        // is measured from NOW, but the pass's first note sounds
+        // after this pass's lead-in — so the lead-in counts toward
+        // the boundary: sleep = pass + leadIn − 0.06. (Before this
+        // fix the lead-in was not counted, and every pass from the
+        // second onward started ~80 ms ahead of the boundary —
+        // and of the highlight ticker's grid.)
+        let wake = UInt64(max(0, passSeconds + leadIn - 0.06) * 1_000_000_000)
         tasks.append(Task { @MainActor in
             try? await Task.sleep(nanoseconds: wake)
             if gen == generation {
