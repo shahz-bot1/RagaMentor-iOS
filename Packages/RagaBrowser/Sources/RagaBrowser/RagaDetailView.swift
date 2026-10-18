@@ -102,6 +102,40 @@ struct RagaDetailView: View {
         return ScaleNotation.hindustani(token)
     }
 
+    private var alliedCard: some View {
+        let resolved = raga.allied.compactMap { name in
+            RagaCatalog.all.first { $0.name == name }
+        }
+        return Group {
+            if !resolved.isEmpty {
+                StudioCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        StudioSectionTitle("Allied ragas · sounds like")
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)],
+                                  alignment: .leading, spacing: 8) {
+                            ForEach(resolved, id: \.id) { allied in
+                                NavigationLink(value: allied.id) {
+                                    StudioChipLabel(title: allied.name)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var lakshanaCard: some View {
+        StudioCard {
+            VStack(alignment: .leading, spacing: 6) {
+                StudioSectionTitle("Lakshana · curated in v1")
+                Text("Vadi / samvadi, anya swaras, jeeva swaras and compositions land here once the dataset is curated.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var metaLine: String {
         if let n = raga.melakartaNumber {
             return "Melakarta \(n) · Chakra \(Melakarta.chakraName(forNumber: n)) · \(raga.jati ?? "")"
