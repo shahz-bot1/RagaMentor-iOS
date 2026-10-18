@@ -32,6 +32,9 @@ struct LoopsView: View {
     @State private var openGroupID: UUID?
     @State private var showNewGroup = false
     @State private var newGroupName = ""
+    /// The group a new group will be created INSIDE (the in-group
+    /// ＋ New group chip); nil = a top-level group.
+    @State private var newGroupParent: LoopGroup?
     @State private var editingGroup: LoopGroup?
 
     var body: some View {
@@ -54,9 +57,12 @@ struct LoopsView: View {
                 }
         }
         .padding(16)
+        // Returning to this tab without creating a loop drops a
+        // stale join target (createLoop consumes a live one).
+        .onAppear { controller.pendingLoopGroupID = nil }
         .alert("New group", isPresented: $showNewGroup) {
             TextField("Group name", text: $newGroupName)
-            Button("Create") { controller.createGroup(name: newGroupName, context: modelContext) }
+            Button("Create") { controller.createGroup(name: newGroupName, inside: newGroupParent, context: modelContext) }
             Button("Cancel", role: .cancel) {}
         }
         .sheet(item: $editingGroup) { group in
@@ -127,6 +133,12 @@ struct LoopsView: View {
         openGroupID.flatMap { id in song.groups.first { $0.id == id } }
     }
 
+    /// Whether some group lists this group as a member (the web's
+    /// 2-level cap: only a parentless group gains a subgroup).
+    private func hasParent(_ group: LoopGroup) -> Bool {
+        song.groups.contains { $0.memberIDs.contains(group.id) }
+    }
+
     private enum ChipItem: Identifiable {
         case back
         case tree(TreeItem)
@@ -148,14 +160,21 @@ struct LoopsView: View {
     /// the web (no card, no section title): group chips (colour
     /// dot, name, ▸, member count) drill in and arm the group's
     /// whole range; loop chips select; tapping the selected loop
-    /// chip again deselects it. The dashed chips are the web's:
-    /// ＋ New loop (fullscreen: jump to A–B) and ＋ New group.
+    /// chip again deselects it. The dashed terminal chips are the
+    /// web's, at both levels: at the top, ＋ New loop (jump to
+    /// A–B) and ＋ New group; inside a group, ＋ New loop (the
+    /// loop joins this group), ＋ Add loops and — for a
+    /// parentless group only — ＋ New group (a subgroup).
     private var loopsChips: some View {
         var items: [ChipItem] = []
         if openGroup != nil { items.append(.back) }
         items += levelItems.map { .tree($0) }
-        if openGroup != nil { items.append(.addLoops) }
-        else {
+        if let group = openGroup {
+            // The web's in-group terminal chips, in web order.
+            items.append(.newLoop)
+            items.append(.addLoops)
+            if !hasParent(group) { items.append(.newGroup) }
+        } else {
             if onRequestAB != nil { items.append(.newLoop) }
             items.append(.newGroup)
         }
@@ -174,11 +193,18 @@ struct LoopsView: View {
                     }
                 case .newLoop:
                     chipButton(title: "＋ New loop", dashed: true) {
+                        // Web newLoop(): the open group (if any)
+                        // becomes the join target for the loop
+                        // about to be defined, the A–B marks start
+                        // fresh, and the A–B tab takes over.
+                        controller.pendingLoopGroupID = openGroup?.id
+                        controller.clearPendingMarks()
                         onRequestAB?()
                     }
                 case .newGroup:
                     chipButton(title: "＋ New group", dashed: true) {
                         newGroupName = ""
+                        newGroupParent = openGroup
                         showNewGroup = true
                     }
                 }
