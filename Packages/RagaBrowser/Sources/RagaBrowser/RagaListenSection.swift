@@ -10,7 +10,10 @@ import DesignSystem
 /// (the audit's isolation rule).
 struct RagaListenSection: View {
     let raga: Raga
-    @ObservedObject var player: ScalePlayer
+    let adapter: ScaleAdapter
+    /// The unified core the adapter drives; observed here so the
+    /// per-note highlight pulse re-renders this section alone.
+    @ObservedObject var player: SequencePlayer
     /// Piano labels use the Hindustani mapping when the detail's
     /// notation toggle is Hindustani.
     var hindustaniLabels: Bool
@@ -34,27 +37,27 @@ struct RagaListenSection: View {
             pianoCard
         }
         .onAppear {
-            focusToken = audioFocus.register { player.stop() }
+            focusToken = audioFocus.register { adapter.stop() }
         }
         .onDisappear {
-            player.stop()
+            adapter.stop()
             if let focusToken { audioFocus.unregister(focusToken) }
         }
         .onChange(of: tempo) { _, newTempo in
             // Web: a tempo change while playing restarts after a
             // 350 ms debounce.
-            guard player.isPlaying else { return }
+            guard adapter.isPlaying else { return }
             tempoToken += 1
             let token = tempoToken
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 350_000_000)
-                if token == tempoToken, player.isPlaying {
+                if token == tempoToken, adapter.isPlaying {
                     play(newTempo)
                 }
             }
         }
         .onChange(of: saOffset) { _, _ in
-            if player.isPlaying { play(tempo) }
+            if adapter.isPlaying { play(tempo) }
         }
     }
 
@@ -89,15 +92,15 @@ struct RagaListenSection: View {
                         .frame(width: 64, alignment: .trailing)
                 }
                 Button {
-                    if player.isPlaying { player.stop() } else { play(tempo) }
+                    if adapter.isPlaying { adapter.stop() } else { play(tempo) }
                 } label: {
-                    Text(player.isPlaying ? "■ Stop" : "▶ Play")
+                    Text(adapter.isPlaying ? "■ Stop" : "▶ Play")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(StudioPrimaryButtonStyle())
                 HStack(spacing: 10) {
                     Button("🔔 Test beep") {
-                        player.beep()
+                        adapter.beep()
                         status = "Audio: running — beep playing…"
                     }
                     .buttonStyle(StudioSecondaryButtonStyle())
@@ -154,8 +157,8 @@ struct RagaListenSection: View {
 
     private func play(_ atTempo: Int) {
         audioFocus.stopAll(except: focusToken)
-        player.play(semitones: walk.map { $0.semitone + saOffset },
-                    tempo: atTempo)
+        adapter.play(semitones: walk.map { $0.semitone + saOffset },
+                     tempo: atTempo)
         status = "Audio: ready · harmonium"
     }
 }
