@@ -42,6 +42,15 @@ public final class PlaybackController: ObservableObject {
     @Published public private(set) var pendingA: Double?
     @Published public private(set) var pendingB: Double?
 
+    /// The range currently armed for looping: the selected loop's,
+    /// or the selected group's derived range.
+    public var armedLoopRange: (start: Double, end: Double)? {
+        if let loop = selectedLoop { return (loop.start, loop.end) }
+        if selectedGroupID != nil { return groupRange }
+        return nil
+    }
+    private var groupRange: (start: Double, end: Double)?
+
     public var selectedLoop: LoopRegion? {
         guard let song = currentSong, let id = selectedLoopID else { return nil }
         return song.loops.first { $0.id == id }
@@ -377,6 +386,8 @@ public final class PlaybackController: ObservableObject {
     /// (PLAN §10; acceptance: tap a chip → jump to A and loop).
     public func selectLoop(_ loop: LoopRegion, context: ModelContext, autoplay: Bool = true) {
         guard let song = currentSong else { return }
+        selectedGroupID = nil
+        groupRange = nil
         selectedLoopID = loop.id
         song.lastLoopID = loop.id
         loopOn = true
@@ -395,10 +406,55 @@ public final class PlaybackController: ObservableObject {
     /// Arm/disarm looping of the selected loop without changing selection.
     /// (engine.setLoop restarts playback in the new mode when playing.)
     public func toggleLoopOn() {
-        guard let loop = selectedLoop else { return }
-        loopOn.toggle()
-        engine.setLoop(start: loopOn ? loop.start : nil,
-                       end: loopOn ? loop.end : nil)
+        if let loop = selectedLoop {
+            loopOn.toggle()
+            engine.setLoop(start: loopOn ? loop.start : nil,
+                           end: loopOn ? loop.end : nil)
+        } else if selectedGroupID != nil, let range = groupRange {
+            loopOn.toggle()
+            engine.setLoop(start: loopOn ? range.start : nil,
+                           end: loopOn ? range.end : nil)
+        }
+    }
+
+    /// Deselect the armed loop entirely (web: tapping the active
+    /// loop chip again). Looping disarms; playback continues.
+    public func clearLoopSelection() {
+        selectedLoopID = nil
+        selectedGroupID = nil
+        groupRange = nil
+        loopOn = false
+        engine.setLoop(start: nil, end: nil)
+        if let song = currentSong {
+            song.lastLoopID = nil
+        }
+    }
+
+    /// Select a GROUP: arm its derived range (first member's start →
+    /// last member's end) and play it, without selecting a single
+    /// loop — the web's group-chip behaviour ("open group and loop
+    /// the whole section"). Tracks the armed group so the chips UI
+    /// can mark it.
+    @Published public private(set) var selectedGroupID: UUID?
+
+    public func selectGroup(_ group: LoopGroup, context: ModelContext) {
+        guard let song = currentSong,
+              let range = GroupLogic.derivedRange(
+                groupID: group.id,
+                children: Dictionary(uniqueKeysWithValues: song.groups.map { ($0.id, $0.memberIDs) }),
+                spans: Dictionary(uniqueKeysWithValues: song.loops.map {
+                    ($0.id, LoopSpan(id: $0.id, start: $0.start, end: $0.end))
+                })) else { return }
+        selectedLoopID = nil
+        selectedGroupID = group.id
+        groupRange = range
+        song.lastLoopID = nil
+        loopOn = true
+        engine.setLoop(start: range.start, end: range.end)
+        position = range.start
+        engine.play(from: range.start)
+        isPlaying = true
+        try? context.save()
     }
 
     public func renameLoop(_ loop: LoopRegion, to name: String, context: ModelContext) {
