@@ -22,10 +22,10 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-            NavigationStack {
-                LibraryView()
-            }
-            .tabItem { Label("LoopLab", systemImage: "waveform") }
+            // LibraryView owns its path-driven stack (song detail
+            // is pushed from the list).
+            LibraryView()
+                .tabItem { Label("LoopLab", systemImage: "waveform") }
 
             NavigationStack {
                 CompositionListView(
