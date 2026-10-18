@@ -38,7 +38,8 @@ public struct PhraseChipView: View {
 }
 
 /// The read-only chip strip (editor Phrase card and the LoopLab Swaras
-/// section): chips scroll horizontally; an optional ＋ tile appends.
+/// section): chips WRAP onto the next line like the web's flex-wrap
+/// strips; an optional ＋ tile appends into the flow.
 public struct PhraseChipsView: View {
     public var chips: [Chip]
     public var currentIndex: Int = -1
@@ -54,26 +55,53 @@ public struct PhraseChipsView: View {
     }
 
     public var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
-                    PhraseChipView(chip: chip, isCurrent: index == currentIndex)
-                        .onTapGesture { onTapChip?(index) }
-                }
-                if let onTapAdd {
-                    Text("＋")
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 9)
-                        .background(
-                            RoundedRectangle(cornerRadius: 9)
-                                .stroke(Studio.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                        )
-                        .onTapGesture { onTapAdd() }
-                }
+        FlowLayout(spacing: 6, rowSpacing: 6) {
+            ForEach(Array(chips.enumerated()), id: \.offset) { index, chip in
+                PhraseChipView(chip: chip, isCurrent: index == currentIndex)
+                    .onTapGesture { onTapChip?(index) }
             }
-            .padding(.vertical, 2)
+            if let onTapAdd {
+                Text("＋")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 9)
+                            .stroke(Studio.border, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                    )
+                    .onTapGesture { onTapAdd() }
+            }
         }
+    }
+}
+
+/// A PhraseChipsView that observes the phrase player ITSELF, so the
+/// per-chip highlight pulse re-renders only this strip — never the
+/// host screen around it (the audit's isolation rule: the host takes
+/// the player as a plain value and stops subscribing).
+public struct LivePhraseChipsView: View {
+    @ObservedObject private var player: PhrasePlayer
+    public var chips: [Chip]
+    public var contextKey: String
+    public var onTapChip: ((Int) -> Void)?
+    public var onTapAdd: (() -> Void)?
+
+    public init(player: PhrasePlayer, chips: [Chip], contextKey: String,
+                onTapChip: ((Int) -> Void)? = nil, onTapAdd: (() -> Void)? = nil) {
+        self.player = player
+        self.chips = chips
+        self.contextKey = contextKey
+        self.onTapChip = onTapChip
+        self.onTapAdd = onTapAdd
+    }
+
+    public var body: some View {
+        PhraseChipsView(
+            chips: chips,
+            currentIndex: player.isPlaying(contextKey: contextKey)
+                ? player.currentChipIndex : -1,
+            onTapChip: onTapChip,
+            onTapAdd: onTapAdd)
     }
 }
