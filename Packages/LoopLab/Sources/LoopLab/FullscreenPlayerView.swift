@@ -193,13 +193,14 @@ struct ABTabView: View {
                         Button {
                             controller.toggleLoopOn()
                         } label: {
-                            Label("Loop", systemImage: controller.loopOn ? "repeat.circle.fill" : "repeat")
+                            Text("Loop")
+                                .foregroundStyle(controller.loopOn ? Studio.accent : .primary)
                         }
                         Spacer()
                         Button {
                             controller.splitLoop(loop, context: modelContext)
                         } label: {
-                            Label("Split", systemImage: "scissors")
+                            Text("Split")
                         }
                         .disabled(!LoopRules.canSplit(loopStart: loop.start, loopEnd: loop.end,
                                                        at: controller.position))
@@ -293,13 +294,13 @@ struct MoreTabView: View {
                 if let data = controller.backupJSON() {
                     ShareLink(item: BackupDocument(data: data),
                               preview: SharePreview("\(song.title) loops")) {
-                        Label("Export loops…", systemImage: "square.and.arrow.up")
+                        Text("Export loops…")
                     }
                 }
                 Button {
                     showImporter = true
                 } label: {
-                    Label("Import loops…", systemImage: "square.and.arrow.down")
+                    Text("Import loops…")
                 }
                 Text("Import replaces all loops and groups for this song.")
                     .font(.footnote)
