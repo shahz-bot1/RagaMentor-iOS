@@ -31,7 +31,6 @@ public struct SwaraEditorView: View {
     @State private var confirmDelete = false
     @State private var rawError: String?
     @State private var showRagaBrowser = false
-    @Environment(\.dismiss) private var dismiss
 
     public init(model: SwaraEditorModel, title: String,
                 onBrowseRaga: (() -> Void)? = nil,
@@ -72,7 +71,6 @@ public struct SwaraEditorView: View {
                     Button("Done") {
                         model.stopPlayback()
                         onClose()
-                        dismiss()
                     }
                 }
             }
@@ -103,7 +101,6 @@ public struct SwaraEditorView: View {
             Button(deleteTitle, role: .destructive) {
                 model.deletePhrase()
                 onClose()
-                dismiss()
             }
             Button("Cancel", role: .cancel) {}
         }
