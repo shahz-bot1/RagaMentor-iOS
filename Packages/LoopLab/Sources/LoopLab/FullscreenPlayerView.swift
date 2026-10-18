@@ -24,29 +24,33 @@ struct FullscreenPlayerView: View {
     // content (the audit's P1 fix).
     var body: some View {
         NavigationStack {
-            VStack(spacing: 10) {
-                FullscreenWaveformArea(song: song)
+            GeometryReader { geo in
+                VStack(spacing: 10) {
+                    FullscreenWaveformArea(
+                        song: song,
+                        height: min(440, max(180, geo.size.height * 0.34)))
 
-                StudioSegmented(
-                    items: Tab.allCases.map { ($0, $0.rawValue) },
-                    selection: $tab)
-                .padding(.horizontal)
+                    FullscreenTransport(song: song)
 
-                FullscreenTransport(song: song)
+                    StudioSegmented(
+                        items: Tab.allCases.map { ($0, $0.rawValue) },
+                        selection: $tab)
+                    .padding(.horizontal)
 
-                Divider()
+                    Divider()
 
-                Group {
-                    switch tab {
-                    case .loops:
-                        LoopsView(song: song)
-                    case .ab:
-                        ABTabView(song: song)
-                    case .more:
-                        MoreTabView(song: song)
+                    Group {
+                        switch tab {
+                        case .loops:
+                            LoopsView(song: song) { tab = .ab }
+                        case .ab:
+                            ABTabView(song: song)
+                        case .more:
+                            MoreTabView(song: song)
+                        }
                     }
+                    .frame(maxHeight: .infinity)
                 }
-                .frame(maxHeight: .infinity)
             }
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(song.title)
@@ -66,6 +70,7 @@ struct FullscreenPlayerView: View {
 struct FullscreenWaveformArea: View {
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
+    var height: CGFloat = 200
 
     @State private var peaks: [Float] = []
     @State private var window = WaveformWindow(duration: 1)
@@ -83,7 +88,7 @@ struct FullscreenWaveformArea: View {
                          window: $window,
                          zoomPanEnabled: true,
                          onSeek: hardSeek)
-                .frame(height: 150)
+                .frame(height: height)
                 .padding(.horizontal)
 
             HStack {
