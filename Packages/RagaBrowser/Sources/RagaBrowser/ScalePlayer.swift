@@ -40,17 +40,23 @@ public final class ScalePlayer: ObservableObject {
                               atOffset: 0.1 + Double(index) * step,
                               duration: duration)
             }
-            for (index, _) in semitones.enumerated() {
-                tasks.append(Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: UInt64((0.1 + Double(index) * step) * 1_000_000_000))
-                    if gen == generation { currentIndex = index }
-                })
-            }
+            scheduleHighlight(count: semitones.count, step: step, gen: gen)
+        }
+    }
+
+    private func scheduleHighlight(count: Int, step: Double, gen: Int) {
+        for index in 0..<count {
+            let delay = UInt64((0.1 + Double(index) * step) * 1_000_000_000)
             tasks.append(Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64((0.1 + Double(semitones.count) * step + 0.3) * 1_000_000_000))
-                if gen == generation { finish() }
+                try? await Task.sleep(nanoseconds: delay)
+                if gen == generation { currentIndex = index }
             })
         }
+        let endDelay = UInt64((0.1 + Double(count) * step + 0.3) * 1_000_000_000)
+        tasks.append(Task { @MainActor in
+            try? await Task.sleep(nanoseconds: endDelay)
+            if gen == generation { finish() }
+        })
     }
 
     public func stop() {
