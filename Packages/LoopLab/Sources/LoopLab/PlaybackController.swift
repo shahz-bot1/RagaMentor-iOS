@@ -264,7 +264,6 @@ public final class PlaybackController: ObservableObject {
 
     public func togglePlay() {
         guard currentSong != nil else { return }
-        phraseAdapter.stop()
         if isPlaying {
             engine.pause()
             isPlaying = false
@@ -272,14 +271,27 @@ public final class PlaybackController: ObservableObject {
         } else {
             if engine.loadedFile == nil, let song = currentSong { open(song) }
             if position >= (currentSong?.duration ?? 0) - 0.05 { position = 0 }
-            engine.play(from: position)
             // play(from:) restarts the schedule at `position`; if the engine
             // was merely paused mid-schedule this is still correct because
             // the schedule restarts from the published position.
-            isPlaying = true
-            onSongStart?()
+            beginSongPlayback(from: position)
         }
         updateNowPlayingInfo()
+    }
+
+    /// The one song-start funnel (v1.5.11): every path that starts
+    /// the song engine routes through here, so the app-wide
+    /// single-playback rule cannot be bypassed. It stops the
+    /// phrase adapter and fires the focus hook (wired in the
+    /// shell to StudioAudioFocus.stopAll, which stops a playing
+    /// scale, varisai pass or tala). selectLoop and selectGroup
+    /// used to call the engine directly — a playing swara phrase
+    /// sounded over the song (his bug report).
+    private func beginSongPlayback(from seconds: Double) {
+        phraseAdapter.stop()
+        onSongStart?()
+        engine.play(from: seconds)
+        isPlaying = true
     }
 
     public func play() {
@@ -424,8 +436,7 @@ public final class PlaybackController: ObservableObject {
         engine.setLoop(start: loop.start, end: loop.end)
         position = loop.start
         if autoplay {
-            engine.play(from: loop.start)
-            isPlaying = true
+            beginSongPlayback(from: loop.start)
         } else {
             engine.seek(to: loop.start)
             engine.pause()
@@ -482,8 +493,7 @@ public final class PlaybackController: ObservableObject {
         loopOn = true
         engine.setLoop(start: range.start, end: range.end)
         position = range.start
-        engine.play(from: range.start)
-        isPlaying = true
+        beginSongPlayback(from: range.start)
         try? context.save()
     }
 
