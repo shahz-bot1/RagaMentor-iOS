@@ -35,8 +35,16 @@ public final class VarisaiAdapter {
     // MARK: - State (the old VarisaiPlayer surface, forwarded)
 
     public var state: SequenceState { player.state }
-    public var isPlaying: Bool { player.isPlaying }
-    public var currentToken: Int { player.currentIndex }
+    /// Scoped state (v1.5.18): the core is shared, so the raw
+    /// player state belongs to whichever studio is playing.
+    /// These reads answer for VARISAI only — during a phrase
+    /// pass the lesson used to show Stop and highlight tokens
+    /// by chip index. (Commands were already guarded; the
+    /// state reads were not.)
+    public var isPlaying: Bool { player.isPlaying(contextKey: Self.contextKey) }
+    public var currentToken: Int {
+        player.contextKey == Self.contextKey ? player.currentIndex : -1
+    }
 
     // MARK: - Commands
 
