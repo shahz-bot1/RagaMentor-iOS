@@ -180,11 +180,10 @@ final class SequencePlayerTests: XCTestCase {
         XCTAssertEqual(timeline.leadIn, 0.1)
         XCTAssertEqual(timeline.highlightCount, semis.count)
         XCTAssertEqual(timeline.notes.count, semis.count)
-        // step = 0.5 at 120 bpm; the web rule gives 0.575, and the
-        // dynamic blend floor (v1.5.13) raises it to step + 0.15.
+        // step = 0.5 at 120 bpm; duration = 0.5 × (1 + min(1.5, 0.15)).
         XCTAssertEqual(timeline.notes[0].start, 0)
         XCTAssertEqual(timeline.notes[1].start, 0.5, accuracy: 1e-9)
-        XCTAssertEqual(timeline.notes[0].duration, 0.65, accuracy: 1e-9)
+        XCTAssertEqual(timeline.notes[0].duration, 0.575, accuracy: 1e-9)
         let highlights = timeline.notes.map { $0.highlight }
         XCTAssertEqual(highlights, Array(0..<semis.count))
         // The pass ends 0.30 s after the last note's step.
@@ -196,19 +195,17 @@ final class SequencePlayerTests: XCTestCase {
 
     func testScaleTimelineAtTempo240() {
         let timeline = ScaleAdapter.timeline(semitones: [0, 2, 4], tempo: 240)
-        // step = 0.25; the web rule gives 0.325, and the blend
-        // (30% of the step = 0.075) lands at the same 0.325.
+        // step = 0.25; duration = 0.25 × (1 + min(1.5, 0.3)) = 0.325.
         XCTAssertEqual(timeline.notes[1].start, 0.25, accuracy: 1e-9)
         XCTAssertEqual(timeline.notes[0].duration, 0.325, accuracy: 1e-9)
         XCTAssertEqual(timeline.passDuration, 3 * 0.25 + 0.3, accuracy: 1e-9)
     }
 
-    func testScaleTimelineAtTempo60Blends() {
+    func testScaleTimelineAtTempo60() {
         let timeline = ScaleAdapter.timeline(semitones: [0, 2], tempo: 60)
-        // step = 1; the web rule gives 1.075 — the note fell
-        // silent before the next swara. The blend floor (30% of
-        // the step) raises the duration to 1.30.
-        XCTAssertEqual(timeline.notes[0].duration, 1.30, accuracy: 1e-9)
+        // step = 1; duration = the web rule, 1.075 (the settled
+        // state after the blend calibration ended at 0%).
+        XCTAssertEqual(timeline.notes[0].duration, 1.075, accuracy: 1e-9)
     }
 
     // MARK: - PhraseAdapter timeline (P-C)
