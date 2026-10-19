@@ -105,7 +105,13 @@ public enum VarisaiPlayback {
                                 step: Double, speed: Int) -> Double {
         let factor = overlap(speed: speed, step: step)
         let base = step * Double(event.slots) * factor
-        return isLast ? max(base * 0.96, step * factor) : base
+        // Dynamic blending (v1.5.13): every event also rings at
+        // least a blend past its own span, so slow speeds no
+        // longer fall silent between swaras. A floor only — the
+        // legato factors above it (4x/8x) are unchanged.
+        let blended = step * Double(event.slots) + NoteBlend.blend(forStep: step)
+        let dur = max(base, blended)
+        return isLast ? max(dur * 0.96, step * factor) : dur
     }
 
     /// Beat count of an alankaram tala string: I<n> = n beats
