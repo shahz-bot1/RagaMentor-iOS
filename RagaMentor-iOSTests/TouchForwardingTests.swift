@@ -238,11 +238,12 @@ final class EditorPushNavigationTests: XCTestCase {
         }
     }
 
-    private func labels(in root: UIView) -> [String] {
-        var found: [String] = []
-        if let label = root.accessibilityLabel { found.append(label) }
-        for subview in root.subviews { found += labels(in: subview) }
-        return found
+    private func findNavController(in controller: UIViewController) -> UINavigationController? {
+        if let nav = controller as? UINavigationController { return nav }
+        for child in controller.children {
+            if let found = findNavController(in: child) { return found }
+        }
+        return nil
     }
 
     func testItemDestinationPushesSecondValueType() {
@@ -256,16 +257,26 @@ final class EditorPushNavigationTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         window.layoutIfNeeded()
 
-        XCTAssertTrue(labels(in: window).contains("SongRow"),
-                      "the replica root did not render")
-        XCTAssertFalse(labels(in: window).contains("EditorPage"),
-                       "the editor page is present before any push")
+        // Structural assertion: SwiftUI's stack is backed by a
+        // UINavigationController — a push grows its stack. (The
+        // first CI cut read SwiftUI text through accessibility
+        // labels, which do not map onto the view hierarchy; the
+        // junit carried no message, so this also prints its
+        // evidence into the log.)
+        guard let nav = findNavController(in: host) else {
+            XCTFail("no navigation controller inside the replica")
+            return
+        }
+        print("NAVPUSH before:", nav.viewControllers.count)
+        XCTAssertEqual(nav.viewControllers.count, 1,
+                       "the replica should start at its root")
 
         probe.session = ProbeSession()
         RunLoop.main.run(until: Date().addingTimeInterval(0.8))
         window.layoutIfNeeded()
+        print("NAVPUSH after:", nav.viewControllers.count)
 
-        XCTAssertTrue(labels(in: window).contains("EditorPage"),
-                      "the item destination did not push the second value type")
+        XCTAssertEqual(nav.viewControllers.count, 2,
+                       "the item destination did not push the second value type")
     }
 }
