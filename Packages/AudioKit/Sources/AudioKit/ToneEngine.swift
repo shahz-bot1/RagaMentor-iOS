@@ -17,8 +17,9 @@ public protocol ToneEngine: AnyObject {
 }
 
 public final class HarmoniumToneEngine: ToneEngine {
-    private let engine = AVAudioEngine()
+    private var engine = AVAudioEngine()
     private var players: [AVAudioPlayerNode] = []
+    private let playerCount: Int
     private var nextPlayer = 0
     private var engineStarted = false
     /// The format the players are connected with. Every scheduled
@@ -40,19 +41,37 @@ public final class HarmoniumToneEngine: ToneEngine {
     /// buffer keeps the process alive; a deadline work item stops
     /// it ~2.5 s after the last scheduled note, and stopAll()
     /// stops it at once.
-    private let keepAlivePlayer = AVAudioPlayerNode()
+    private var keepAlivePlayer = AVAudioPlayerNode()
     private var keepAliveRunning = false
     private let keepAliveQueue = DispatchQueue(label: "ragamentor.tone.keepalive")
     private var keepAliveDeadline: DispatchWorkItem?
     public private(set) var samplesReady = false
 
     public init(playerCount: Int = 4) {
+        self.playerCount = playerCount
+        buildGraph()
+    }
+
+    /// (Re)create the engine and its nodes. Buffers and the
+    /// render cache are pure data and survive; everything that
+    /// touches the system's media server is rebuilt — the
+    /// escalation for a media services reset (state machine
+    /// ruling 5), where every existing audio object is invalid.
+    private func buildGraph() {
+        engine = AVAudioEngine()
+        players = []
         for _ in 0..<playerCount {
             let node = AVAudioPlayerNode()
             engine.attach(node)
             players.append(node)
         }
+        keepAlivePlayer = AVAudioPlayerNode()
         engine.attach(keepAlivePlayer)
+        nodeFormat = nil
+        nextPlayer = 0
+        keepAliveDeadline?.cancel()
+        keepAliveDeadline = nil
+        keepAliveRunning = false
     }
 
     public func prepare() async {
@@ -96,6 +115,26 @@ public final class HarmoniumToneEngine: ToneEngine {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
+        if wasStarted {
+            for player in players { player.stop() }
+            nextPlayer = 0
+            keepAliveDeadline?.cancel()
+            keepAliveDeadline = nil
+            keepAliveRunning = false
+        }
+        if !startEngine() {
+            // Escalation (state machine ruling 5): a plain
+            // restart can fail when the media services were
+            // reset — every audio object is invalid then.
+            // Rebuild the whole graph once and retry; if that
+            // also fails, the next note retries the ladder.
+            buildGraph()
+            _ = startEngine()
+        }
+    }
+
+    /// Connect (first use) and start the current graph.
+    private func startEngine() -> Bool {
         if nodeFormat == nil {
             let mixerFormat = engine.mainMixerNode.outputFormat(forBus: 0)
             nodeFormat = mixerFormat.sampleRate > 0
@@ -106,19 +145,14 @@ public final class HarmoniumToneEngine: ToneEngine {
             }
             engine.connect(keepAlivePlayer, to: engine.mainMixerNode, format: nodeFormat)
         }
-        if wasStarted {
-            for player in players { player.stop() }
-            nextPlayer = 0
-            keepAliveDeadline?.cancel()
-            keepAliveDeadline = nil
-            keepAliveRunning = false
-        }
         engine.prepare()
         do {
             try engine.start()
             engineStarted = true
+            return true
         } catch {
             engineStarted = false
+            return false
         }
     }
 
