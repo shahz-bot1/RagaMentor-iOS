@@ -94,6 +94,29 @@ final class ScrollGateTests: XCTestCase {
                       "touch below the strip did not reach the scroll content")
     }
 
+    // The band rule (v1.5.6): with the page scrolled halfway
+    // over the strip, the still-visible band forwards and the
+    // covered band belongs to the content.
+    func testGateForwardsOnlyTheVisibleBandWhenPartiallyScrolled() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        host(Replica(), in: window)
+        guard let scrollView = find(UIScrollView.self, in: window) else {
+            XCTFail("no scroll view in the replica")
+            return
+        }
+        scrollView.contentOffset = CGPoint(x: 0, y: 100)
+        pump(window)
+
+        // Strip is 200; scrolled 100 -> visible band is y < 100.
+        let visibleHit = window.hitTest(CGPoint(x: 195, y: 50), with: nil)
+        XCTAssertNotNil(visibleHit, "no hit on the visible band")
+        XCTAssertFalse(visibleHit?.isDescendant(of: scrollView) ?? true,
+                       "touch on the visible band was claimed by the scroll view")
+        let coveredHit = window.hitTest(CGPoint(x: 195, y: 150), with: nil)
+        XCTAssertTrue(coveredHit?.isDescendant(of: scrollView) ?? false,
+                      "touch on the covered band did not reach the content")
+    }
+
     func testGateClaimsStripOnceScrolled() {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
         host(Replica(), in: window)
@@ -196,16 +219,18 @@ final class ScrollGateTests: XCTestCase {
     }
 }
 
-// MARK: - Editor push navigation (v1.5.5 regression)
+// MARK: - Editor push navigation (v1.5.6)
 
-// The LoopLab Edit push failed on device through three fix
-// attempts. Final cause: LibraryView's NavigationStack path
-// was typed [Song], and a homogeneous path cannot accept the
-// EditorSession value the editor destination pushes — the
-// stack fell back to the list. This replica mirrors the fixed
-// structure exactly (type-erased NavigationPath, a String
-// standing in for Song, an item destination for a different
-// value type) and proves the second-type push lands.
+// The LoopLab Edit navigation failed on device three ways:
+// the destination inside the pushed page did not push; the
+// [Song]-typed path could not hold the session value; and the
+// item binding beside the path popped the song along with the
+// editor on close. The shipped design owns the stack as a
+// NavigationPath: the session is a plain `for:` destination
+// value, appended on Edit and removed with removeLast() on
+// close. This replica mirrors that structure and proves the
+// full round trip — list -> detail -> editor -> DETAIL (the
+// return leg is the one that regressed last).
 @MainActor
 final class EditorPushNavigationTests: XCTestCase {
 
@@ -213,27 +238,42 @@ final class EditorPushNavigationTests: XCTestCase {
         let id = UUID()
     }
 
-    private final class Probe: ObservableObject {
-        @Published var session: ProbeSession?
+    private final class Commands: ObservableObject {
+        enum Action { case pushSong, pushEditor, closeEditor }
+        @Published var action: Action?
     }
 
     private struct Replica: View {
-        @ObservedObject var probe: Probe
+        @ObservedObject var commands: Commands
         @State private var path = NavigationPath()
 
         var body: some View {
             NavigationStack(path: $path) {
                 List {
-                    NavigationLink(value: "song-1") {
-                        Text("SongRow")
-                    }
+                    Text("SongRow")
                 }
                 .navigationDestination(for: String.self) { _ in
                     Text("DetailPage")
                 }
-                .navigationDestination(item: $probe.session) { _ in
+                .navigationDestination(for: ProbeSession.self) { _ in
                     Text("EditorPage")
                 }
+            }
+            .onChange(of: commands.action) { _, action in
+                // The same three path mutations the real views
+                // perform: NavigationLink value / Edit append /
+                // Done removeLast.
+                switch action {
+                case .pushSong:
+                    path.append("song-1")
+                case .pushEditor:
+                    path.append(ProbeSession())
+                case .closeEditor:
+                    if !path.isEmpty { path.removeLast() }
+                case nil:
+                    break
+                }
+                commands.action = nil
             }
         }
     }
@@ -246,10 +286,17 @@ final class EditorPushNavigationTests: XCTestCase {
         return nil
     }
 
-    func testItemDestinationPushesSecondValueType() {
-        let probe = Probe()
+    private func depth(of nav: UINavigationController, after action: Commands.Action?,
+                       commands: Commands) -> Int {
+        commands.action = action
+        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+        return nav.viewControllers.count
+    }
+
+    func testEditorRoundTripReturnsToDetail() {
+        let commands = Commands()
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        let host = UIHostingController(rootView: Replica(probe: probe))
+        let host = UIHostingController(rootView: Replica(commands: commands))
         window.rootViewController = host
         window.makeKeyAndVisible()
         host.view.frame = window.bounds
@@ -257,26 +304,16 @@ final class EditorPushNavigationTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         window.layoutIfNeeded()
 
-        // Structural assertion: SwiftUI's stack is backed by a
-        // UINavigationController — a push grows its stack. (The
-        // first CI cut read SwiftUI text through accessibility
-        // labels, which do not map onto the view hierarchy; the
-        // junit carried no message, so this also prints its
-        // evidence into the log.)
         guard let nav = findNavController(in: host) else {
             XCTFail("no navigation controller inside the replica")
             return
         }
-        print("NAVPUSH before:", nav.viewControllers.count)
-        XCTAssertEqual(nav.viewControllers.count, 1,
-                       "the replica should start at its root")
-
-        probe.session = ProbeSession()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
-        window.layoutIfNeeded()
-        print("NAVPUSH after:", nav.viewControllers.count)
-
-        XCTAssertEqual(nav.viewControllers.count, 2,
-                       "the item destination did not push the second value type")
+        XCTAssertEqual(nav.viewControllers.count, 1, "should start at the list")
+        XCTAssertEqual(depth(of: nav, after: .pushSong, commands: commands), 2,
+                       "the song push did not land")
+        XCTAssertEqual(depth(of: nav, after: .pushEditor, commands: commands), 3,
+                       "the editor push did not land")
+        XCTAssertEqual(depth(of: nav, after: .closeEditor, commands: commands), 2,
+                       "closing the editor must return to the DETAIL, not the list")
     }
 }
