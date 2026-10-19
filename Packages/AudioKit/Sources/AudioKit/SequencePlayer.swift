@@ -12,6 +12,41 @@ import RagaCore
 /// the timeline and apply their studio's duration rule.
 /// Rule 2: loop behaviour is an injected LoopPolicy, never an
 /// enum inside the core.
+///
+/// THE STATE MACHINE (v1.5.19, defined with Shahzin 2026-10-19 —
+/// changes to this player are checked against it):
+///
+/// States: idle → loading → playing → finished (transient,
+/// settles to idle after 60 ms) → idle. The player is
+/// scene-agnostic: it never observes foreground/background.
+///
+/// 1. Backgrounding/locking is NOT a player event; playback
+///    continues on the session's background mode + the tone
+///    engine's keep-alive. Foreground return is a no-op.
+/// 2. Interruption .began (any source — other app, call, Siri)
+///    stops the pass, from loading or playing, foreground or
+///    background, and it stays stopped. Interruption .ended is
+///    ignored (the LoopLab song holds the opposite rule, owned
+///    by PlaybackController — the asymmetry is deliberate).
+/// 3. System subscriptions are scoped to playback: subscribed
+///    on play, unsubscribed on stop and at natural finish.
+///    Nothing is registered while idle.
+/// 4. A dead audio engine is the engine's own problem: it
+///    self-heals per note (reactivate, restart, rebuild on
+///    start failure). A pass may be playing-but-inaudible
+///    while another app holds the session; the state stays
+///    playing and sound returns mid-pass when it frees.
+/// 5. Media services reset stops the pass (its scheduled
+///    buffers die with the media server); the engines rebuild
+///    their graphs on next use (ruling 4's escalation).
+/// 6. Route changes need no player action (the engine
+///    reroutes; ruling 4 covers a death). Process suspension
+///    mid-pass is prevented by the keep-alive by design; no
+///    re-sync rule exists.
+/// 7. Pre-emption: a new play stops the old pass first; stops
+///    are idempotent; a stale async start is invalidated by
+///    the generation counter. Adapters read state scoped to
+///    their own context key — never the raw shared state.
 
 // MARK: - Timeline values
 
@@ -156,6 +191,7 @@ public final class SequencePlayer: ObservableObject {
     private var passOffset: Double = 0
 
     private var interruptionObserver: NSObjectProtocol?
+    private var mediaResetObserver: NSObjectProtocol?
 
     public init(tone: any ToneEngine) {
         self.tone = tone
@@ -164,6 +200,9 @@ public final class SequencePlayer: ObservableObject {
     deinit {
         if let interruptionObserver {
             NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+        if let mediaResetObserver {
+            NotificationCenter.default.removeObserver(mediaResetObserver)
         }
     }
 
@@ -187,12 +226,24 @@ public final class SequencePlayer: ObservableObject {
                 else { return }
                 Task { @MainActor in self?.stop() }
             }
+        // State machine ruling 5: a media services reset kills
+        // every scheduled buffer — the pass cannot continue.
+        mediaResetObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.mediaServicesWereResetNotification,
+            object: AVAudioSession.sharedInstance(), queue: nil) { [weak self] _ in
+                Task { @MainActor in self?.stop() }
+            }
     }
 
     private func unsubscribeFromInterruptions() {
-        guard let token = interruptionObserver else { return }
-        NotificationCenter.default.removeObserver(token)
-        interruptionObserver = nil
+        if let token = interruptionObserver {
+            NotificationCenter.default.removeObserver(token)
+            interruptionObserver = nil
+        }
+        if let token = mediaResetObserver {
+            NotificationCenter.default.removeObserver(token)
+            mediaResetObserver = nil
+        }
     }
 
     /// "Playing" for host purposes includes preparing the samples —
