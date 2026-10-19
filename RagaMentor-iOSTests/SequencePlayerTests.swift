@@ -196,10 +196,10 @@ final class SequencePlayerTests: XCTestCase {
 
     func testScaleTimelineAtTempo240() {
         let timeline = ScaleAdapter.timeline(semitones: [0, 2, 4], tempo: 240)
-        // step = 0.25; the web rule gives 0.325, the blend floor
-        // (0.08 at this step) raises it to 0.33.
+        // step = 0.25; the web rule gives 0.325, and the blend
+        // (30% of the step = 0.075) lands at the same 0.325.
         XCTAssertEqual(timeline.notes[1].start, 0.25, accuracy: 1e-9)
-        XCTAssertEqual(timeline.notes[0].duration, 0.33, accuracy: 1e-9)
+        XCTAssertEqual(timeline.notes[0].duration, 0.325, accuracy: 1e-9)
         XCTAssertEqual(timeline.passDuration, 3 * 0.25 + 0.3, accuracy: 1e-9)
     }
 
