@@ -86,8 +86,14 @@ struct RagaListenSection: View {
                         set: { tempo = Int($0) }),
                         in: 30...240, step: 10)
                         .tint(Studio.accent)
+                    // One line at any tempo: the label hugs its
+                    // content and resists compression; the slider
+                    // gives up the space (v1.5.15 — a fixed 64 pt
+                    // frame wrapped "120 bpm" onto two lines).
                     Text("\(tempo) bpm").font(.callout).monospacedDigit()
-                        .frame(width: 64, alignment: .trailing)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
                 }
                 Button {
                     if adapter.isPlaying { adapter.stop() } else { play(tempo) }
