@@ -391,3 +391,18 @@ public enum LoopMath {
         return TimeMath.seconds(forFrames: segmentStartFrame + frameInSegment, sampleRate: sampleRate)
     }
 }
+
+// MARK: - Note blending (v1.5.13)
+
+/// Dynamic note blending: how long a note rings past its own
+/// span into the next one, as a function of the step — which
+/// already encodes tempo and speed. 30% of the step, floored
+/// at 0.08 s and capped at 0.40 s. Adapters floor their note
+/// durations at span + blend, so slow playback no longer falls
+/// silent between swaras (the mechanical 1x feel); the
+/// renderer's envelope release is proportional to match.
+public enum NoteBlend {
+    public static func blend(forStep step: Double) -> Double {
+        min(0.40, max(0.08, 0.30 * step))
+    }
+}
