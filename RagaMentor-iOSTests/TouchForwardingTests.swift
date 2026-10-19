@@ -8,9 +8,8 @@ import UIKit
 /// a button at the back, the page ScrollView in front, the
 /// forwarding layer on top). v1.4.5 shipped this mechanism
 /// unverified and it never engaged on device; these tests pin
-/// the wiring (probes resolve, the layer fills its frame) and
-/// the hit-test contract (forward at rest, pass through when
-/// scrolled or below the wave).
+/// the wiring and the hit-test contract in three separately
+/// named checks, so a failure says which link broke.
 @MainActor
 final class TouchForwardingTests: XCTestCase {
 
@@ -22,7 +21,7 @@ final class TouchForwardingTests: XCTestCase {
                 Button("Wave") {}
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
-                    .background(WaveProbe(routing: routing, waveHeight: 200))
+                    .background(WaveProbe(routing: routing))
 
                 ScrollView {
                     VStack(spacing: 0) {
@@ -39,6 +38,24 @@ final class TouchForwardingTests: XCTestCase {
         }
     }
 
+    private struct Hosted {
+        let routing: TouchRouting
+        let window: UIWindow
+        let forwarder: TouchForwardingView?
+    }
+
+    private func host() -> Hosted {
+        let routing = TouchRouting()
+        let host = UIHostingController(rootView: Replica(routing: routing))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.frame = window.bounds
+        host.view.layoutIfNeeded()
+        return Hosted(routing: routing, window: window,
+                      forwarder: findForwarder(in: host.view))
+    }
+
     private func findForwarder(in view: UIView) -> TouchForwardingView? {
         if let forwarder = view as? TouchForwardingView { return forwarder }
         for sub in view.subviews {
@@ -47,22 +64,15 @@ final class TouchForwardingTests: XCTestCase {
         return nil
     }
 
-    func testForwardsToWaveAtRestAndPassesThroughOtherwise() {
-        let routing = TouchRouting()
-        let host = UIHostingController(rootView: Replica(routing: routing))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = host
-        window.makeKeyAndVisible()
-        host.view.frame = window.bounds
-        host.view.layoutIfNeeded()
-
-        // The probes resolved both references from the real
-        // hierarchy.
-        XCTAssertNotNil(routing.scrollView, "scroll probe did not resolve a UIScrollView")
-        XCTAssertNotNil(routing.waveRoot, "wave probe did not resolve the wave container")
-        guard let scrollView = routing.scrollView, let waveRoot = routing.waveRoot else { return }
-
-        guard let forwarder = findForwarder(in: host.view) else {
+    func testProbesResolveAndLayerFills() {
+        let hosted = host()
+        XCTAssertNotNil(hosted.routing.scrollView,
+                        "scroll probe did not resolve a UIScrollView")
+        XCTAssertNotNil(hosted.routing.waveProbe,
+                        "wave probe did not publish itself")
+        XCTAssertNotNil(hosted.forwarder?.waveRoot,
+                        "wave container not derivable from the probes")
+        guard let forwarder = hosted.forwarder else {
             XCTFail("no TouchForwardingView in the hosted hierarchy")
             return
         }
@@ -70,22 +80,34 @@ final class TouchForwardingTests: XCTestCase {
         // failure was a frame too small to ever be consulted).
         XCTAssertGreaterThan(forwarder.bounds.width, 300)
         XCTAssertGreaterThan(forwarder.bounds.height, 600)
+    }
 
-        // At rest, a touch on the wave's button forwards to a
-        // view inside the wave subtree.
+    func testForwardsToWaveAtRest() {
+        let hosted = host()
+        guard let forwarder = hosted.forwarder,
+              let scrollView = hosted.routing.scrollView,
+              let waveRoot = forwarder.waveRoot else {
+            XCTFail("hosting prerequisites missing (see testProbesResolveAndLayerFills)")
+            return
+        }
         scrollView.contentOffset = .zero
-        let wavePoint = CGPoint(x: 195, y: 100)
-        let hit = forwarder.hitTest(wavePoint, with: nil)
+        let hit = forwarder.hitTest(CGPoint(x: 195, y: 100), with: nil)
         XCTAssertNotNil(hit, "touch on the wave was not forwarded")
         XCTAssertTrue(hit?.isDescendant(of: waveRoot) ?? false,
                       "forwarded hit is not inside the wave subtree")
+    }
 
-        // Scrolled (content over the wave): no forwarding.
+    func testPassesThroughWhenScrolledOrBelowWave() {
+        let hosted = host()
+        guard let forwarder = hosted.forwarder,
+              let scrollView = hosted.routing.scrollView else {
+            XCTFail("hosting prerequisites missing (see testProbesResolveAndLayerFills)")
+            return
+        }
+        let wavePoint = CGPoint(x: 195, y: 100)
         scrollView.contentOffset = CGPoint(x: 0, y: 300)
         XCTAssertNil(forwarder.hitTest(wavePoint, with: nil),
                      "touch forwarded while the content covers the wave")
-
-        // Below the wave strip: no forwarding even at rest.
         scrollView.contentOffset = .zero
         XCTAssertNil(forwarder.hitTest(CGPoint(x: 195, y: 400), with: nil),
                      "touch below the wave was forwarded")
