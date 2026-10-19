@@ -31,12 +31,11 @@ struct LoopsView: View {
     /// The group currently drilled into (web's fsGroupView); nil =
     /// the top level.
     @State private var openGroupID: UUID?
-    @State private var showNewGroup = false
-    @State private var newGroupName = ""
-    /// The group a new group will be created INSIDE (the in-group
-    /// ＋ New group chip); nil = a top-level group.
-    @State private var newGroupParent: LoopGroup?
     @State private var editingGroup: LoopGroup?
+    /// True while the group sheet serves a just-created group
+    /// (the web's new-group checklist: level-constrained
+    /// candidates; Cancel removes the group again).
+    @State private var editingIsNew = false
 
     var body: some View {
         // Content-sized (no own scrolling): the song detail's page
@@ -61,13 +60,8 @@ struct LoopsView: View {
         // Returning to this tab without creating a loop drops a
         // stale join target (createLoop consumes a live one).
         .onAppear { controller.pendingLoopGroupID = nil }
-        .alert("New group", isPresented: $showNewGroup) {
-            TextField("Group name", text: $newGroupName)
-            Button("Create") { controller.createGroup(name: newGroupName, inside: newGroupParent, context: modelContext) }
-            Button("Cancel", role: .cancel) {}
-        }
         .sheet(item: $editingGroup) { group in
-            GroupEditorView(song: song, group: group)
+            GroupEditorView(song: song, group: group, isNewGroup: editingIsNew)
                 .environmentObject(controller)
         }
     }
@@ -85,12 +79,6 @@ struct LoopsView: View {
     /// stack untouched and dismissal returns to the detail by
     /// construction. The session is forwarded up: LoopsView →
     /// SongDetailView → LibraryView.
-    ///
-    /// The editor is PUSHED, not covered: as a fullScreenCover it
-    /// oscillated (open, close, open, close) on device. A pushed
-    /// destination is owned by the navigation stack and does not
-    /// oscillate. (Compose keeps its cover: its host is a calm
-    /// tab-root list, where the cover is stable.)
     struct EditorSession: Identifiable, Hashable {
         let loop: LoopRegion
         let model: SwaraEditorModel
@@ -190,7 +178,10 @@ struct LoopsView: View {
                     groupChip(group)
                 case .addLoops:
                     chipButton(title: "＋ Add loops", dashed: true) {
-                        if let openGroup { editingGroup = openGroup }
+                        if let openGroup {
+                            editingIsNew = false
+                            editingGroup = openGroup
+                        }
                     }
                 case .newLoop:
                     chipButton(title: "＋ New loop", dashed: true) {
@@ -204,9 +195,15 @@ struct LoopsView: View {
                     }
                 case .newGroup:
                     chipButton(title: "＋ New group", dashed: true) {
-                        newGroupName = ""
-                        newGroupParent = openGroup
-                        showNewGroup = true
+                        // The web's flow (v1.5.12): create
+                        // instantly (auto-name, palette colour),
+                        // step inside, and open the checklist on
+                        // the items visible at this level.
+                        if let created = controller.createGroup(inside: openGroup, context: modelContext) {
+                            openGroupID = created.id
+                            editingIsNew = true
+                            editingGroup = created
+                        }
                     }
                 }
             }
@@ -275,6 +272,7 @@ struct LoopsView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button {
+                editingIsNew = false
                 editingGroup = group
             } label: { Label("Edit group…", systemImage: "pencil") }
         }
@@ -417,6 +415,11 @@ struct SelectedLoopBar: View {
 
 /// Group membership checklist (PLAN §3 decision 12): pick exactly which
 /// loops (and, for top-level groups, which sub-groups) belong.
+/// In new-group mode (v1.5.12, the web's flow) the candidates are
+/// the items visible at the group's level, Cancel removes the
+/// just-created group, and saving with nothing picked does the
+/// same; otherwise a save arms and plays the group, as the web's
+/// apply does.
 struct GroupEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -426,6 +429,7 @@ struct GroupEditorView: View {
     /// only the fullscreen host can switch tabs.
     var onRequestAB: (() -> Void)? = nil
     let group: LoopGroup
+    var isNewGroup: Bool = false
 
     @State private var nameDraft: String = ""
     @State private var checked: Set<UUID> = []
@@ -459,32 +463,55 @@ struct GroupEditorView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                Section {
-                    Button(role: .destructive) {
-                        controller.deleteGroup(group, context: modelContext)
-                        dismiss()
-                    } label: { Label("Delete group (children move up)", systemImage: "trash") }
+                if !isNewGroup {
+                    Section {
+                        Button(role: .destructive) {
+                            controller.deleteGroup(group, context: modelContext)
+                            dismiss()
+                        } label: { Label("Delete group (children move up)", systemImage: "trash") }
+                    }
                 }
             }
             .navigationTitle("Group")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") {
+                        // A brand-new group was created empty for
+                        // this sheet; abandoning it removes it
+                        // again (the web's rule).
+                        if isNewGroup {
+                            controller.deleteGroup(group, context: modelContext)
+                        }
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        controller.renameGroup(group, to: nameDraft, context: modelContext)
                         // Preserve existing members that are not checklist
                         // candidates (e.g. sub-groups of a sub-group view);
                         // only candidate membership is edited here.
                         let candidateIDs = Set(candidates.map(\.id))
                         let preserved = group.memberIDs.filter { !candidateIDs.contains($0) }
                         let chosen = candidates.map(\.id).filter { checked.contains($0) }
+                        let members = preserved + chosen
+                        if isNewGroup && members.isEmpty {
+                            // Saving a new group with nothing
+                            // picked removes it (the web's rule).
+                            controller.deleteGroup(group, context: modelContext)
+                            dismiss()
+                            return
+                        }
+                        controller.renameGroup(group, to: nameDraft, context: modelContext)
                         controller.setGroupMembers(group,
-                                                   memberIDs: preserved + chosen,
+                                                   memberIDs: members,
                                                    context: modelContext)
                         dismiss()
+                        // The web arms and plays the group after
+                        // applying membership.
+                        if !members.isEmpty {
+                            controller.selectGroup(group, context: modelContext)
+                        }
                     }
                 }
             }
@@ -501,35 +528,25 @@ struct GroupEditorView: View {
         let detail: String
     }
 
-    /// Candidates: every loop; plus groups only when this group is
-    /// top-level and the candidate is a top-level, loop-only group
-    /// (the 2-level cap, PLAN §3 decision 12).
+    /// Candidates: the controller's level rules (the web's,
+    /// v1.5.12) decide which items are offered; this maps them
+    /// to rows — loops with their range (plus the current group
+    /// as a tag when checking would move the loop), groups with
+    /// a ▸ marker.
     private var candidates: [Candidate] {
+        let ids = controller.checklistCandidateIDs(for: group, isNew: isNewGroup)
         let parent = GroupOps.parentMap(groups: controller.groupData(song))
-        let isTopLevel = parent[group.id] == nil
-        var out: [Candidate] = song.loops
-            .sorted { $0.start < $1.start }
-            .map { Candidate(id: $0.id, label: $0.name,
-                             detail: "\(LibraryView.formatDuration($0.start)) – \(LibraryView.formatDuration($0.end))") }
-        if isTopLevel {
-            let groupIDs = Set(song.groups.map(\.id))
-            // Exclude this group's own descendant groups (cycle guard).
-            var descendants = Set<UUID>()
-            func collect(_ gid: UUID) {
-                for m in song.groups.first(where: { $0.id == gid })?.memberIDs ?? [] where groupIDs.contains(m) {
-                    if descendants.insert(m).inserted { collect(m) }
+        let groupsByID = Dictionary(uniqueKeysWithValues: song.groups.map { ($0.id, $0) })
+        return ids.map { id in
+            if let loop = song.loops.first(where: { $0.id == id }) {
+                var detail = "\(LibraryView.formatDuration(loop.start)) – \(LibraryView.formatDuration(loop.end))"
+                if let pid = parent[id], pid != group.id, let owner = groupsByID[pid] {
+                    detail += " · \(owner.name)"
                 }
+                return Candidate(id: id, label: loop.name, detail: detail)
             }
-            collect(group.id)
-            for other in song.groups where other.id != group.id && !descendants.contains(other.id) {
-                // Only loop-only groups may become sub-groups (cap = 2).
-                let holdsGroup = other.memberIDs.contains { groupIDs.contains($0) }
-                if !holdsGroup {
-                    out.append(Candidate(id: other.id, label: "▸ \(other.name)", detail: "group"))
-                }
-            }
+            return Candidate(id: id, label: "▸ \(groupsByID[id]?.name ?? "Group")", detail: "group")
         }
-        return out
     }
 }
 
