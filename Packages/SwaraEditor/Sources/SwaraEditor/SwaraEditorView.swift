@@ -9,7 +9,8 @@ import UIKit
 /// The full-screen swara editor (web swView): a Setup card (raga, Sa,
 /// tempo, play, loop, JSON, delete) and a Phrase card (chip strip with
 /// the total), or the raw-JSON card in JSON mode. Auto-saves on every
-/// edit through the model; Done only closes.
+/// edit through the model; Done only closes; Cancel restores the
+/// phrase as it was when the editor opened.
 public struct SwaraEditorView: View {
     @ObservedObject public var model: SwaraEditorModel
     /// The player as a plain value: the chip strip observes it in a
@@ -19,6 +20,12 @@ public struct SwaraEditorView: View {
     public var title: String
     public var onBrowseRaga: (() -> Void)?
     public var onClose: () -> Void
+    /// Cancel hook: when a host passes one, the editor shows a
+    /// Cancel button — the view restores the model
+    /// (model.cancel()) and then calls this to dismiss. Hosts
+    /// use it for anything the model cannot restore itself
+    /// (Compose's live-renamed title). Nil hides the button.
+    public var onCancel: (() -> Void)?
     /// Compose hosts pass a name binding: the editor gains a Name
     /// row (web Compose renames via the editor title, live).
     public var compositionName: Binding<String>?
@@ -42,7 +49,8 @@ public struct SwaraEditorView: View {
                 browseSheet: ((SwaraEditorModel, @escaping () -> Void) -> AnyView)? = nil,
                 deleteTitle: String = "Delete swaras",
                 deleteMessage: String = "Delete the swaras for this loop?",
-                onClose: @escaping () -> Void) {
+                onClose: @escaping () -> Void,
+                onCancel: (() -> Void)? = nil) {
         self.model = model
         self.player = model.player
         self.title = title
@@ -52,6 +60,7 @@ public struct SwaraEditorView: View {
         self.deleteTitle = deleteTitle
         self.deleteMessage = deleteMessage
         self.onClose = onClose
+        self.onCancel = onCancel
     }
 
     public var body: some View {
@@ -71,6 +80,14 @@ public struct SwaraEditorView: View {
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    if let onCancel {
+                        Button("Cancel") {
+                            model.cancel()
+                            onCancel()
+                        }
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         model.stopPlayback()
@@ -79,10 +96,9 @@ public struct SwaraEditorView: View {
                 }
             }
         }
-        // A stack pop that bypasses Done (the back gesture)
-        // must also silence the editor's playback (v1.5.6:
-        // LoopLab pushes the editor on a path the host owns, so
-        // closing is no longer funnelled through onClose alone).
+        // Any disappearance that bypasses the buttons (the host
+        // dismissing the cover) must also silence the editor's
+        // playback.
         .onDisappear { model.stopPlayback() }
         .sheet(item: $model.picker) { _ in
             SwaraPickerSheet(model: model)
