@@ -82,10 +82,12 @@ struct LoopsView: View {
     /// the song detail: a destination registered inside a pushed
     /// page did not push reliably — tapping Edit collapsed the
     /// stack back to the song list (his bug report; the v1.4.7
-    /// hoist to the detail page was not enough, fixed v1.5.0 by
-    /// registering at the root, the shape Compose uses). The
-    /// session is forwarded up: LoopsView → SongDetailView →
-    /// LibraryView.
+    /// hoist to the detail page was not enough). Registering at
+    /// the root (v1.5.0) was necessary but not sufficient: the
+    /// library's path was typed [Song], which cannot hold this
+    /// session value — the push silently failed until the path
+    /// became a type-erased NavigationPath (v1.5.5). The session
+    /// is forwarded up: LoopsView → SongDetailView → LibraryView.
     ///
     /// The editor is PUSHED, not covered: as a fullScreenCover it
     /// oscillated (open, close, open, close) on device. A pushed
