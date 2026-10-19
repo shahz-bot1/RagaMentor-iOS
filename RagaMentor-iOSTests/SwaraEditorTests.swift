@@ -162,6 +162,35 @@ final class SwaraEditorTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelRestoresThePhraseAsOpened() {
+        let initial = Phrase(ragaId: "mohanam", saOffset: 0, tempo: 72, loop: false,
+                             chips: [.note([StackEntry(st: "S", oct: 0)], beats: 1)])
+        let model = makeModel(phrase: initial, hadSaved: true)
+        model.setRaga(id: "kalyani")
+        model.openAppendPicker()
+        model.pickerTapSthana("P")
+        XCTAssertEqual(model.phrase.chips.count, 2) // edits landed (and saved live)
+        model.cancel()
+        XCTAssertEqual(model.phrase.ragaId, "mohanam")
+        XCTAssertEqual(model.phrase.chips.count, 1)
+        XCTAssertEqual(saved.last?.ragaId, "mohanam") // the restore went through onSave
+        XCTAssertEqual(saved.last?.chips.count, 1)
+        XCTAssertEqual(saved.last?.chips.first?.stack.first?.st, "S")
+        XCTAssertFalse(deleted)
+        XCTAssertEqual(songRaga.last ?? nil, "mohanam") // song memory restored too
+    }
+
+    @MainActor
+    func testCancelClearsAPhraseThatWasNeverSaved() {
+        let model = makeModel(phrase: emptyPhrase, hadSaved: false)
+        model.openAppendPicker()
+        model.pickerTapSthana("S")
+        XCTAssertEqual(saved.count, 1) // the edit saved live
+        model.cancel()
+        XCTAssertTrue(deleted) // and cancel clears it back out
+    }
+
+    @MainActor
     func testBrowseSheetAdoptsRaga() {
         let model = makeModel(phrase: emptyPhrase, hadSaved: false)
         // A melakarta whose scale matches the editor table resolves
