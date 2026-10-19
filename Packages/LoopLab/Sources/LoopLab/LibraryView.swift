@@ -2,6 +2,8 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import PersistenceKit
+import SwaraEditor
+import RagaBrowser
 import DesignSystem
 
 // The song library: rows PUSH a SongDetailView onto the stack
@@ -16,6 +18,15 @@ public struct LibraryView: View {
     @State private var showImporter = false
     @State private var showSettings = false
     @State private var path: [Song] = []
+    /// The swara editor presentation, owned HERE at the stack
+    /// root: a navigation destination registered inside the
+    /// pushed song detail did not push reliably — tapping Edit
+    /// collapsed the stack back to this list (his bug report;
+    /// v1.4.7's hoist to the detail page was not enough). Compose
+    /// registers its editor at its stack root and works; this
+    /// mirrors that shape. The detail forwards the built session
+    /// up via onEditSwaras.
+    @State private var editorSession: LoopsView.EditorSession?
 
     public var body: some View {
         NavigationStack(path: $path) {
@@ -57,7 +68,7 @@ public struct LibraryView: View {
         }
         .navigationTitle("RagaMentor")
         .navigationDestination(for: Song.self) { song in
-            SongDetailView(song: song)
+            SongDetailView(song: song, onEditSwaras: { editorSession = $0 })
                 .onAppear {
                     // Open the pushed song (a no-op when it is the
                     // one already loaded, so popping back and forth
@@ -66,6 +77,22 @@ public struct LibraryView: View {
                         controller.open(song)
                     }
                 }
+        }
+        .navigationDestination(item: $editorSession) { session in
+            SwaraEditorView(
+                model: session.model,
+                title: session.loop.name,
+                browseSheet: { model, dismiss in
+                    AnyView(RagaBrowserView(
+                        library: model.library, mode: .pick,
+                        sequencePlayer: model.player.player,
+                        onPick: { raga in
+                            model.applyBrowsedRaga(raga)
+                            dismiss()
+                        },
+                        onCancel: dismiss))
+                },
+                onClose: { editorSession = nil })
         }
         .studioList()
         .onAppear { controller.modelContext = modelContext }
