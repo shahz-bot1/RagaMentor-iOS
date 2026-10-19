@@ -21,7 +21,6 @@ struct RagaListenSection: View {
     @AppStorage("raga-sa") private var saOffset = 0
     @AppStorage("raga-tempo") private var tempo = 120
     @AppStorage("raga-label-mode") private var labelMode = "sargam"
-    @State private var status = "Audio: not started — tap Test beep below"
     @State private var tempoToken = 0
     /// Cross-studio audio focus registration (P6).
     @EnvironmentObject private var audioFocus: StudioAudioFocus
@@ -64,13 +63,7 @@ struct RagaListenSection: View {
     private var listenCard: some View {
         StudioCard {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    StudioSectionTitle("Listen · harmonium")
-                    Text("v14").font(.caption2.weight(.bold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Studio.panel2, in: Capsule())
-                        .foregroundStyle(.secondary)
-                }
+                StudioSectionTitle("Listen · harmonium")
                 HStack {
                     Text("Sa").foregroundStyle(.secondary)
                     Spacer()
@@ -98,18 +91,6 @@ struct RagaListenSection: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(StudioPrimaryButtonStyle())
-                HStack(spacing: 10) {
-                    Button("🔔 Test beep") {
-                        adapter.beep()
-                        status = "Audio: running — beep playing…"
-                    }
-                    .buttonStyle(StudioSecondaryButtonStyle())
-                    Text(status).font(.caption).foregroundStyle(.secondary)
-                }
-                Text("🔇 No sound on iPhone? Turn off silent mode.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text("Harmonium: tonejs-instruments · CC-BY 3.0 · Choir: Sonatina · CC Sampling+ 1.0 · AI voice: DiffSinger TIGER (experimental, non-commercial voicebank)")
-                    .font(.caption2).foregroundStyle(.secondary)
             }
         }
     }
@@ -159,6 +140,5 @@ struct RagaListenSection: View {
         audioFocus.stopAll(except: focusToken)
         adapter.play(semitones: walk.map { $0.semitone + saOffset },
                      tempo: atTempo)
-        status = "Audio: ready · harmonium"
     }
 }
