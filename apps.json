@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.14",
-      "versionDate": "2026-10-19T16:14:00Z",
-      "versionDescription": "v1.5.14 \u2014 Two fixes: playing a raga now stops a LoopLab song (the Raga browser gained the same play-start hook Varisai and Tala have), and background playback is properly enabled \u2014 the background-audio mode was declared in the project but never landed in the built app, so the song stopped when the app went to the background; a real Info.plist now carries it. Also carries v1.5.13 dynamic note blending.",
+      "version": "1.5.15",
+      "versionDate": "2026-10-19T16:24:00Z",
+      "versionDescription": "v1.5.15 \u2014 A Blend slider in the Varisai playback card (below Tempo, 0\u201360%) tunes the note-blending live while you calibrate it by ear; the value persists and also shapes the Raga scale. Also carries v1.5.14: playing a raga stops a LoopLab song, and background playback is properly enabled (a real Info.plist now carries the audio background mode).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.14",
-          "date": "2026-10-19T16:14:00Z",
+          "version": "1.5.15",
+          "date": "2026-10-19T16:24:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
