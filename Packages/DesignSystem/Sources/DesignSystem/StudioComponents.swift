@@ -79,6 +79,11 @@ public struct StudioChip: View {
         Button(title, action: action)
             .font(.callout.weight(selected ? .semibold : .regular))
             .foregroundStyle(Studio.text)
+            // A chip sizes to its text and never wraps it (the
+            // web's nowrap pills): one line, fixed size — rows
+            // must wrap whole chips, not squeeze them.
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 12)
             .padding(.vertical, 7)
             .background(selected ? Studio.accentSoft : Studio.panel2,
