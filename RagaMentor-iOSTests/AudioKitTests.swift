@@ -146,6 +146,23 @@ final class AudioKitTests: XCTestCase {
         XCTAssertLessThan(SustainRenderer.masterEnvelope(at: 0.01, duration: 2), 0.9)
     }
 
+    func testMasterEnvelopeHoldsLevelIntoTheNextNote() {
+        // The perceptual pin for dynamic blending (v1.5.13): when
+        // the next swara attacks one step (1 s) into a note, the
+        // outgoing note must still be near its sustain level —
+        // the old fixed exponential release had already dived
+        // to ~0.2 by then, which read as a pause between notes.
+        XCTAssertGreaterThanOrEqual(
+            SustainRenderer.masterEnvelope(at: 1.0, duration: 1.075), 0.55)
+        // With the adapters' blended duration (1.30 at this step)
+        // the handoff is higher still.
+        XCTAssertGreaterThanOrEqual(
+            SustainRenderer.masterEnvelope(at: 1.0, duration: 1.30), 0.8)
+        // And the release does end: by duration + tail it is done.
+        XCTAssertEqual(SustainRenderer.masterEnvelope(at: 1.45, duration: 1.30),
+                       0.0001, accuracy: 1e-6)
+    }
+
     private func sineBuffer(seconds: Double, freq: Double = 100,
                             sampleRate: Double = 8000, amplitude: Double = 0.5) -> AVAudioPCMBuffer {
         let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1)!
