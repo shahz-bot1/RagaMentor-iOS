@@ -174,7 +174,7 @@ public final class SequencePlayer: ObservableObject {
                 else { return }
                 Task { @MainActor in
                     guard let self else { return }
-                    if state == .playing || state == .loading { stop() }
+                    if self.state == .playing || self.state == .loading { self.stop() }
                 }
             }
     }
