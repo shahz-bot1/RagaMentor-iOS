@@ -100,7 +100,8 @@ public struct LibraryView: View {
                         },
                         onCancel: dismiss))
                 },
-                onClose: { editorSession = nil })
+                onClose: { editorSession = nil },
+                onCancel: { editorSession = nil })
         }
         .studioList()
         .onAppear { controller.modelContext = modelContext }
