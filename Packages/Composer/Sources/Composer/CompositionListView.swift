@@ -28,6 +28,10 @@ public struct CompositionListView: View {
 
     @State private var compositions: [Composition] = []
     @State private var editorSession: EditorSession?
+    /// The composition's name as it was when the editor opened —
+    /// Cancel's restore point for the live rename (the name
+    /// binding saves on every keystroke, outside the model).
+    @State private var editorOriginalName: String?
     @State private var openEditorID: String?
     @State private var showImporter = false
     @State private var importError: String?
@@ -110,14 +114,26 @@ public struct CompositionListView: View {
                 },
                 deleteTitle: "Delete composition",
                 deleteMessage: "Delete this composition?",
-                onClose: { closeEditor() })
+                onClose: { closeEditor() },
+                onCancel: { cancelEditor() })
         }
     }
 
     private func closeEditor() {
         editorSession = nil
         openEditorID = nil
+        editorOriginalName = nil
         refresh()
+    }
+
+    /// Cancel: the view has already restored the phrase through
+    /// the model; the composition's name is restored here from
+    /// the snapshot taken at open, then the editor closes.
+    private func cancelEditor() {
+        if let session = editorSession, let original = editorOriginalName {
+            store.rename(id: session.id, to: original)
+        }
+        closeEditor()
     }
 
     // MARK: - Rows
@@ -216,6 +232,7 @@ public struct CompositionListView: View {
             onPlayStart: handlePlayStart,
             contextValid: { openEditorID == id })
         openEditorID = id
+        editorOriginalName = comp.name
         editorSession = EditorSession(id: id, model: model)
     }
 
