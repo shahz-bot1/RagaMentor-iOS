@@ -1,21 +1,23 @@
 import SwiftUI
 import UIKit
 
-// The scroll gate (v1.5.3, Shahzin's design).
+// The scroll gate (v1.5.3, Shahzin's design; band rule v1.5.6).
 //
 // The song detail's scroll view covers the waveform strip, so
 // the wave's own controls could never be touched. Three
 // forwarding designs (v1.4.5–v1.5.2) tried to hand the touches
 // down from a layer above; all failed. The gate inverts it:
 // the scroll view sits inside a thin container whose hit test
-// DECLINES a touch when it lands on the wave strip while the
-// page rests at the top. The window's search then continues
-// behind the container and lands on the waveform's real
-// buttons and gestures. Once the content has scrolled, the
-// gate steps aside and the strip belongs to the content.
+// DECLINES a touch when it lands on the part of the waveform
+// strip that is still VISIBLE. The window's search then
+// continues behind the container and lands on the waveform's
+// real buttons and gestures. The covered part of the strip —
+// and everything below it — belongs to the content, and once
+// the content has scrolled past the whole strip the pinned
+// header owns it.
 //
 // The check runs per touch, inside hitTest — nothing listens
-// continuously, and the cost is two comparisons.
+// continuously, and the cost is a few comparisons.
 
 /// Hosts a SwiftUI scroll view inside the gate container.
 struct ScrollGateContainer<Content: View>: UIViewControllerRepresentable {
@@ -82,12 +84,19 @@ final class ScrollGateView: UIView {
     private weak var scrollView: UIScrollView?
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-        if point.y >= 0, point.y < stripHeight,
-           let scrollView = resolvedScrollView(),
-           scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top + 1 {
-            // At rest, over the wave strip: not ours. The
-            // search continues behind us, to the waveform.
-            return nil
+        if point.y >= 0, let scrollView = resolvedScrollView() {
+            // How far the content has scrolled over the strip:
+            // 0 at rest, negative on a pull-down. The visible
+            // band of the wave is the strip minus that much,
+            // clamped so a pull-down never widens it past the
+            // strip itself.
+            let over = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
+            let visibleBand = min(stripHeight, stripHeight - over)
+            if point.y < visibleBand {
+                // Over the visible wave: not ours. The search
+                // continues behind us, to the waveform.
+                return nil
+            }
         }
         return super.hitTest(point, with: event)
     }
