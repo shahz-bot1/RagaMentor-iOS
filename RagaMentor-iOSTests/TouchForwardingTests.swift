@@ -104,13 +104,25 @@ final class ScrollGateTests: XCTestCase {
             XCTFail("no scroll view in the replica")
             return
         }
-        // Scroll 100pt FROM REST (the harness's rest offset is
-        // -adjustedContentInset.top, not zero — an absolute 100
-        // overshoots by the inset and the first cut of this test
-        // failed on exactly that).
+        // Scroll 100pt from rest, whatever rest is in this
+        // harness (the rest offset is -adjustedContentInset.top
+        // and settles asynchronously — an absolute offset, and
+        // even an early rest read, overshoot by the inset; the
+        // first two cuts of this test failed on exactly that).
+        // Wait for the offset to stop moving before reading it.
+        var lastY = scrollView.contentOffset.y
+        for _ in 0..<20 {
+            pump(window)
+            let y = scrollView.contentOffset.y
+            if y == lastY { break }
+            lastY = y
+        }
         let restY = scrollView.contentOffset.y
         scrollView.contentOffset = CGPoint(x: 0, y: restY + 100)
         pump(window)
+        print("BANDTEST restY:", restY,
+              "insetTop:", scrollView.adjustedContentInset.top,
+              "offsetNow:", scrollView.contentOffset.y)
 
         // Strip is 200; scrolled 100 -> visible band is y < 100.
         let visibleHit = window.hitTest(CGPoint(x: 195, y: 50), with: nil)
