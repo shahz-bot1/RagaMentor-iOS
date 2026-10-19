@@ -6,7 +6,9 @@ import Foundation
 /// scheduled as one pre-rendered buffer on AVAudioPlayerNode:
 ///
 /// - the master envelope is the harmonium envelope (attack 0.02 s to
-///   0.9, hold, exponential release ending at dur + 0.15);
+///   0.9, hold, then a release ending at dur + 0.15 whose span is
+///   proportional to the note — 30% of the duration, floored at
+///   0.12 s and capped at 0.45 s — and cosine-shaped, v1.5.13);
 /// - notes that fit inside the sample play as a single resampled pass;
 /// - longer notes chain the sample's sustain section [s0, s1] as
 ///   overlapping segments joined by equal-power (sin/cos) crossfades,
@@ -31,11 +33,20 @@ public enum SustainRenderer {
     /// The shared harmonium master envelope at time t.
     public static func masterEnvelope(at t: Double, duration: Double) -> Double {
         if t < 0 { return 0 }
-        let holdEnd = max(0.02, duration - 0.12)
+        // Dynamic blending (v1.5.13): the release span is
+        // proportional to the note — 30% of the duration, floored
+        // at 0.12 s and capped at 0.45 s — and cosine-shaped
+        // (the equal-power family the sustain crossfades use).
+        // The old fixed exponential dive fell silent well before
+        // the next swara at slow tempos: the mechanical pause
+        // between notes.
+        let releaseSpan = min(0.45, max(0.12, 0.30 * duration))
+        let holdEnd = max(0.02, duration - releaseSpan)
         if t < 0.02 { return expRamp(t, from: 0.0001, to: 0.9, start: 0, end: 0.02) }
         if t < holdEnd { return 0.9 }
         if t < duration + 0.15 {
-            return expRamp(t, from: 0.9, to: 0.0001, start: holdEnd, end: duration + 0.15)
+            let phase = (t - holdEnd) / (duration + 0.15 - holdEnd)
+            return 0.0001 + (0.9 - 0.0001) * cos(phase * .pi / 2)
         }
         return 0.0001
     }
