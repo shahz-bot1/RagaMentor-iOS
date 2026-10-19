@@ -119,7 +119,10 @@ struct RagaListenSection: View {
                 PianoView(
                     saPitchClass: saOffset,
                     labels: pianoLabels,
-                    highlightRel: player.currentIndex >= 0 && player.currentIndex < walk.count
+                    // Scoped to the scale session (v1.5.18):
+                    // another studio's index is not a walk index.
+                    highlightRel: player.contextKey == ScaleAdapter.contextKey
+                        && player.currentIndex >= 0 && player.currentIndex < walk.count
                         ? walk[player.currentIndex].semitone : nil)
             }
         }
