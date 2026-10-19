@@ -80,10 +80,21 @@ public final class TalaClock: ObservableObject {
         self.store = store
         self.clicks = clicks
         self.settings = store.load()
-        // Same interruption policy as the sequence player
-        // (v1.5.17): a lesson tool stops and stays stopped when
-        // another app takes the audio session; the click engine
-        // heals itself, so the next manual Start sounds.
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+    }
+
+    /// Same interruption policy as the sequence player
+    /// (v1.5.17), with the subscription scoped to playback the
+    /// same way (v1.5.18): a lesson tool stops and stays stopped
+    /// when another app takes the audio session; the click
+    /// engine heals itself, so the next manual Start sounds.
+    private func subscribeToInterruptions() {
+        guard interruptionObserver == nil else { return }
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance(), queue: nil) { [weak self] note in
@@ -94,9 +105,10 @@ public final class TalaClock: ObservableObject {
             }
     }
 
-    deinit {
+    private func unsubscribeFromInterruptions() {
         if let interruptionObserver {
             NotificationCenter.default.removeObserver(interruptionObserver)
+            interruptionObserver = nil
         }
     }
 
@@ -112,6 +124,7 @@ public final class TalaClock: ObservableObject {
 
     public func start() {
         guard !isPlaying else { return }
+        subscribeToInterruptions()
         clicks.prepare()
         beatIdx = 0
         subIdx = 0
@@ -124,6 +137,7 @@ public final class TalaClock: ObservableObject {
     }
 
     public func stop() {
+        unsubscribeFromInterruptions()
         timer?.invalidate()
         timer = nil
         clicks.clear()
