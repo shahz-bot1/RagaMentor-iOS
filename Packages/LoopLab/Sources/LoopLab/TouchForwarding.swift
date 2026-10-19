@@ -131,6 +131,8 @@ struct TouchForwardingOverlay: UIViewRepresentable {
 
 final class TouchForwardingView: UIView {
     var routing: TouchRouting?
+    /// Reentrancy guard for the resolution hit-test below.
+    private var isResolving = false
 
     /// The waveform subtree's root, derived topologically:
     /// climb from the wave probe until the parent also contains
@@ -156,8 +158,10 @@ final class TouchForwardingView: UIView {
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if isResolving { return nil }
         guard let scrollView = routing?.scrollView,
               let waveRoot,
+              let window,
               scrollView.window != nil, waveRoot.window != nil else { return nil }
         // Forward only at rest at the top: once the content has
         // slid over the wave, the strip belongs to the content
@@ -166,12 +170,24 @@ final class TouchForwardingView: UIView {
         guard scrollView.contentOffset.y <= topOffset + 1 else { return nil }
         let converted = convert(point, to: waveRoot)
         guard waveRoot.bounds.contains(converted) else { return nil }
-        // The wave container itself is not interactive — only a
-        // real subview hit (the wave, a badge, a button)
-        // forwards. Anything else (padding, dead space) falls
-        // through to the scroll view, so a drag there scrolls.
-        guard let hit = waveRoot.hitTest(converted, with: event),
-              hit !== waveRoot else { return nil }
+
+        // Resolve the hit through the WINDOW's own hit-testing —
+        // the same code path a real touch takes — with the
+        // scroll view and this layer temporarily invisible to
+        // it. (v1.5.1 descended into the wave container directly;
+        // the hosting tests showed that descent does not engage
+        // SwiftUI's hit logic the way a window-level search
+        // does.) Only a hit inside the wave subtree forwards;
+        // dead space and everything else falls through to the
+        // scroll view as before.
+        isResolving = true
+        scrollView.isUserInteractionEnabled = false
+        let hit = window.hitTest(convert(point, to: window), with: event)
+        scrollView.isUserInteractionEnabled = true
+        isResolving = false
+
+        guard let hit, hit !== waveRoot,
+              hit.isDescendant(of: waveRoot) else { return nil }
         return hit
     }
 }
