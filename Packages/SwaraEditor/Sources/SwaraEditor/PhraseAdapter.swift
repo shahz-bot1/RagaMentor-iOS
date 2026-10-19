@@ -31,7 +31,8 @@ public final class PhraseAdapter {
     // MARK: - State (the old PhrasePlayer surface, forwarded)
 
     public var activeContextKey: String? { player.contextKey }
-    public var currentChipIndex: Int { player.currentIndex }
+    // (No unscoped chip-index surface: the phrase views read
+    // the player with their own context key — PhraseChipsView.)
     public func isPlaying(contextKey key: String) -> Bool {
         player.isPlaying(contextKey: key)
     }
