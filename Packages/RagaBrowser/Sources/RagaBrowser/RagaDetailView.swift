@@ -3,11 +3,12 @@ import RagaCore
 import AudioKit
 import DesignSystem
 
-/// One raga's detail (web raga detail): the scale with its notation
-/// toggle, the Listen card (Sa, tempo, one Play for arohana +
-/// avarohana, test beep and status), the v14 display piano, allied
-/// ragas and the Lakshana placeholder. In pick mode a "✓ Use this
-/// raga" button applies the raga to the calling editor.
+/// One raga's detail (web raga detail): the scale as two
+/// Varisai-style swara group rows with its notation toggle, the
+/// Listen card (Sa, tempo, one Play for arohana + avarohana),
+/// the display piano, allied ragas and the Lakshana placeholder.
+/// In pick mode a "✓ Use this raga" button applies the raga to
+/// the calling editor.
 struct RagaDetailView: View {
     let raga: Raga
     let library: any RagaLibrary
@@ -80,17 +81,10 @@ struct RagaDetailView: View {
                 StudioSegmented(items: [(Notation.carnatic, "Carnatic"),
                                         (.hindustani, "Hindustani")],
                                 selection: $notation)
-                scaleLine(label: "Arohana", tokens: raga.aro)
-                scaleLine(label: "Avarohana", tokens: raga.ava)
+                RagaSwaraRows(player: adapter.player,
+                              aro: raga.aro.map(display),
+                              ava: raga.ava.map(display))
             }
-        }
-    }
-
-    private func scaleLine(label: String, tokens: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            Text(tokens.map(display).joined(separator: " "))
-                .font(.body)
         }
     }
 
@@ -162,5 +156,34 @@ private struct StudioChipLabel: View {
             .background(Studio.panel2, in: Capsule())
             .overlay(Capsule().strokeBorder(Studio.border, lineWidth: 1))
             .foregroundStyle(Studio.text)
+    }
+}
+
+/// The scale as two Varisai-style group rows — one group per
+/// direction, each swara its own cell (v1.5.9, the web raga
+/// page's highlighted swara rows in the Varisai form). A leaf:
+/// it alone observes the player, so the detail page does not
+/// re-render per note — the Listen section's isolation rule,
+/// applied to the scale card. The rows map 1:1 onto the
+/// playback walk (arohana cells are walk indices
+/// 0..<aro.count, avarohana cells follow), the same index the
+/// piano highlight uses, so cell and piano light together.
+private struct RagaSwaraRows: View {
+    @ObservedObject var player: SequencePlayer
+    let aro: [String]
+    let ava: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            rowLabel("Arohana · ascending")
+            SwaraGroupRow(labels: aro, currentIndex: player.currentIndex)
+            rowLabel("Avarohana · descending")
+                .padding(.top, 4)
+            SwaraGroupRow(labels: ava, currentIndex: player.currentIndex - aro.count)
+        }
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
     }
 }
