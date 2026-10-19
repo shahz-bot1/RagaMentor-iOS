@@ -17,19 +17,24 @@ public struct LibraryView: View {
     @Query(sort: \Song.dateAdded, order: .reverse) private var songs: [Song]
     @State private var showImporter = false
     @State private var showSettings = false
-    /// The navigation path — the stack's SINGLE source of truth
-    /// (v1.5.6), owned here as plain data. It holds two value
-    /// types, so it must be a type-erased NavigationPath, not
-    /// [Song]: a homogeneous path could not accept the editor's
-    /// session value at all (the original Edit bug). Both pushes
-    /// are explicit appends: a song tap (NavigationLink) and
-    /// Edit, which appends the session the detail forwards up
-    /// via onEditSwaras. Closing the editor is removeLast() —
-    /// back to the song detail. The earlier design kept the
-    /// session in a separate item binding beside the path; when
-    /// that binding cleared, the pop took the song with it and
-    /// landed on this list (device report on v1.5.5).
+    /// The navigation path: songs only. The swara editor is NOT
+    /// a stack value — it is presented as a full-screen cover
+    /// from here (v1.5.7, both studios, for consistency). Three
+    /// stack-based designs failed on device in LoopLab: a [Song]
+    /// path could not hold the session value; an item binding
+    /// beside the path popped the song along with the editor;
+    /// and a plain path value still landed on this list on
+    /// close, while the same editor closes correctly in Compose
+    /// — whose parent is its root, so a collapse to root is
+    /// invisible there. A cover removes the stack from the
+    /// equation: the pushed song stays underneath, untouched,
+    /// and dismissal returns to it by construction.
     @State private var path = NavigationPath()
+    /// The editor presentation (cover), forwarded up from the
+    /// detail via onEditSwaras: SongDetailView → LoopsView's
+    /// Edit/Add actions build the session, the library presents
+    /// it. The session's model is built once, in the tap action.
+    @State private var editorSession: LoopsView.EditorSession?
 
     public var body: some View {
         NavigationStack(path: $path) {
@@ -71,7 +76,7 @@ public struct LibraryView: View {
         }
         .navigationTitle("RagaMentor")
         .navigationDestination(for: Song.self) { song in
-            SongDetailView(song: song, onEditSwaras: { path.append($0) })
+            SongDetailView(song: song, onEditSwaras: { editorSession = $0 })
                 .onAppear {
                     // Open the pushed song (a no-op when it is the
                     // one already loaded, so popping back and forth
@@ -81,7 +86,7 @@ public struct LibraryView: View {
                     }
                 }
         }
-        .navigationDestination(for: LoopsView.EditorSession.self) { session in
+        .fullScreenCover(item: $editorSession) { session in
             SwaraEditorView(
                 model: session.model,
                 title: session.loop.name,
@@ -95,7 +100,7 @@ public struct LibraryView: View {
                         },
                         onCancel: dismiss))
                 },
-                onClose: { if !path.isEmpty { path.removeLast() } })
+                onClose: { editorSession = nil })
         }
         .studioList()
         .onAppear { controller.modelContext = modelContext }
