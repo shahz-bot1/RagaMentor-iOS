@@ -1,131 +1,144 @@
 import XCTest
 import SwiftUI
-import UIKit
+import SwiftData
 @testable import LoopLab
+import PersistenceKit
 
-/// The song detail's touch forwarding, exercised in a real
-/// window against a replica of its ZStack shape (wave area with
-/// a button at the back, the page ScrollView in front, the
-/// forwarding layer on top). v1.4.5 shipped this mechanism
-/// unverified and it never engaged on device; these tests pin
-/// the wiring and the hit-test contract in three separately
-/// named checks, so a failure says which link broke.
+// The scroll gate (ScrollGate.swift, v1.5.3): the container
+// wrapping the song detail's scroll view declines touches
+// over the wave strip while the page rests at the top, so
+// they land on the waveform's own controls behind it. These
+// hosting tests drive the real window hit-test — the path a
+// real touch takes — over a replica and over the real page.
 @MainActor
-final class TouchForwardingTests: XCTestCase {
+final class ScrollGateTests: XCTestCase {
 
-    private struct Replica: View {
-        let routing: TouchRouting
-
-        var body: some View {
-            ZStack(alignment: .top) {
-                // The wave stand-in, shaped like the real thing:
-                // a full-area gesture surface (the waveform's
-                // tap-seek covers its whole frame) plus a small
-                // button in a corner (the Follow/Fit/badge kind).
-                ZStack(alignment: .bottomLeading) {
-                    Rectangle()
-                        .fill(.blue)
-                        .onTapGesture {}
-                    Button("Badge") {}
-                        .padding(8)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 200)
-                .background(WaveProbe(routing: routing))
-
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(0..<60, id: \.self) { i in
-                            Text("Row \(i)").frame(height: 30)
-                        }
-                    }
-                    .background(ScrollProbe(routing: routing))
-                }
-
-                TouchForwardingOverlay(routing: routing)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-    }
-
-    private struct Hosted {
-        let routing: TouchRouting
-        let window: UIWindow
-        let forwarder: TouchForwardingView?
-    }
-
-    private func host() -> Hosted {
-        let routing = TouchRouting()
-        let host = UIHostingController(rootView: Replica(routing: routing))
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+    private func host<V: View>(_ view: V, in window: UIWindow) {
+        let host = UIHostingController(rootView: view)
         window.rootViewController = host
         window.makeKeyAndVisible()
         host.view.frame = window.bounds
-        host.view.layoutIfNeeded()
-        return Hosted(routing: routing, window: window,
-                      forwarder: findForwarder(in: host.view))
+        pump(window)
     }
 
-    private func findForwarder(in view: UIView) -> TouchForwardingView? {
-        if let forwarder = view as? TouchForwardingView { return forwarder }
-        for sub in view.subviews {
-            if let found = findForwarder(in: sub) { return found }
+    private func pump(_ window: UIWindow) {
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.25))
+        window.layoutIfNeeded()
+    }
+
+    private func find<T: UIView>(_ type: T.Type, in root: UIView) -> T? {
+        if let match = root as? T { return match }
+        for subview in root.subviews {
+            if let match = find(type, in: subview) { return match }
         }
         return nil
     }
 
-    func testProbesResolveAndLayerFills() {
-        let hosted = host()
-        XCTAssertNotNil(hosted.routing.scrollView,
-                        "scroll probe did not resolve a UIScrollView")
-        XCTAssertNotNil(hosted.routing.waveProbe,
-                        "wave probe did not publish itself")
-        XCTAssertNotNil(hosted.forwarder?.waveRoot,
-                        "wave container not derivable from the probes")
-        guard let forwarder = hosted.forwarder else {
-            XCTFail("no TouchForwardingView in the hosted hierarchy")
-            return
+    // A replica of the detail's layering: the wave stand-in at
+    // the back, the gated scroll view in front.
+    private struct Replica: View {
+        var body: some View {
+            ZStack(alignment: .top) {
+                Rectangle()
+                    .fill(.blue)
+                    .frame(height: 200)
+
+                ScrollGateContainer(stripHeight: 200) {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(0..<40, id: \.self) { index in
+                                Text("Row \(index)")
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 44)
+                            }
+                        }
+                        .padding(.top, 200)
+                    }
+                }
+            }
         }
-        // The forwarding layer fills the detail (v1.4.5's silent
-        // failure was a frame too small to ever be consulted).
-        XCTAssertGreaterThan(forwarder.bounds.width, 300)
-        XCTAssertGreaterThan(forwarder.bounds.height, 600)
     }
 
-    func testForwardsToWaveAtRest() {
-        let hosted = host()
-        guard let forwarder = hosted.forwarder,
-              let scrollView = hosted.routing.scrollView,
-              let waveRoot = forwarder.waveRoot else {
-            XCTFail("hosting prerequisites missing (see testProbesResolveAndLayerFills)")
+    func testGatePassesStripTouchesToWaveAtRest() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        host(Replica(), in: window)
+        guard let scrollView = find(UIScrollView.self, in: window) else {
+            XCTFail("no scroll view in the replica")
             return
         }
         scrollView.contentOffset = .zero
-        // The gesture surface (centre of the wave).
-        let hit = forwarder.hitTest(CGPoint(x: 195, y: 100), with: nil)
-        XCTAssertNotNil(hit, "touch on the wave surface was not forwarded")
-        XCTAssertTrue(hit?.isDescendant(of: waveRoot) ?? false,
-                      "forwarded hit is not inside the wave subtree")
-        // The corner button (the badge/Follow/Fit kind).
-        let badgeHit = forwarder.hitTest(CGPoint(x: 30, y: 182), with: nil)
-        XCTAssertNotNil(badgeHit, "touch on the wave's button was not forwarded")
-        XCTAssertTrue(badgeHit?.isDescendant(of: waveRoot) ?? false,
-                      "button hit is not inside the wave subtree")
+        pump(window)
+
+        // On the strip, at rest: the gate declines, the hit
+        // lands on the wave stand-in behind.
+        let stripHit = window.hitTest(CGPoint(x: 195, y: 100), with: nil)
+        XCTAssertNotNil(stripHit, "no hit at all on the strip")
+        XCTAssertFalse(stripHit?.isDescendant(of: scrollView) ?? true,
+                       "strip touch was claimed by the scroll view")
+
+        // Below the strip: the scroll content owns the touch.
+        let contentHit = window.hitTest(CGPoint(x: 195, y: 500), with: nil)
+        XCTAssertTrue(contentHit?.isDescendant(of: scrollView) ?? false,
+                      "touch below the strip did not reach the scroll content")
     }
 
-    func testPassesThroughWhenScrolledOrBelowWave() {
-        let hosted = host()
-        guard let forwarder = hosted.forwarder,
-              let scrollView = hosted.routing.scrollView else {
-            XCTFail("hosting prerequisites missing (see testProbesResolveAndLayerFills)")
+    func testGateClaimsStripOnceScrolled() {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        host(Replica(), in: window)
+        guard let scrollView = find(UIScrollView.self, in: window) else {
+            XCTFail("no scroll view in the replica")
             return
         }
-        let wavePoint = CGPoint(x: 195, y: 100)
         scrollView.contentOffset = CGPoint(x: 0, y: 300)
-        XCTAssertNil(forwarder.hitTest(wavePoint, with: nil),
-                     "touch forwarded while the content covers the wave")
+        pump(window)
+
+        // Scrolled: content has slid over the strip and owns it.
+        let hit = window.hitTest(CGPoint(x: 195, y: 100), with: nil)
+        XCTAssertTrue(hit?.isDescendant(of: scrollView) ?? false,
+                      "strip touch was not claimed by the scrolled content")
+    }
+
+    func testRealDetailPageGatesToWaveControls() throws {
+        let container = try ModelContainer(
+            for: Song.self, LoopRegion.self, LoopGroup.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let song = Song(title: "Gate Song", contentHash: "gatehash",
+                        fileRelativePath: "Audio/gatehash.mp3",
+                        duration: 120, sampleRate: 44100, lastPosition: 0)
+        container.mainContext.insert(song)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        host(
+            NavigationStack {
+                SongDetailView(song: song)
+            }
+            .environmentObject(PlaybackController())
+            .modelContainer(container),
+            in: window)
+
+        guard find(ScrollGateView.self, in: window) != nil else {
+            XCTFail("the detail page has no scroll gate")
+            return
+        }
+        guard let scrollView = find(UIScrollView.self, in: window) else {
+            XCTFail("the detail page has no scroll view")
+            return
+        }
         scrollView.contentOffset = .zero
-        XCTAssertNil(forwarder.hitTest(CGPoint(x: 195, y: 400), with: nil),
-                     "touch below the wave was forwarded")
+        pump(window)
+
+        // Wave height at 700pt is 238; the Fit pill sits at the
+        // strip's bottom-right. Its touch must pass the gate and
+        // land on the wave area — NOT in the scroll view.
+        let fitHit = window.hitTest(CGPoint(x: 360, y: 215), with: nil)
+        XCTAssertNotNil(fitHit, "no hit at the Fit pill's position")
+        XCTAssertFalse(fitHit?.isDescendant(of: scrollView) ?? true,
+                       "the Fit pill's touch was claimed by the scroll view")
+
+        // Below the strip, the page content owns the touch.
+        let contentHit = window.hitTest(CGPoint(x: 195, y: 500), with: nil)
+        XCTAssertTrue(contentHit?.isDescendant(of: scrollView) ?? false,
+                      "touch below the strip did not reach the page content")
     }
 }
