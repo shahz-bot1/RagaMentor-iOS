@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.8",
-      "versionDate": "2026-10-19T13:28:00Z",
-      "versionDescription": "v1.5.8 \u2014 Raga detail Listen card cleaned up: the v14 chip, Test beep button, audio status line, silent-mode hint and sample credits line are removed. Also carries v1.5.7: the swara editor is a full-screen modal cover in LoopLab and Compose.",
+      "version": "1.5.9",
+      "versionDate": "2026-10-19T13:31:00Z",
+      "versionDescription": "v1.5.9 \u2014 Raga detail: the scale is now two Varisai-style swara group rows (one group per direction, each swara its own cell, the shared SwaraTokenCell from DesignSystem), and the playing swara highlights during playback in sync with the piano. Carries v1.5.8 (Listen card cleanup) and v1.5.7 (editor as modal cover in both studios).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.8",
-          "date": "2026-10-19T13:28:00Z",
+          "version": "1.5.9",
+          "date": "2026-10-19T13:31:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
