@@ -110,12 +110,12 @@ struct RagaDetailView: View {
                 StudioCard {
                     VStack(alignment: .leading, spacing: 10) {
                         StudioSectionTitle("Allied ragas · sounds like")
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 8)],
-                                  alignment: .leading, spacing: 8) {
-                            ForEach(resolved, id: \.id) { allied in
-                                NavigationLink(value: allied.id) {
-                                    StudioChipLabel(title: allied.name)
-                                }
+                        // The web's flex-wrap row: natural-width
+                        // pills packing left (the adaptive grid
+                        // stranded them in wide columns, v1.5.15).
+                        FlowStack(items: resolved.map(AlliedRagaItem.init)) { item in
+                            NavigationLink(value: item.raga.id) {
+                                StudioChipLabel(title: item.raga.name)
                             }
                         }
                     }
@@ -147,6 +147,13 @@ struct RagaDetailView: View {
         }
         return raga.jati ?? ""
     }
+}
+
+/// FlowStack item wrapper for an allied raga (Raga itself is not
+/// Identifiable).
+private struct AlliedRagaItem: Identifiable {
+    let raga: Raga
+    var id: String { raga.id }
 }
 
 /// A non-interactive chip look for navigation links (StudioChip is
