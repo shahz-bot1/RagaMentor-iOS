@@ -55,6 +55,7 @@ public final class SineClickEngine: ClickEngine {
     private let engine = AVAudioEngine()
     private let queue = ClickQueue()
     private var started = false
+    private var graphBuilt = false
 
     public init() {}
 
@@ -70,25 +71,32 @@ public final class SineClickEngine: ClickEngine {
     }
 
     public func prepare() {
-        guard !started else { return }
+        // Self-healing (v1.5.17): same interruption flaw as the
+        // tone engine — check engine.isRunning, not the cached
+        // flag. The graph is built once; a dead engine only
+        // needs a restart.
+        if started && engine.isRunning { return }
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
-        let format = engine.outputNode.outputFormat(forBus: 0)
-        let sr = format.sampleRate > 0 ? format.sampleRate : 48000
-        let queue = self.queue
-        let source = AVAudioSourceNode {
-            _, timestamp, frameCount, audioBufferList -> OSStatus in
-            // The timestamp's sample time is the exact frame this
-            // buffer starts at on the engine timeline — the same
-            // timeline `currentFrame` reports.
-            let base = Int64(timestamp.pointee.mSampleTime)
-            let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
-            return SineClickEngine.render(queue: queue, abl: abl, base: base,
-                                          frames: Int(frameCount), sampleRate: sr)
+        if !graphBuilt {
+            let format = engine.outputNode.outputFormat(forBus: 0)
+            let sr = format.sampleRate > 0 ? format.sampleRate : 48000
+            let queue = self.queue
+            let source = AVAudioSourceNode {
+                _, timestamp, frameCount, audioBufferList -> OSStatus in
+                // The timestamp's sample time is the exact frame this
+                // buffer starts at on the engine timeline — the same
+                // timeline `currentFrame` reports.
+                let base = Int64(timestamp.pointee.mSampleTime)
+                let abl = UnsafeMutableAudioBufferListPointer(audioBufferList)
+                return SineClickEngine.render(queue: queue, abl: abl, base: base,
+                                              frames: Int(frameCount), sampleRate: sr)
+            }
+            engine.attach(source)
+            engine.connect(source, to: engine.mainMixerNode, format: format)
+            graphBuilt = true
         }
-        engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
         do {
             engine.prepare()
             try engine.start()
