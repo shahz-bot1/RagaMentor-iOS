@@ -22,9 +22,10 @@ struct LoopsView: View {
     /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
     /// only the fullscreen host can switch tabs.
     var onRequestAB: (() -> Void)? = nil
-    /// Hand a built editor session UP to the host (the song
-    /// detail), which owns the presentation state and the
-    /// navigation destination — see EditorSession.
+    /// Hand a built editor session UP to the host chain (the
+    /// song detail forwards it to the library), which owns the
+    /// presentation state and the navigation destination — see
+    /// EditorSession.
     var onEditSwaras: ((EditorSession) -> Void)? = nil
 
     /// The group currently drilled into (web's fsGroupView); nil =
@@ -76,14 +77,15 @@ struct LoopsView: View {
     /// presentation, so the editor's model identity is stable.
     /// Hashable by loop id for the navigation destination.
     ///
-    /// The @State and the navigationDestination live in the HOST
-    /// (SongDetailView), not here: this view sits inside the
-    /// detail's tab switch inside a LazyVStack, and when the push
-    /// started that lazy content could be torn down, unregistering
-    /// the destination — the stack then collapsed all the way back
-    /// to the song list (his bug report, fixed v1.4.7). The host
-    /// lives for the whole page, so the destination stays
-    /// registered.
+    /// The @State and the navigationDestination live at the
+    /// LIBRARY (the navigation stack's root), not here and not in
+    /// the song detail: a destination registered inside a pushed
+    /// page did not push reliably — tapping Edit collapsed the
+    /// stack back to the song list (his bug report; the v1.4.7
+    /// hoist to the detail page was not enough, fixed v1.5.0 by
+    /// registering at the root, the shape Compose uses). The
+    /// session is forwarded up: LoopsView → SongDetailView →
+    /// LibraryView.
     ///
     /// The editor is PUSHED, not covered: as a fullScreenCover it
     /// oscillated (open, close, open, close) on device. A pushed
