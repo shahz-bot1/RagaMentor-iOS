@@ -45,13 +45,22 @@ final class ScrollGateViewController<Content: View>: UIViewController {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
 
     override func loadView() {
-        view = ScrollGateView()
+        // Transparent at every layer: the gate stack sits IN
+        // FRONT of the waveform, and a hosted scroll view
+        // otherwise paints an opaque background over it
+        // (v1.5.3 device report: controls worked, wave hidden).
+        let gate = ScrollGateView()
+        gate.backgroundColor = .clear
+        gate.isOpaque = false
+        view = gate
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         (view as? ScrollGateView)?.stripHeight = stripHeight
         addChild(hosting)
+        hosting.view.backgroundColor = .clear
+        hosting.view.isOpaque = false
         hosting.view.frame = view.bounds
         hosting.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(hosting.view)
