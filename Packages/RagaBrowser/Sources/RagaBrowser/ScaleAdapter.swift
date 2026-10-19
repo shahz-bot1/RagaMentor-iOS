@@ -1,5 +1,6 @@
 import Foundation
 import AudioKit
+import RagaCore
 
 /// The Raga Listen adapter (SequencePlayer design §8): builds a
 /// plain Timeline from a scale's semitones and drives the shared
@@ -43,7 +44,11 @@ public final class ScaleAdapter: ObservableObject {
     /// never need the main actor for it.
     public nonisolated static func timeline(semitones: [Int], tempo: Int) -> Timeline {
         let step = 60.0 / Double(tempo)
-        let duration = step * (1 + min(1.5, 0.075 / step))
+        // The web duration rule, floored by the dynamic blend
+        // (v1.5.13): the note rings at least a blend past its
+        // step, so slow tempos do not fall silent between swaras.
+        let duration = max(step * (1 + min(1.5, 0.075 / step)),
+                           step + NoteBlend.blend(forStep: step))
         let notes = semitones.enumerated().map { index, semitone in
             TimelineNote(semitone: semitone,
                          start: Double(index) * step,
