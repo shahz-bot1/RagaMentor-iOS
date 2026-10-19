@@ -67,6 +67,11 @@ struct SongDetailView: View {
                         }
                         .padding(.top, waveHeight)
                     }
+                    // The scroll view must not paint its own
+                    // background: hosted inside the gate, the
+                    // default would cover the waveform behind
+                    // it (v1.5.4).
+                    .scrollContentBackground(.hidden)
                 }
             }
         }
