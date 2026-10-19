@@ -370,7 +370,10 @@ struct VarisaiGridView: View {
     let full: Bool
 
     var body: some View {
-        let current = player.isPlaying ? player.currentIndex : -1
+        // Scoped to this studio's session (v1.5.18): another
+        // studio's pass must not highlight these tokens.
+        let current = player.isPlaying(contextKey: VarisaiAdapter.contextKey)
+            ? player.currentIndex : -1
         VStack(alignment: .leading, spacing: 10) {
             ForEach(lines.indices, id: \.self) { lineIndex in
                 lineView(lines[lineIndex], current: current)
