@@ -152,4 +152,45 @@ final class ScrollGateTests: XCTestCase {
         XCTAssertTrue(contentHit?.isDescendant(of: scrollView) ?? false,
                       "touch below the strip did not reach the page content")
     }
+
+    // The gate stack sits in front of the waveform, so every
+    // layer of it must be transparent — v1.5.3 shipped with the
+    // hosted scroll view painting an opaque background over
+    // the wave (device report: controls worked, wave hidden).
+    func testGateStackIsTransparent() throws {
+        let container = try ModelContainer(
+            for: Song.self, LoopRegion.self, LoopGroup.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let song = Song(title: "Gate Song", contentHash: "gatehash2",
+                        fileRelativePath: "Audio/gatehash2.mp3",
+                        duration: 120, sampleRate: 44100, lastPosition: 0)
+        container.mainContext.insert(song)
+
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        host(
+            NavigationStack {
+                SongDetailView(song: song)
+            }
+            .environmentObject(PlaybackController(
+                sequencePlayer: SequencePlayer(tone: SilentTone())))
+            .modelContainer(container),
+            in: window)
+
+        func isClear(_ view: UIView?) -> Bool {
+            guard let color = view?.backgroundColor else { return true }
+            var alpha: CGFloat = 0
+            color.getWhite(nil, alpha: &alpha)
+            return alpha == 0
+        }
+
+        let gate = find(ScrollGateView.self, in: window)
+        XCTAssertNotNil(gate, "the detail page has no scroll gate")
+        XCTAssertTrue(isClear(gate), "the gate view paints a background")
+        XCTAssertTrue(isClear(gate?.subviews.first),
+                      "the hosting view paints a background")
+        let scrollView = find(UIScrollView.self, in: window)
+        XCTAssertNotNil(scrollView, "the detail page has no scroll view")
+        XCTAssertTrue(isClear(scrollView),
+                      "the scroll view paints a background over the wave")
+    }
 }
