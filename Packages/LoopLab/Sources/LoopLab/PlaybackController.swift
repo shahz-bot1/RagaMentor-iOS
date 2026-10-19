@@ -150,6 +150,23 @@ public final class PlaybackController: ObservableObject {
     /// Fired when a Swaras section phrase starts (same purpose).
     public var onPhraseStart: (() -> Void)?
 
+    /// A request to fit the waveform window to a range (v1.5.12):
+    /// selectLoop / selectGroup publish it and the waveform area
+    /// applies WaveformWindow.fitting. The id makes re-selecting
+    /// the same range a fresh request.
+    public struct ZoomRequest: Equatable {
+        public let id: Int
+        public let start: Double
+        public let end: Double
+    }
+    @Published public private(set) var zoomRequest: ZoomRequest?
+    private var zoomRequestCount = 0
+
+    private func requestZoom(from start: Double, to end: Double) {
+        zoomRequestCount += 1
+        zoomRequest = ZoomRequest(id: zoomRequestCount, start: start, end: end)
+    }
+
     private var remoteCommandsInstalled = false
 
     /// Lock-screen / Control Centre / headphone controls: play,
@@ -441,6 +458,7 @@ public final class PlaybackController: ObservableObject {
             engine.seek(to: loop.start)
             engine.pause()
         }
+        requestZoom(from: loop.start, to: loop.end)
         try? context.save()
     }
 
@@ -494,6 +512,7 @@ public final class PlaybackController: ObservableObject {
         engine.setLoop(start: range.start, end: range.end)
         position = range.start
         beginSongPlayback(from: range.start)
+        requestZoom(from: range.start, to: range.end)
         try? context.save()
     }
 
@@ -605,16 +624,32 @@ public final class PlaybackController: ObservableObject {
         Dictionary(uniqueKeysWithValues: song.loops.map { ($0.id, LoopSpan(id: $0.id, start: $0.start, end: $0.end)) })
     }
 
-    /// Create a group; with a parent, the new group is filed as
-    /// the parent's subgroup (the web's in-group ＋ New group —
-    /// the view enforces the 2-level cap by only offering it for
-    /// parentless groups).
-    public func createGroup(name: String, inside parent: LoopGroup? = nil,
-                            context: ModelContext) {
-        guard let song = currentSong else { return }
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let group = LoopGroup(name: trimmed, song: song)
+    /// The web's group colour palette, cycled by group count.
+    public static let groupPalette = ["#2dd4bf", "#fbbf24", "#a78bfa", "#fb7185", "#38bdf8"]
+
+    /// The web's auto-name for a new group: the first free
+    /// "Group N", counting up from the group count.
+    public static func nextGroupName(existing: [String]) -> String {
+        let used = Set(existing)
+        var n = existing.count + 1
+        while used.contains("Group \(n)") { n += 1 }
+        return "Group \(n)"
+    }
+
+    /// Create a group the web's way (v1.5.12): instantly, with
+    /// the auto-name and the next palette colour, filed inside
+    /// the parent when one is given (the view enforces the
+    /// 2-level cap by only offering it for parentless groups).
+    /// The group starts EMPTY; the caller opens the membership
+    /// checklist on it, whose Cancel removes it again.
+    @discardableResult
+    public func createGroup(inside parent: LoopGroup? = nil,
+                            context: ModelContext) -> LoopGroup? {
+        guard let song = currentSong else { return nil }
+        let group = LoopGroup(
+            name: Self.nextGroupName(existing: song.groups.map(\.name)),
+            colorHex: Self.groupPalette[song.groups.count % Self.groupPalette.count],
+            song: song)
         song.groups.append(group)
         if let parent, song.groups.contains(where: { $0.id == parent.id }) {
             var data = groupData(song)
@@ -625,6 +660,53 @@ public final class PlaybackController: ObservableObject {
             }
         }
         try? context.save()
+        return group
+    }
+
+    /// Checklist candidates — the web's strict level rules
+    /// (v1.5.12), as item ids sorted by range start (a group
+    /// sorts by its derived range):
+    /// - new top-level group: the items visible at the top
+    ///   level — ungrouped loops + flat parentless groups
+    ///   (never anything nested inside another group);
+    /// - new sub-group: the parent's DIRECT member loops only
+    ///   (never loops inside the parent's own sub-groups);
+    /// - existing group (the reorganize tool): every loop,
+    ///   plus flat parentless groups when this group is
+    ///   top-level. A "flat" group holds loops only (the
+    ///   2-level cap).
+    public func checklistCandidateIDs(for group: LoopGroup, isNew: Bool) -> [UUID] {
+        guard let song = currentSong else { return [] }
+        let data = groupData(song)
+        let parent = GroupOps.parentMap(groups: data)
+        let groupIDs = Set(data.map(\.id))
+        let spanMap = spans(song)
+        func isFlat(_ g: GroupData) -> Bool {
+            !g.memberIDs.contains { groupIDs.contains($0) }
+        }
+        func flatParentless() -> [UUID] {
+            data.filter { $0.id != group.id && parent[$0.id] == nil && isFlat($0) }
+                .map(\.id)
+        }
+        func start(of id: UUID) -> Double {
+            if let loop = song.loops.first(where: { $0.id == id }) { return loop.start }
+            return GroupLogic.derivedRange(
+                groupID: id,
+                children: Dictionary(uniqueKeysWithValues: data.map { ($0.id, $0.memberIDs) }),
+                spans: spanMap)?.start ?? .greatestFiniteMagnitude
+        }
+        let ids: [UUID]
+        if isNew, let parentID = parent[group.id] {
+            let memberIDs = Set(data.first { $0.id == parentID }?.memberIDs ?? [])
+            ids = song.loops.filter { memberIDs.contains($0.id) }.map(\.id)
+        } else if isNew {
+            ids = song.loops.filter { parent[$0.id] == nil }.map(\.id) + flatParentless()
+        } else {
+            var all = song.loops.map(\.id)
+            if parent[group.id] == nil { all += flatParentless() }
+            ids = all
+        }
+        return ids.sorted { start(of: $0) < start(of: $1) }
     }
 
     /// Checklist membership save: exact member set for one group.
