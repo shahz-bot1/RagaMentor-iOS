@@ -88,10 +88,10 @@ public struct TalaStudioView: View {
                         clock.setTala(item.def.id)
                     }
                 }
-                FlowStack(items: TalaSpec.chapu.map(TalaChipItem.init)) { item in
-                    StudioChip("\(item.def.name) · \(item.def.count)",
-                               selected: clock.settings.talaId == item.def.id) {
-                        clock.setTala(item.def.id)
+                FlowStack(items: TalaSpec.chapu.map(ChapuChipItem.init)) { item in
+                    StudioChip("\(item.name) · \(item.count)",
+                               selected: clock.settings.talaId == item.id) {
+                        clock.setTala(item.id)
                     }
                 }
             }
@@ -151,4 +151,18 @@ private struct TalaChipItem: Identifiable {
 private struct JatiChipItem: Identifiable {
     let def: TalaSpec.JatiDef
     var id: String { def.id }
+}
+
+/// The chapu entries are tuples in TalaSpec; this wraps one for
+/// FlowStack.
+private struct ChapuChipItem: Identifiable {
+    let id: String
+    let name: String
+    let count: Int
+
+    init(_ entry: (id: String, name: String, count: Int)) {
+        id = entry.id
+        name = entry.name
+        count = entry.count
+    }
 }
