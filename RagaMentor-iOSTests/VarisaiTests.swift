@@ -80,21 +80,17 @@ final class VarisaiTests: XCTestCase {
         XCTAssertEqual(VarisaiPlayback.overlap(speed: 1, step: 0.5), 1.15, accuracy: 0.001)
     }
 
-    func testDurationBlendFloor() {
-        // Speed 1 at 60 bpm (step 1): the web factor gives 1.075 —
-        // the note fell silent before the next swara (the
-        // mechanical feel). The blend floor raises it to 1.30.
+    func testDurationsUseTheWebFactors() {
+        // The settled durations (v1.5.16 — the blend calibration
+        // ended at 0%): the web legato factors, nothing added.
         let single = VarisaiEvent(semitone: 0, startStep: 0, slots: 1)
         XCTAssertEqual(VarisaiPlayback.duration(of: single, isLast: false, step: 1, speed: 1),
-                       1.30, accuracy: 1e-9)
-        // A two-slot (dheergam) event blends past its own span.
+                       1.075, accuracy: 1e-9)
         let held = VarisaiEvent(semitone: 0, startStep: 0, slots: 2)
         XCTAssertEqual(VarisaiPlayback.duration(of: held, isLast: false, step: 1, speed: 1),
-                       2.30, accuracy: 1e-9)
-        // 8x legato is already above the floor: unchanged.
+                       2.15, accuracy: 1e-9)
         XCTAssertEqual(VarisaiPlayback.duration(of: single, isLast: false, step: 0.125, speed: 8),
                        0.25, accuracy: 1e-9)
-        // 4x legato also unchanged.
         XCTAssertEqual(VarisaiPlayback.duration(of: single, isLast: false, step: 0.25, speed: 4),
                        0.45, accuracy: 1e-9)
     }
