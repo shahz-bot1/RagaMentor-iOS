@@ -17,23 +17,19 @@ public struct LibraryView: View {
     @Query(sort: \Song.dateAdded, order: .reverse) private var songs: [Song]
     @State private var showImporter = false
     @State private var showSettings = false
-    /// The navigation path. It must be a type-erased
-    /// NavigationPath, NOT [Song]: the stack holds two value
-    /// types — Song (the detail) and EditorSession (the swara
-    /// editor). A homogeneous [Song] path cannot accept the
-    /// session value, so the editor push had nowhere to go and
-    /// the stack fell back to this list — the real cause of the
-    /// Edit navigation bug (v1.5.5; root registration in v1.5.0
-    /// was necessary but not sufficient). Compose never hit it:
-    /// its stack carries no typed path at all.
+    /// The navigation path — the stack's SINGLE source of truth
+    /// (v1.5.6), owned here as plain data. It holds two value
+    /// types, so it must be a type-erased NavigationPath, not
+    /// [Song]: a homogeneous path could not accept the editor's
+    /// session value at all (the original Edit bug). Both pushes
+    /// are explicit appends: a song tap (NavigationLink) and
+    /// Edit, which appends the session the detail forwards up
+    /// via onEditSwaras. Closing the editor is removeLast() —
+    /// back to the song detail. The earlier design kept the
+    /// session in a separate item binding beside the path; when
+    /// that binding cleared, the pop took the song with it and
+    /// landed on this list (device report on v1.5.5).
     @State private var path = NavigationPath()
-    /// The swara editor presentation, owned HERE at the stack
-    /// root: a navigation destination registered inside the
-    /// pushed song detail did not push reliably — tapping Edit
-    /// collapsed the stack back to this list (his bug report;
-    /// v1.4.7's hoist to the detail page was not enough). The
-    /// detail forwards the built session up via onEditSwaras.
-    @State private var editorSession: LoopsView.EditorSession?
 
     public var body: some View {
         NavigationStack(path: $path) {
@@ -75,7 +71,7 @@ public struct LibraryView: View {
         }
         .navigationTitle("RagaMentor")
         .navigationDestination(for: Song.self) { song in
-            SongDetailView(song: song, onEditSwaras: { editorSession = $0 })
+            SongDetailView(song: song, onEditSwaras: { path.append($0) })
                 .onAppear {
                     // Open the pushed song (a no-op when it is the
                     // one already loaded, so popping back and forth
@@ -85,7 +81,7 @@ public struct LibraryView: View {
                     }
                 }
         }
-        .navigationDestination(item: $editorSession) { session in
+        .navigationDestination(for: LoopsView.EditorSession.self) { session in
             SwaraEditorView(
                 model: session.model,
                 title: session.loop.name,
@@ -99,7 +95,7 @@ public struct LibraryView: View {
                         },
                         onCancel: dismiss))
                 },
-                onClose: { editorSession = nil })
+                onClose: { if !path.isEmpty { path.removeLast() } })
         }
         .studioList()
         .onAppear { controller.modelContext = modelContext }
