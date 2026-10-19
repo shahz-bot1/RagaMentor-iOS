@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.17",
-      "versionDate": "2026-10-19T19:38:00Z",
-      "versionDescription": "v1.5.17 \u2014 Interruption recovery: when another app (YouTube) takes the audio, lessons now stop cleanly and stay stopped instead of highlighting in silence, and the sound engines restart themselves afterwards \u2014 so your next Play sounds without restarting the app. Songs keep their pause-and-resume.",
+      "version": "1.5.18",
+      "versionDate": "2026-10-19T19:50:00Z",
+      "versionDescription": "v1.5.18 \u2014 Session scoping fix: Varisai no longer shows Stop or highlights swaras while a phrase plays in Compose or LoopLab (and the Raga scale and piano no longer light up for other studios either). Each studio now reads only its own session from the shared player.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.17",
-          "date": "2026-10-19T19:38:00Z",
+          "version": "1.5.18",
+          "date": "2026-10-19T19:50:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
