@@ -52,7 +52,7 @@ private final class ClickQueue: @unchecked Sendable {
 }
 
 public final class SineClickEngine: ClickEngine {
-    private let engine = AVAudioEngine()
+    private var engine = AVAudioEngine()
     private let queue = ClickQueue()
     private var started = false
     private var graphBuilt = false
@@ -79,6 +79,18 @@ public final class SineClickEngine: ClickEngine {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
+        if !startClickEngine() {
+            // Escalation (state machine ruling 5): after a
+            // media services reset every audio object is
+            // invalid — rebuild the engine and retry once.
+            engine = AVAudioEngine()
+            graphBuilt = false
+            _ = startClickEngine()
+        }
+    }
+
+    /// Build the graph (once per engine) and start it.
+    private func startClickEngine() -> Bool {
         if !graphBuilt {
             let format = engine.outputNode.outputFormat(forBus: 0)
             let sr = format.sampleRate > 0 ? format.sampleRate : 48000
@@ -101,8 +113,10 @@ public final class SineClickEngine: ClickEngine {
             engine.prepare()
             try engine.start()
             started = true
+            return true
         } catch {
             started = false
+            return false
         }
     }
 
