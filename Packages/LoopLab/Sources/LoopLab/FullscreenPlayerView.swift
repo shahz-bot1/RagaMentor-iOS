@@ -200,6 +200,14 @@ struct FullscreenWaveformArea: View {
                     window = window.following(controller.position)
                 }
             }
+            .onChange(of: controller.zoomRequest) {
+                // Fit-on-select (v1.5.12): a loop or group was
+                // tapped — zoom the wave to it, as large as
+                // possible, centred.
+                if let request = controller.zoomRequest {
+                    window = window.fitting(from: request.start, to: request.end)
+                }
+            }
     }
 
     /// The time badge format: m:ss.t (web fmt).
@@ -271,21 +279,20 @@ struct ABTabView: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            StudioCard {
+            // The web's A–B page is flat: a plain hint head line,
+            // then the two stepper rows (no cards) — v1.5.12.
+            Group {
                 if let loop = controller.selectedLoop {
                     Text("\(loop.name) · \(LibraryView.formatDuration(loop.start)) – \(LibraryView.formatDuration(loop.end))")
-                        .foregroundStyle(.secondary)
                 } else {
                     Text("No loop selected")
-                        .foregroundStyle(.secondary)
                 }
             }
-            StudioCard {
-                VStack(spacing: 12) {
-                    stepperRow(edge: .start, tag: "A")
-                    Divider()
-                    stepperRow(edge: .end, tag: "B")
-                }
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 12) {
+                stepperRow(edge: .start, tag: "A")
+                stepperRow(edge: .end, tag: "B")
             }
             if let loop = controller.selectedLoop {
                 StudioCard {
@@ -323,35 +330,55 @@ struct ABTabView: View {
         .padding(16)
     }
 
+    /// One A/B row, flat like the web's .fsStepper: an accent
+    /// tag, a 40 pt panel step square, the value centred in the
+    /// middle space (tabular numbers), the other step square,
+    /// and a ghost Set button 40 high.
     private func stepperRow(edge: PlaybackController.Edge, tag: String) -> some View {
         let loop = controller.selectedLoop
         let value: Double? = loop.map { edge == .start ? $0.start : $0.end }
             ?? (edge == .start ? controller.pendingA : controller.pendingB)
-        return HStack {
-            Text(tag).font(.headline).frame(width: 18)
-            Button("−") {
+        return HStack(spacing: 8) {
+            Text(tag)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Studio.accent)
+                .frame(width: 16)
+            stepButton("−", enabled: value != nil) {
                 if let loop { controller.nudgeLoop(loop, edge: edge, by: -0.1, context: modelContext) }
                 else { controller.nudgePending(edge: edge, by: -0.1) }
             }
-            .buttonStyle(.bordered)
-            .disabled(value == nil)
             Text(value.map { LibraryView.formatDuration($0) } ?? "—")
-                .frame(minWidth: 52)
+                .font(.system(size: 14))
+                .monospacedDigit()
                 .foregroundStyle(.secondary)
-            Button("+") {
+                .frame(maxWidth: .infinity)
+            stepButton("+", enabled: value != nil) {
                 if let loop { controller.nudgeLoop(loop, edge: edge, by: 0.1, context: modelContext) }
                 else { controller.nudgePending(edge: edge, by: 0.1) }
             }
-            .buttonStyle(.bordered)
-            .disabled(value == nil)
-            Spacer()
             Button("Set") {
                 if let loop {
                     controller.setLoopEdge(loop, edge: edge, at: controller.position, context: modelContext)
                 } else if edge == .start { controller.setA() } else { controller.setB() }
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
+            .font(.system(size: 14))
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 16)
+            .frame(height: 40)
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Studio.border))
         }
+    }
+
+    private func stepButton(_ label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(label, action: action)
+            .buttonStyle(.plain)
+            .font(.system(size: 17))
+            .foregroundStyle(.primary)
+            .frame(width: 40, height: 40)
+            .background(Studio.panel2, in: RoundedRectangle(cornerRadius: 9))
+            .disabled(!enabled)
+            .opacity(enabled ? 1 : 0.4)
     }
 
     private func addFromMarks() {
