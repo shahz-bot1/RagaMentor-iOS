@@ -190,10 +190,9 @@ public final class SequencePlayer: ObservableObject {
     }
 
     private func unsubscribeFromInterruptions() {
-        if let interruptionObserver {
-            NotificationCenter.default.removeObserver(interruptionObserver)
-            interruptionObserver = nil
-        }
+        guard let token = interruptionObserver else { return }
+        NotificationCenter.default.removeObserver(token)
+        interruptionObserver = nil
     }
 
     /// "Playing" for host purposes includes preparing the samples —
