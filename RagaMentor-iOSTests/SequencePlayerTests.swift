@@ -358,6 +358,17 @@ final class SequencePlayerTests: XCTestCase {
         // stopped — it does not resume mid-pass afterwards.
         let tone = FakeTone()
         let player = await MainActor.run { SequencePlayer(tone: tone) }
+        // Nothing is subscribed while idle (the v1.5.18 scoping):
+        // an interruption before any play is a no-op.
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey:
+                        AVAudioSession.InterruptionType.began.rawValue])
+        try? await Task.sleep(nanoseconds: 200_000_000)
+        XCTAssertEqual(tone.stopCount, 0)
+        let idleState = await MainActor.run { player.state }
+        XCTAssertEqual(idleState, .idle)
         await MainActor.run {
             player.play(timeline: exampleTimeline(), policy: NoLoopPolicy(),
                         contextKey: "test")
