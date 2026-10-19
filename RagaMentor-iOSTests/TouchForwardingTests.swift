@@ -1,6 +1,7 @@
 import XCTest
 import SwiftUI
 import SwiftData
+import Combine
 @testable import LoopLab
 import PersistenceKit
 import AudioKit
@@ -192,5 +193,79 @@ final class ScrollGateTests: XCTestCase {
         XCTAssertNotNil(scrollView, "the detail page has no scroll view")
         XCTAssertTrue(isClear(scrollView),
                       "the scroll view paints a background over the wave")
+    }
+}
+
+// MARK: - Editor push navigation (v1.5.5 regression)
+
+// The LoopLab Edit push failed on device through three fix
+// attempts. Final cause: LibraryView's NavigationStack path
+// was typed [Song], and a homogeneous path cannot accept the
+// EditorSession value the editor destination pushes — the
+// stack fell back to the list. This replica mirrors the fixed
+// structure exactly (type-erased NavigationPath, a String
+// standing in for Song, an item destination for a different
+// value type) and proves the second-type push lands.
+@MainActor
+final class EditorPushNavigationTests: XCTestCase {
+
+    private struct ProbeSession: Identifiable, Hashable {
+        let id = UUID()
+    }
+
+    private final class Probe: ObservableObject {
+        @Published var session: ProbeSession?
+    }
+
+    private struct Replica: View {
+        @ObservedObject var probe: Probe
+        @State private var path = NavigationPath()
+
+        var body: some View {
+            NavigationStack(path: $path) {
+                List {
+                    NavigationLink(value: "song-1") {
+                        Text("SongRow")
+                    }
+                }
+                .navigationDestination(for: String.self) { _ in
+                    Text("DetailPage")
+                }
+                .navigationDestination(item: $probe.session) { _ in
+                    Text("EditorPage")
+                }
+            }
+        }
+    }
+
+    private func labels(in root: UIView) -> [String] {
+        var found: [String] = []
+        if let label = root.accessibilityLabel { found.append(label) }
+        for subview in root.subviews { found += labels(in: subview) }
+        return found
+    }
+
+    func testItemDestinationPushesSecondValueType() {
+        let probe = Probe()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        let host = UIHostingController(rootView: Replica(probe: probe))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.frame = window.bounds
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        window.layoutIfNeeded()
+
+        XCTAssertTrue(labels(in: window).contains("SongRow"),
+                      "the replica root did not render")
+        XCTAssertFalse(labels(in: window).contains("EditorPage"),
+                       "the editor page is present before any push")
+
+        probe.session = ProbeSession()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+        window.layoutIfNeeded()
+
+        XCTAssertTrue(labels(in: window).contains("EditorPage"),
+                      "the item destination did not push the second value type")
     }
 }
