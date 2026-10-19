@@ -24,7 +24,11 @@ public final class ScaleAdapter: ObservableObject {
 
     /// Playing for host purposes (includes the prepare window).
     public var isPlaying: Bool { player.isPlaying(contextKey: Self.contextKey) }
-    public var currentIndex: Int { player.currentIndex }
+    /// Scoped (v1.5.18): another studio's pass must not drive
+    /// the scale rows' highlight.
+    public var currentIndex: Int {
+        player.contextKey == Self.contextKey ? player.currentIndex : -1
+    }
 
     public func play(semitones: [Int], tempo: Int) {
         player.play(timeline: Self.timeline(semitones: semitones, tempo: tempo),
