@@ -18,10 +18,20 @@ final class TouchForwardingTests: XCTestCase {
 
         var body: some View {
             ZStack(alignment: .top) {
-                Button("Wave") {}
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .background(WaveProbe(routing: routing))
+                // The wave stand-in, shaped like the real thing:
+                // a full-area gesture surface (the waveform's
+                // tap-seek covers its whole frame) plus a small
+                // button in a corner (the Follow/Fit/badge kind).
+                ZStack(alignment: .bottomLeading) {
+                    Rectangle()
+                        .fill(.blue)
+                        .onTapGesture {}
+                    Button("Badge") {}
+                        .padding(8)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 200)
+                .background(WaveProbe(routing: routing))
 
                 ScrollView {
                     VStack(spacing: 0) {
@@ -91,10 +101,16 @@ final class TouchForwardingTests: XCTestCase {
             return
         }
         scrollView.contentOffset = .zero
+        // The gesture surface (centre of the wave).
         let hit = forwarder.hitTest(CGPoint(x: 195, y: 100), with: nil)
-        XCTAssertNotNil(hit, "touch on the wave was not forwarded")
+        XCTAssertNotNil(hit, "touch on the wave surface was not forwarded")
         XCTAssertTrue(hit?.isDescendant(of: waveRoot) ?? false,
                       "forwarded hit is not inside the wave subtree")
+        // The corner button (the badge/Follow/Fit kind).
+        let badgeHit = forwarder.hitTest(CGPoint(x: 30, y: 182), with: nil)
+        XCTAssertNotNil(badgeHit, "touch on the wave's button was not forwarded")
+        XCTAssertTrue(badgeHit?.isDescendant(of: waveRoot) ?? false,
+                      "button hit is not inside the wave subtree")
     }
 
     func testPassesThroughWhenScrolledOrBelowWave() {
