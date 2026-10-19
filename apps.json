@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.10",
-      "versionDate": "2026-10-19T14:06:00Z",
-      "versionDescription": "v1.5.10 \u2014 The swara editor gains a Cancel button in both studios. The editor saves live, so Cancel is a true restore: it puts back the phrase exactly as it was when the editor opened (or clears it, if nothing was saved), including the song's remembered raga and, in Compose, the composition name.",
+      "version": "1.5.11",
+      "versionDate": "2026-10-19T14:13:00Z",
+      "versionDescription": "v1.5.11 \u2014 Single playback, app-wide: starting the song from any entry point (transport, loop chip, group chip) now stops a playing swara phrase and the other studios. The loop and group chips used to start the song engine directly, so a playing phrase sounded over the song. Also carries v1.5.10 (editor Cancel button).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.10",
-          "date": "2026-10-19T14:06:00Z",
+          "version": "1.5.11",
+          "date": "2026-10-19T14:13:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
