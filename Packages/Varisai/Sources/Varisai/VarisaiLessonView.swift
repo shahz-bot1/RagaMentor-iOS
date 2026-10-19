@@ -37,7 +37,6 @@ struct VarisaiLessonView: View {
     @State private var indexedLines: [[[(token: String, index: Int)]]] = []
     @State private var loopOn = true
     @State private var showTalaLegend = false
-    @State private var layaExpanded = false
     @State private var tempoToken = 0
     /// Measured height of the floating playback card (with its
     /// margins), so the scroll content can clear it. The estimate
@@ -93,7 +92,6 @@ struct VarisaiLessonView: View {
         }
         .onChange(of: patternIndex) { _, _ in
             adapter.stop()
-            layaExpanded = false
             rebuildLines()
         }
         .onChange(of: saOffset) { _, _ in restartIfPlaying(debounced: false) }
@@ -166,79 +164,40 @@ struct VarisaiLessonView: View {
             .foregroundStyle(Studio.text)
     }
 
-    /// Laya/Tala as ONE collapsed row (title + a short preview);
-    /// a tap expands the full boxed component from v1.2.1.
+    /// Laya/Tala as the full boxed components, always expanded
+    /// (v1.5.15 — the collapsed preview row is gone at Shahzin's
+    /// call). The Tala box still taps open the anga legend.
     @ViewBuilder
     private var layaSection: some View {
         if let laya = pattern.laya {
-            if layaExpanded {
-                Button { layaExpanded = false } label: {
-                    LayaInfoBox(title: "Laya", parts: LayaParts.parse(laya))
-                }
-                .buttonStyle(.plain)
-            } else {
-                infoRow(title: "Laya",
-                        preview: LayaParts.parse(laya).first?.first ?? "")
-            }
+            LayaInfoBox(title: "Laya", parts: LayaParts.parse(laya))
         }
         if let tala = pattern.tala {
-            if layaExpanded {
-                Button {
-                    showTalaLegend = true
-                } label: {
-                    LayaInfoBox(
-                        title: "Tala",
-                        parts: [tala.split(separator: " ").map(String.init)],
-                        legend: VarisaiPlayback.angaBeats(tala)
-                            .map(String.init).joined(separator: " + ")
-                            + " = \(VarisaiPlayback.talaBeats(tala)) beats")
+            Button {
+                showTalaLegend = true
+            } label: {
+                LayaInfoBox(
+                    title: "Tala",
+                    parts: [tala.split(separator: " ").map(String.init)],
+                    legend: VarisaiPlayback.angaBeats(tala)
+                        .map(String.init).joined(separator: " + ")
+                        + " = \(VarisaiPlayback.talaBeats(tala)) beats")
+            }
+            .buttonStyle(.plain)
+            .popover(isPresented: $showTalaLegend) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Tala angas").font(.headline)
+                    Text("I‹n› — Laghu, n beats")
+                    Text("0 — Drutam, 2 beats")
+                    Text("U — Anudrutam, 1 beat")
+                    Text("This pattern: \(tala) = \(VarisaiPlayback.talaBeats(tala)) beats per cycle.")
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showTalaLegend) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Tala angas").font(.headline)
-                        Text("I‹n› — Laghu, n beats")
-                        Text("0 — Drutam, 2 beats")
-                        Text("U — Anudrutam, 1 beat")
-                        Text("This pattern: \(tala) = \(VarisaiPlayback.talaBeats(tala)) beats per cycle.")
-                            .foregroundStyle(.secondary)
-                    }
-                    .font(.callout)
-                    .padding(16)
-                    .presentationCompactAdaptation(.popover)
-                }
-            } else {
-                infoRow(title: "Tala",
-                        preview: "\(tala) · \(VarisaiPlayback.talaBeats(tala)) beats")
+                .font(.callout)
+                .padding(16)
+                .presentationCompactAdaptation(.popover)
             }
         }
-    }
-
-    private func infoRow(title: String, preview: String) -> some View {
-        Button {
-            layaExpanded = true
-        } label: {
-            HStack(spacing: 8) {
-                Text(title.uppercased())
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(0.7)
-                    .foregroundStyle(.secondary)
-                Text(preview)
-                    .font(.system(size: 12.5, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Studio.text)
-                    .lineLimit(1)
-                Spacer()
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(Studio.panel2, in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Studio.border, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
     }
 
     /// Rebuild the cached display lines for the current pattern.
