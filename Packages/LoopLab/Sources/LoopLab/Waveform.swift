@@ -75,6 +75,23 @@ public struct WaveformWindow: Equatable {
         return w
     }
 
+    /// Fit a range (a loop, or a group's derived span) as large
+    /// as possible, centred (v1.5.12 — tapping a loop or group
+    /// chip zooms the wave to it): the window takes the range's
+    /// length, never below the 2 s floor and never above the
+    /// song; centred on the range's midpoint, with the start
+    /// clamped at both ends of the song.
+    public func fitting(from rangeStart: Double, to rangeEnd: Double) -> WaveformWindow {
+        var w = self
+        let floor = min(Self.minLength, duration)
+        let newLength = TimeMath.clamp(rangeEnd - rangeStart, min: floor, max: duration)
+        let centre = (rangeStart + rangeEnd) / 2
+        w.length = newLength
+        w.start = TimeMath.clamp(centre - newLength / 2,
+                                 min: 0, max: max(0, duration - newLength))
+        return w
+    }
+
     /// Pan so the window's start moves by `deltaSeconds`, clamped.
     public func panned(by deltaSeconds: Double) -> WaveformWindow {
         var w = self
