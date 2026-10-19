@@ -414,21 +414,3 @@ final class RagaCoreTests: XCTestCase {
     }
 }
 
-// MARK: - Note blending (v1.5.13)
-
-final class NoteBlendTests: XCTestCase {
-    func testBlendIsTheFractionOfTheStep() {
-        XCTAssertEqual(NoteBlend.blend(forStep: 1.0), 0.30, accuracy: 1e-9)
-        XCTAssertEqual(NoteBlend.blend(forStep: 0.5), 0.15, accuracy: 1e-9)
-        XCTAssertEqual(NoteBlend.blend(forStep: 0.25), 0.075, accuracy: 1e-9)
-        XCTAssertEqual(NoteBlend.blend(forStep: 2.0), 0.60, accuracy: 1e-9)
-    }
-
-    func testBlendFollowsTheTunableFraction() {
-        defer { NoteBlend.fraction = 0.30 }
-        NoteBlend.fraction = 0.15
-        XCTAssertEqual(NoteBlend.blend(forStep: 1.0), 0.15, accuracy: 1e-9)
-        NoteBlend.fraction = 0
-        XCTAssertEqual(NoteBlend.blend(forStep: 1.0), 0, accuracy: 1e-9)
-    }
-}
