@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 import RagaCore
 import AudioKit
 
@@ -58,6 +59,7 @@ public final class TalaClock: ObservableObject {
     private var taps: [Double] = []
     private var highlightTasks: [Task<Void, Never>] = []
     private var focusToken: UUID?
+    private var interruptionObserver: NSObjectProtocol?
 
     /// Register with the cross-studio audio focus (P6). The clock
     /// keeps playing when its tab is left (the web page has no
@@ -78,6 +80,24 @@ public final class TalaClock: ObservableObject {
         self.store = store
         self.clicks = clicks
         self.settings = store.load()
+        // Same interruption policy as the sequence player
+        // (v1.5.17): a lesson tool stops and stays stopped when
+        // another app takes the audio session; the click engine
+        // heals itself, so the next manual Start sounds.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(), queue: nil) { [weak self] note in
+                guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                      AVAudioSession.InterruptionType(rawValue: raw) == .began
+                else { return }
+                Task { @MainActor in self?.stop() }
+            }
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
     }
 
     private var totalBeats: Int {
