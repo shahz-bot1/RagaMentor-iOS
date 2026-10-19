@@ -244,59 +244,76 @@ final class ScrollGateTests: XCTestCase {
     }
 }
 
-// MARK: - Editor push navigation (v1.5.6)
+// MARK: - Editor cover presentation (v1.5.7)
 
-// The LoopLab Edit navigation failed on device three ways:
-// the destination inside the pushed page did not push; the
-// [Song]-typed path could not hold the session value; and the
-// item binding beside the path popped the song along with the
-// editor on close. The shipped design owns the stack as a
-// NavigationPath: the session is a plain `for:` destination
-// value, appended on Edit and removed with removeLast() on
-// close. This replica mirrors that structure and proves the
-// full round trip — list -> detail -> editor -> DETAIL (the
-// return leg is the one that regressed last).
+// The swara editor is presented as a full-screen cover from
+// the host's root in BOTH studios (LoopLab and Compose, for
+// consistency) — three stack-based forms failed on device in
+// LoopLab while the same editor closed fine in Compose, whose
+// parent is its root. These replicas mirror the shipped
+// shapes and prove the property the cover exists for: opening
+// and dismissing the editor never touches the stack
+// underneath, so LoopLab returns to the song DETAIL.
 @MainActor
-final class EditorPushNavigationTests: XCTestCase {
+final class EditorCoverNavigationTests: XCTestCase {
 
     private struct ProbeSession: Identifiable, Hashable {
         let id = UUID()
     }
 
     private final class Commands: ObservableObject {
-        enum Action { case pushSong, pushEditor, closeEditor }
+        enum Action { case pushSong, openEditor, closeEditor, popSong }
         @Published var action: Action?
     }
 
-    private struct Replica: View {
+    /// The LoopLab shape: a path-driven stack (songs only)
+    /// plus a cover hosted at the root.
+    private struct LoopLabReplica: View {
         @ObservedObject var commands: Commands
         @State private var path = NavigationPath()
+        @State private var session: ProbeSession?
 
         var body: some View {
             NavigationStack(path: $path) {
-                List {
-                    Text("SongRow")
-                }
-                .navigationDestination(for: String.self) { _ in
-                    Text("DetailPage")
-                }
-                .navigationDestination(for: ProbeSession.self) { _ in
-                    Text("EditorPage")
-                }
+                List { Text("SongRow") }
+                    .navigationDestination(for: String.self) { _ in
+                        Text("DetailPage")
+                    }
+                    .fullScreenCover(item: $session) { _ in
+                        Text("EditorCover")
+                    }
             }
             .onChange(of: commands.action) { _, action in
-                // The same three path mutations the real views
-                // perform: NavigationLink value / Edit append /
-                // Done removeLast.
                 switch action {
-                case .pushSong:
-                    path.append("song-1")
-                case .pushEditor:
-                    path.append(ProbeSession())
-                case .closeEditor:
-                    if !path.isEmpty { path.removeLast() }
-                case nil:
-                    break
+                case .pushSong: path.append("song-1")
+                case .openEditor: session = ProbeSession()
+                case .closeEditor: session = nil
+                case .popSong: if !path.isEmpty { path.removeLast() }
+                case nil: break
+                }
+                commands.action = nil
+            }
+        }
+    }
+
+    /// The Compose shape: a plain stack whose root IS the
+    /// list, plus a cover hosted at the root.
+    private struct ComposeReplica: View {
+        @ObservedObject var commands: Commands
+        @State private var session: ProbeSession?
+
+        var body: some View {
+            NavigationStack {
+                List { Text("CompositionRow") }
+                    .fullScreenCover(item: $session) { _ in
+                        Text("EditorCover")
+                    }
+            }
+            .onChange(of: commands.action) { _, action in
+                switch action {
+                case .openEditor: session = ProbeSession()
+                case .closeEditor: session = nil
+                default: break
                 }
                 commands.action = nil
             }
@@ -311,34 +328,78 @@ final class EditorPushNavigationTests: XCTestCase {
         return nil
     }
 
-    private func depth(of nav: UINavigationController, after action: Commands.Action?,
-                       commands: Commands) -> Int {
-        commands.action = action
-        RunLoop.main.run(until: Date().addingTimeInterval(0.8))
-        return nav.viewControllers.count
+    @discardableResult
+    private func waitFor(_ seconds: Double = 3, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        return condition()
     }
 
-    func testEditorRoundTripReturnsToDetail() {
-        let commands = Commands()
+    private func makeWindow<V: View>(_ view: V) -> (UIWindow, UIHostingController<V>) {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        let host = UIHostingController(rootView: Replica(commands: commands))
+        let host = UIHostingController(rootView: view)
         window.rootViewController = host
         window.makeKeyAndVisible()
         host.view.frame = window.bounds
         window.layoutIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
-        window.layoutIfNeeded()
+        return (window, host)
+    }
 
+    func testLoopLabCoverDismissalReturnsToDetail() {
+        let commands = Commands()
+        let (window, host) = makeWindow(LoopLabReplica(commands: commands))
+        _ = window
         guard let nav = findNavController(in: host) else {
             XCTFail("no navigation controller inside the replica")
             return
         }
         XCTAssertEqual(nav.viewControllers.count, 1, "should start at the list")
-        XCTAssertEqual(depth(of: nav, after: .pushSong, commands: commands), 2,
-                       "the song push did not land")
-        XCTAssertEqual(depth(of: nav, after: .pushEditor, commands: commands), 3,
-                       "the editor push did not land")
-        XCTAssertEqual(depth(of: nav, after: .closeEditor, commands: commands), 2,
-                       "closing the editor must return to the DETAIL, not the list")
+
+        commands.action = .pushSong
+        XCTAssertTrue(waitFor { nav.viewControllers.count == 2 },
+                      "the song push did not land")
+
+        commands.action = .openEditor
+        XCTAssertTrue(waitFor { host.presentedViewController != nil },
+                      "the editor cover did not present")
+        XCTAssertEqual(nav.viewControllers.count, 2,
+                       "presenting the editor must not touch the stack")
+
+        commands.action = .closeEditor
+        XCTAssertTrue(waitFor { host.presentedViewController == nil },
+                      "the editor cover did not dismiss")
+        XCTAssertEqual(nav.viewControllers.count, 2,
+                       "dismissing the editor must return to the DETAIL, not the list")
+
+        commands.action = .popSong
+        XCTAssertTrue(waitFor { nav.viewControllers.count == 1 },
+                      "the detail should still pop back to the list normally")
+    }
+
+    func testComposeCoverDismissalReturnsToList() {
+        let commands = Commands()
+        let (window, host) = makeWindow(ComposeReplica(commands: commands))
+        _ = window
+        guard let nav = findNavController(in: host) else {
+            XCTFail("no navigation controller inside the replica")
+            return
+        }
+        XCTAssertEqual(nav.viewControllers.count, 1, "should start at the list")
+
+        commands.action = .openEditor
+        XCTAssertTrue(waitFor { host.presentedViewController != nil },
+                      "the editor cover did not present")
+        XCTAssertEqual(nav.viewControllers.count, 1,
+                       "presenting the editor must not touch the stack")
+
+        commands.action = .closeEditor
+        XCTAssertTrue(waitFor { host.presentedViewController == nil },
+                      "the editor cover did not dismiss")
+        XCTAssertEqual(nav.viewControllers.count, 1,
+                       "dismissing the editor must return to the list")
     }
 }
