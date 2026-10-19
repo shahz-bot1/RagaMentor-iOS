@@ -1,4 +1,5 @@
 import XCTest
+import AVFoundation
 import RagaCore
 import AudioKit
 import RagaBrowser
@@ -314,5 +315,36 @@ final class SequencePlayerTests: XCTestCase {
         let state = await MainActor.run { player.state }
         XCTAssertEqual(state, .idle)
         XCTAssertGreaterThanOrEqual(tone.stopCount, 1)
+    }
+
+    func testInterruptionStopsPlaybackAndStaysStopped() async {
+        // Shahzin's ruling (v1.5.17): when another app takes the
+        // audio session, sequence playback stops and stays
+        // stopped — it does not resume mid-pass afterwards.
+        let tone = FakeTone()
+        let player = await MainActor.run { SequencePlayer(tone: tone) }
+        await MainActor.run {
+            player.play(timeline: exampleTimeline(), policy: NoLoopPolicy(),
+                        contextKey: "test")
+        }
+        _ = await poll(until: { tone.played.count >= 1 })
+        let stopsBefore = tone.stopCount
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey:
+                        AVAudioSession.InterruptionType.began.rawValue])
+        let stopped = await poll(until: { player.state == .idle })
+        XCTAssertTrue(stopped)
+        XCTAssertGreaterThan(tone.stopCount, stopsBefore)
+        // …and an interruption END does not restart it.
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            userInfo: [AVAudioSessionInterruptionTypeKey:
+                        AVAudioSession.InterruptionType.ended.rawValue])
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        let state = await MainActor.run { player.state }
+        XCTAssertEqual(state, .idle)
     }
 }
