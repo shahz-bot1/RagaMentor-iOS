@@ -17,6 +17,11 @@ struct RagaListenSection: View {
     /// Piano labels use the Hindustani mapping when the detail's
     /// notation toggle is Hindustani.
     var hindustaniLabels: Bool
+    /// Fired on every scale start, so the shell stops the song
+    /// and any phrase — the focus registry cannot stop the song
+    /// (it is never registered), which is why a raga kept playing
+    /// over a LoopLab song until v1.5.14.
+    var onPlayStart: () -> Void = {}
 
     @AppStorage("raga-sa") private var saOffset = 0
     @AppStorage("raga-tempo") private var tempo = 120
@@ -137,6 +142,7 @@ struct RagaListenSection: View {
     }
 
     private func play(_ atTempo: Int) {
+        onPlayStart()
         audioFocus.stopAll(except: focusToken)
         adapter.play(semitones: walk.map { $0.semitone + saOffset },
                      tempo: atTempo)
