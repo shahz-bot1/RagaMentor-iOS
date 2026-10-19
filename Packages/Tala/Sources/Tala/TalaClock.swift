@@ -106,10 +106,9 @@ public final class TalaClock: ObservableObject {
     }
 
     private func unsubscribeFromInterruptions() {
-        if let interruptionObserver {
-            NotificationCenter.default.removeObserver(interruptionObserver)
-            interruptionObserver = nil
-        }
+        guard let token = interruptionObserver else { return }
+        NotificationCenter.default.removeObserver(token)
+        interruptionObserver = nil
     }
 
     private var totalBeats: Int {
