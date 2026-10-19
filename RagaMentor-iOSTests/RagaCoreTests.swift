@@ -413,3 +413,15 @@ final class RagaCoreTests: XCTestCase {
         XCTAssertEqual(out.count, 1)
     }
 }
+
+// MARK: - Note blending (v1.5.13)
+
+final class NoteBlendTests: XCTestCase {
+    func testBlendIsThirtyPercentOfStepWithFloorAndCap() {
+        XCTAssertEqual(NoteBlend.blend(forStep: 1.0), 0.30, accuracy: 1e-9)
+        XCTAssertEqual(NoteBlend.blend(forStep: 0.5), 0.15, accuracy: 1e-9)
+        XCTAssertEqual(NoteBlend.blend(forStep: 0.25), 0.08, accuracy: 1e-9) // floored
+        XCTAssertEqual(NoteBlend.blend(forStep: 0.1), 0.08, accuracy: 1e-9)  // floored
+        XCTAssertEqual(NoteBlend.blend(forStep: 2.0), 0.40, accuracy: 1e-9)  // capped
+    }
+}
