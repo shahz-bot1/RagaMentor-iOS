@@ -3,6 +3,16 @@ import SwiftUI
 import SwiftData
 @testable import LoopLab
 import PersistenceKit
+import AudioKit
+
+/// A silent ToneEngine for building a real SequencePlayer in
+/// the page test (the controller's init requires one).
+private final class SilentTone: ToneEngine {
+    var samplesReady = true
+    func prepare() async {}
+    func playNote(semitone: Int, atOffset offset: Double, duration: Double) {}
+    func stopAll() {}
+}
 
 // The scroll gate (ScrollGate.swift, v1.5.3): the container
 // wrapping the song detail's scroll view declines touches
@@ -113,7 +123,8 @@ final class ScrollGateTests: XCTestCase {
             NavigationStack {
                 SongDetailView(song: song)
             }
-            .environmentObject(PlaybackController())
+            .environmentObject(PlaybackController(
+                sequencePlayer: SequencePlayer(tone: SilentTone())))
             .modelContainer(container),
             in: window)
 
