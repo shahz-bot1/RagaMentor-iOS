@@ -1,0 +1,101 @@
+import SwiftUI
+import UIKit
+
+// The scroll gate (v1.5.3, Shahzin's design).
+//
+// The song detail's scroll view covers the waveform strip, so
+// the wave's own controls could never be touched. Three
+// forwarding designs (v1.4.5–v1.5.2) tried to hand the touches
+// down from a layer above; all failed. The gate inverts it:
+// the scroll view sits inside a thin container whose hit test
+// DECLINES a touch when it lands on the wave strip while the
+// page rests at the top. The window's search then continues
+// behind the container and lands on the waveform's real
+// buttons and gestures. Once the content has scrolled, the
+// gate steps aside and the strip belongs to the content.
+//
+// The check runs per touch, inside hitTest — nothing listens
+// continuously, and the cost is two comparisons.
+
+/// Hosts a SwiftUI scroll view inside the gate container.
+struct ScrollGateContainer<Content: View>: UIViewControllerRepresentable {
+    let stripHeight: CGFloat
+    @ViewBuilder let content: () -> Content
+
+    func makeUIViewController(context: Context) -> ScrollGateViewController<Content> {
+        ScrollGateViewController(content: content(), stripHeight: stripHeight)
+    }
+
+    func updateUIViewController(_ controller: ScrollGateViewController<Content>, context: Context) {
+        controller.setContent(content(), stripHeight: stripHeight)
+    }
+}
+
+final class ScrollGateViewController<Content: View>: UIViewController {
+    private let hosting: UIHostingController<Content>
+    private var stripHeight: CGFloat
+
+    init(content: Content, stripHeight: CGFloat) {
+        hosting = UIHostingController(rootView: content)
+        self.stripHeight = stripHeight
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override func loadView() {
+        view = ScrollGateView()
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        (view as? ScrollGateView)?.stripHeight = stripHeight
+        addChild(hosting)
+        hosting.view.frame = view.bounds
+        hosting.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(hosting.view)
+        hosting.didMove(toParent: self)
+    }
+
+    func setContent(_ content: Content, stripHeight: CGFloat) {
+        hosting.rootView = content
+        self.stripHeight = stripHeight
+        (viewIfLoaded as? ScrollGateView)?.stripHeight = stripHeight
+    }
+}
+
+/// The gate itself: a plain container view that declines
+/// strip touches at rest.
+final class ScrollGateView: UIView {
+    /// The height of the waveform strip at the top.
+    var stripHeight: CGFloat = 0
+    private weak var scrollView: UIScrollView?
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if point.y >= 0, point.y < stripHeight,
+           let scrollView = resolvedScrollView(),
+           scrollView.contentOffset.y <= -scrollView.adjustedContentInset.top + 1 {
+            // At rest, over the wave strip: not ours. The
+            // search continues behind us, to the waveform.
+            return nil
+        }
+        return super.hitTest(point, with: event)
+    }
+
+    private func resolvedScrollView() -> UIScrollView? {
+        if let scrollView, scrollView.window != nil { return scrollView }
+        var found: UIScrollView?
+        func walk(_ view: UIView) {
+            guard found == nil else { return }
+            if let candidate = view as? UIScrollView {
+                found = candidate
+                return
+            }
+            for subview in view.subviews { walk(subview) }
+        }
+        walk(self)
+        scrollView = found
+        return found
+    }
+}
