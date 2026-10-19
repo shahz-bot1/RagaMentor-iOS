@@ -186,12 +186,16 @@ private struct RagaSwaraRows: View {
     let ava: [String]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        // Scoped to the scale session (v1.5.18): another studio's
+        // pass must not highlight these rows.
+        let current = player.contextKey == ScaleAdapter.contextKey
+            ? player.currentIndex : -1
+        return VStack(alignment: .leading, spacing: 6) {
             rowLabel("Arohana · ascending")
-            SwaraGroupRow(labels: aro, currentIndex: player.currentIndex)
+            SwaraGroupRow(labels: aro, currentIndex: current)
             rowLabel("Avarohana · descending")
                 .padding(.top, 4)
-            SwaraGroupRow(labels: ava, currentIndex: player.currentIndex - aro.count)
+            SwaraGroupRow(labels: ava, currentIndex: current - aro.count)
         }
     }
 
