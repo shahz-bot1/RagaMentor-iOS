@@ -1,4 +1,5 @@
 import Foundation
+import AVFoundation
 import RagaCore
 
 /// The shared sequence playback core (design: SequencePlayer
@@ -154,8 +155,34 @@ public final class SequencePlayer: ObservableObject {
     private var origin = Date()
     private var passOffset: Double = 0
 
+    private var interruptionObserver: NSObjectProtocol?
+
     public init(tone: any ToneEngine) {
         self.tone = tone
+        // Interruption policy (v1.5.17, Shahzin's ruling): when
+        // another app takes the audio session, sequence playback
+        // STOPS and stays stopped — a lesson does not resume
+        // mid-pass. (The LoopLab song holds the opposite policy —
+        // pause and resume — owned by PlaybackController.) The
+        // tone engine heals itself, so the next manual Play
+        // sounds normally.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(), queue: nil) { [weak self] note in
+                guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                      AVAudioSession.InterruptionType(rawValue: raw) == .began
+                else { return }
+                Task { @MainActor in
+                    guard let self else { return }
+                    if state == .playing || state == .loading { stop() }
+                }
+            }
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
     }
 
     /// "Playing" for host purposes includes preparing the samples —
