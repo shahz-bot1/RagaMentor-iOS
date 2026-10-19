@@ -48,6 +48,9 @@ struct VarisaiLessonView: View {
     @State private var focusToken: UUID?
 
     @AppStorage("varisai-sa") private var saOffset = 0
+    /// The note-blend calibrator (v1.5.15): a percent, shared
+    /// with the Raga scale via NoteBlend.fraction.
+    @AppStorage("noteblend-percent") private var blendPercent = 30.0
     @AppStorage("varisai-tempo") private var tempo = 60
     @AppStorage("varisai-speed") private var speed = "2"
     @AppStorage("varisai-labels") private var labels = "simple"
@@ -97,6 +100,10 @@ struct VarisaiLessonView: View {
         .onChange(of: speed) { _, _ in restartIfPlaying(debounced: false) }
         .onChange(of: labels) { _, _ in adapter.stop() }
         .onChange(of: tempo) { _, _ in restartIfPlaying(debounced: true) }
+        .onChange(of: blendPercent) { _, newValue in
+            NoteBlend.fraction = newValue / 100
+            restartIfPlaying(debounced: true)
+        }
     }
 
     // MARK: - Header & grid
@@ -317,6 +324,14 @@ struct VarisaiLessonView: View {
                     .tint(Studio.accent)
                 Text("\(tempo) BPM").font(.callout).monospacedDigit()
                     .foregroundStyle(Studio.text)
+            }
+            HStack(spacing: 10) {
+                Text("Blend").foregroundStyle(Studio.text)
+                Slider(value: $blendPercent, in: 0...60, step: 5)
+                    .tint(Studio.accent)
+                Text("\(Int(blendPercent))%").font(.callout).monospacedDigit()
+                    .foregroundStyle(Studio.text)
+                    .frame(width: 64, alignment: .trailing)
             }
             HStack(spacing: 10) {
                 playButton
