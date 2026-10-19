@@ -396,13 +396,21 @@ public enum LoopMath {
 
 /// Dynamic note blending: how long a note rings past its own
 /// span into the next one, as a function of the step — which
-/// already encodes tempo and speed. 30% of the step, floored
-/// at 0.08 s and capped at 0.40 s. Adapters floor their note
+/// already encodes tempo and speed. Adapters floor their note
 /// durations at span + blend, so slow playback no longer falls
 /// silent between swaras (the mechanical 1x feel); the
 /// renderer's envelope release is proportional to match.
+///
+/// The fraction is tunable (v1.5.15): the Varisai playback
+/// card carries a Blend slider while Shahzin calibrates the
+/// value by ear; the shell applies the persisted value at
+/// launch and the slider writes through on every change.
+/// While the calibrator exists the cap is a generous 1.0 s —
+/// when the value settles, the bounds get re-pinned around it.
 public enum NoteBlend {
+    public static var fraction = 0.30
+
     public static func blend(forStep step: Double) -> Double {
-        min(0.40, max(0.08, 0.30 * step))
+        fraction <= 0 ? 0 : min(1.0, fraction * step)
     }
 }
