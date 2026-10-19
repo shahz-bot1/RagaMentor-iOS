@@ -56,6 +56,12 @@ public final class SwaraEditorModel: ObservableObject {
     public let contextKey: String
 
     private var storedExists: Bool
+    /// The phrase exactly as the editor opened it, and whether
+    /// a saved phrase existed at open — Cancel's restore point
+    /// (v1.5.10). The editor saves live, so cancel is a restore,
+    /// not a dismiss.
+    private let initialPhrase: Phrase
+    private let hadSavedPhraseAtOpen: Bool
     private let onSave: (Phrase) -> Void
     private let onDelete: () -> Void
     private let onSongRaga: (String?) -> Void
@@ -74,6 +80,8 @@ public final class SwaraEditorModel: ObservableObject {
                 contextValid: @escaping () -> Bool = { true }) {
         self.phrase = phrase
         self.storedExists = hadSavedPhrase
+        self.initialPhrase = phrase
+        self.hadSavedPhraseAtOpen = hadSavedPhrase
         self.contextKey = contextKey
         self.library = library
         self.player = player
@@ -99,6 +107,24 @@ public final class SwaraEditorModel: ObservableObject {
         if phrase.chips.isEmpty && !storedExists { return }
         onSave(phrase)
         storedExists = true
+    }
+
+    /// Discard every edit made in this session: restore the
+    /// phrase as it was at open, through the same live channels
+    /// the edits used — the save hook (or the delete hook, when
+    /// nothing was saved at open and the session's additions
+    /// must be cleared back out) and the song-raga memory.
+    public func cancel() {
+        stopPlayback()
+        phrase = initialPhrase
+        if hadSavedPhraseAtOpen {
+            onSave(initialPhrase)
+            storedExists = true
+        } else {
+            onDelete()
+            storedExists = false
+        }
+        onSongRaga(initialPhrase.ragaId)
     }
 
     // MARK: - Setup changes
