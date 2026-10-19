@@ -5,7 +5,7 @@ import DesignSystem
 
 /// Tala Studio (web tala/index.html): the wheel, the tala and
 /// jati selectors, tempo with tap, the nadai subdivision segment,
-/// and the fixed Start/Stop bar with the silent-mode hint.
+/// and the fixed Start/Stop bar.
 public struct TalaStudioView: View {
     @StateObject private var clock = TalaClock()
     private let onPlayStart: () -> Void
@@ -65,9 +65,6 @@ public struct TalaStudioView: View {
                             .foregroundStyle(.white)
                     }
                     .buttonStyle(.plain)
-                    Text("🔇 No sound? Turn off silent mode.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -81,21 +78,20 @@ public struct TalaStudioView: View {
         StudioCard {
             VStack(alignment: .leading, spacing: 10) {
                 StudioSectionTitle("Tala · suladi sapta")
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)],
-                          spacing: 8) {
-                    ForEach(TalaSpec.talas, id: \.id) { tala in
-                        StudioChip(tala.name,
-                                   selected: clock.settings.talaId == tala.id) {
-                            clock.setTala(tala.id)
-                        }
+                // Pills size to their text and wrap as whole
+                // units (FlowStack) — the adaptive grid and the
+                // shared-width rows squeezed them until the
+                // words hyphenated (v1.5.15).
+                FlowStack(items: TalaSpec.talas.map(TalaChipItem.init)) { item in
+                    StudioChip(item.def.name,
+                               selected: clock.settings.talaId == item.def.id) {
+                        clock.setTala(item.def.id)
                     }
                 }
-                HStack(spacing: 8) {
-                    ForEach(TalaSpec.chapu, id: \.id) { c in
-                        StudioChip("\(c.name) · \(c.count)",
-                                   selected: clock.settings.talaId == c.id) {
-                            clock.setTala(c.id)
-                        }
+                FlowStack(items: TalaSpec.chapu.map(TalaChipItem.init)) { item in
+                    StudioChip("\(item.def.name) · \(item.def.count)",
+                               selected: clock.settings.talaId == item.def.id) {
+                        clock.setTala(item.def.id)
                     }
                 }
             }
@@ -106,12 +102,10 @@ public struct TalaStudioView: View {
         StudioCard {
             VStack(alignment: .leading, spacing: 10) {
                 StudioSectionTitle("Jati · laghu length — n/a for chapu")
-                HStack(spacing: 8) {
-                    ForEach(TalaSpec.jatis, id: \.id) { jati in
-                        StudioChip("\(jati.name) \(jati.value)",
-                                   selected: clock.settings.jatiId == jati.id) {
-                            clock.setJati(jati.id)
-                        }
+                FlowStack(items: TalaSpec.jatis.map(JatiChipItem.init)) { item in
+                    StudioChip("\(item.def.name) \(item.def.value)",
+                               selected: clock.settings.jatiId == item.def.id) {
+                        clock.setJati(item.def.id)
                     }
                 }
                 .opacity(isChapu ? 0.35 : 1)
@@ -145,4 +139,16 @@ public struct TalaStudioView: View {
             }
         }
     }
+}
+
+/// FlowStack item wrappers (the TalaSpec defs are not
+/// Identifiable).
+private struct TalaChipItem: Identifiable {
+    let def: TalaSpec.TalaDef
+    var id: String { def.id }
+}
+
+private struct JatiChipItem: Identifiable {
+    let def: TalaSpec.JatiDef
+    var id: String { def.id }
 }
