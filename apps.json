@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.12",
-      "versionDate": "2026-10-19T14:22:00Z",
-      "versionDescription": "v1.5.12 \u2014 LoopLab parity: the A\u2013B steppers go flat in the web's design (40 pt step squares, centred value, ghost Set); \uff0b New group follows the web \u2014 instant create with auto-name and palette colour, then a checklist of the items visible at that level; and tapping a loop or group zooms the waveform to fit it, centred. Also carries v1.5.11 (single-playback funnel) and v1.5.10 (editor Cancel).",
+      "version": "1.5.13",
+      "versionDate": "2026-10-19T15:03:00Z",
+      "versionDescription": "v1.5.13 \u2014 Dynamic note blending: swaras ring into each other in proportion to tempo and speed (30% of the step), and the harmonium release is proportional and cosine-shaped \u2014 slow Varisai at 1x no longer falls silent between notes. Also carries v1.5.12 (LoopLab parity: flat steppers, web new-group flow, waveform fit-on-select), v1.5.11 (single-playback funnel) and v1.5.10 (editor Cancel).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.12",
-          "date": "2026-10-19T14:22:00Z",
+          "version": "1.5.13",
+          "date": "2026-10-19T15:03:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
