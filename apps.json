@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.9",
-      "versionDate": "2026-10-19T13:31:00Z",
-      "versionDescription": "v1.5.9 \u2014 Raga detail: the scale is now two Varisai-style swara group rows (one group per direction, each swara its own cell, the shared SwaraTokenCell from DesignSystem), and the playing swara highlights during playback in sync with the piano. Carries v1.5.8 (Listen card cleanup) and v1.5.7 (editor as modal cover in both studios).",
+      "version": "1.5.10",
+      "versionDate": "2026-10-19T14:06:00Z",
+      "versionDescription": "v1.5.10 \u2014 The swara editor gains a Cancel button in both studios. The editor saves live, so Cancel is a true restore: it puts back the phrase exactly as it was when the editor opened (or clears it, if nothing was saved), including the song's remembered raga and, in Compose, the composition name.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.9",
-          "date": "2026-10-19T13:31:00Z",
+          "version": "1.5.10",
+          "date": "2026-10-19T14:06:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
