@@ -17,15 +17,22 @@ public struct LibraryView: View {
     @Query(sort: \Song.dateAdded, order: .reverse) private var songs: [Song]
     @State private var showImporter = false
     @State private var showSettings = false
-    @State private var path: [Song] = []
+    /// The navigation path. It must be a type-erased
+    /// NavigationPath, NOT [Song]: the stack holds two value
+    /// types — Song (the detail) and EditorSession (the swara
+    /// editor). A homogeneous [Song] path cannot accept the
+    /// session value, so the editor push had nowhere to go and
+    /// the stack fell back to this list — the real cause of the
+    /// Edit navigation bug (v1.5.5; root registration in v1.5.0
+    /// was necessary but not sufficient). Compose never hit it:
+    /// its stack carries no typed path at all.
+    @State private var path = NavigationPath()
     /// The swara editor presentation, owned HERE at the stack
     /// root: a navigation destination registered inside the
     /// pushed song detail did not push reliably — tapping Edit
     /// collapsed the stack back to this list (his bug report;
-    /// v1.4.7's hoist to the detail page was not enough). Compose
-    /// registers its editor at its stack root and works; this
-    /// mirrors that shape. The detail forwards the built session
-    /// up via onEditSwaras.
+    /// v1.4.7's hoist to the detail page was not enough). The
+    /// detail forwards the built session up via onEditSwaras.
     @State private var editorSession: LoopsView.EditorSession?
 
     public var body: some View {
