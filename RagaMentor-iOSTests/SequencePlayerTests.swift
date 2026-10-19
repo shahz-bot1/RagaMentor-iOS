@@ -393,4 +393,21 @@ final class SequencePlayerTests: XCTestCase {
         let state = await MainActor.run { player.state }
         XCTAssertEqual(state, .idle)
     }
+
+    func testMediaResetStopsPlayback() async {
+        // State machine ruling 5 (v1.5.19): a media services
+        // reset kills every scheduled buffer — the pass stops.
+        let tone = FakeTone()
+        let player = await MainActor.run { SequencePlayer(tone: tone) }
+        await MainActor.run {
+            player.play(timeline: exampleTimeline(), policy: NoLoopPolicy(),
+                        contextKey: "test")
+        }
+        _ = await poll(until: { tone.played.count >= 1 })
+        NotificationCenter.default.post(
+            name: AVAudioSession.mediaServicesWereResetNotification,
+            object: AVAudioSession.sharedInstance())
+        let stopped = await poll(until: { player.state == .idle })
+        XCTAssertTrue(stopped)
+    }
 }
