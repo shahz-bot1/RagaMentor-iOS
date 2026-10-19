@@ -159,29 +159,40 @@ public final class SequencePlayer: ObservableObject {
 
     public init(tone: any ToneEngine) {
         self.tone = tone
-        // Interruption policy (v1.5.17, Shahzin's ruling): when
-        // another app takes the audio session, sequence playback
-        // STOPS and stays stopped — a lesson does not resume
-        // mid-pass. (The LoopLab song holds the opposite policy —
-        // pause and resume — owned by PlaybackController.) The
-        // tone engine heals itself, so the next manual Play
-        // sounds normally.
+    }
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+    }
+
+    /// Interruption handling, scoped to playback (v1.5.17 policy,
+    /// v1.5.18 scoping — Shahzin's design calls on both): when
+    /// another app takes the audio session, sequence playback
+    /// STOPS and stays stopped — a lesson does not resume
+    /// mid-pass. (The LoopLab song holds the opposite policy —
+    /// pause and resume — owned by PlaybackController.) The
+    /// subscription lives only while a pass is active:
+    /// subscribe on play, unsubscribe on stop and at natural
+    /// finish, so the handler needs no state check and nothing
+    /// is registered while the player is idle.
+    private func subscribeToInterruptions() {
+        guard interruptionObserver == nil else { return }
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification,
             object: AVAudioSession.sharedInstance(), queue: nil) { [weak self] note in
                 guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                       AVAudioSession.InterruptionType(rawValue: raw) == .began
                 else { return }
-                Task { @MainActor in
-                    guard let self else { return }
-                    if self.state == .playing || self.state == .loading { self.stop() }
-                }
+                Task { @MainActor in self?.stop() }
             }
     }
 
-    deinit {
+    private func unsubscribeFromInterruptions() {
         if let interruptionObserver {
             NotificationCenter.default.removeObserver(interruptionObserver)
+            interruptionObserver = nil
         }
     }
 
@@ -197,6 +208,7 @@ public final class SequencePlayer: ObservableObject {
                      contextValid: @escaping () -> Bool = { true }) {
         stop()
         guard timeline.passDuration > 0 else { return }
+        subscribeToInterruptions()
         generation += 1
         let gen = generation
         self.timeline = timeline
@@ -222,6 +234,7 @@ public final class SequencePlayer: ObservableObject {
     }
 
     public func stop() {
+        unsubscribeFromInterruptions()
         generation += 1
         tickerTask?.cancel(); tickerTask = nil
         boundaryTask?.cancel(); boundaryTask = nil
@@ -322,6 +335,7 @@ public final class SequencePlayer: ObservableObject {
     /// Emit .finished (design D4), clear the highlight, then settle
     /// to idle on the next cycle so no view needs its own timer.
     private func finish() {
+        unsubscribeFromInterruptions()
         tickerTask?.cancel(); tickerTask = nil
         boundaryTask?.cancel(); boundaryTask = nil
         state = .finished
