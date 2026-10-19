@@ -73,21 +73,21 @@ struct LoopsView: View {
     }
 
     /// One editor presentation: the loop plus its model, created once
-    /// when the user taps Add/Edit and held in @State for the whole
-    /// presentation, so the editor's model identity is stable.
-    /// Hashable by loop id for the navigation destination.
+    /// when the user taps Add/Edit and carried as a value on the
+    /// library's navigation path for the whole presentation, so the
+    /// editor's model identity is stable. Hashable by loop id.
     ///
-    /// The @State and the navigationDestination live at the
-    /// LIBRARY (the navigation stack's root), not here and not in
-    /// the song detail: a destination registered inside a pushed
-    /// page did not push reliably — tapping Edit collapsed the
-    /// stack back to the song list (his bug report; the v1.4.7
-    /// hoist to the detail page was not enough). Registering at
-    /// the root (v1.5.0) was necessary but not sufficient: the
-    /// library's path was typed [Song], which cannot hold this
-    /// session value — the push silently failed until the path
-    /// became a type-erased NavigationPath (v1.5.5). The session
-    /// is forwarded up: LoopsView → SongDetailView → LibraryView.
+    /// The navigationDestination lives at the LIBRARY (the
+    /// navigation stack's root), not here and not in the song
+    /// detail: a destination registered inside a pushed page did
+    /// not push reliably — tapping Edit collapsed the stack back
+    /// to the song list (his bug report; the v1.4.7 hoist to the
+    /// detail page was not enough). At the root, the library owns
+    /// the stack as a NavigationPath: this session is appended
+    /// to it like any other value (v1.5.6 — the earlier item
+    /// binding beside the path popped the song along with the
+    /// editor on close). The session is forwarded up: LoopsView
+    /// → SongDetailView → LibraryView.
     ///
     /// The editor is PUSHED, not covered: as a fullScreenCover it
     /// oscillated (open, close, open, close) on device. A pushed
