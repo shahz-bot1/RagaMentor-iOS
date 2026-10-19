@@ -16,6 +16,9 @@ struct RagaDetailView: View {
     /// player, so this page no longer re-renders on every note pulse.
     let adapter: ScaleAdapter
     var onPick: ((Raga) -> Void)?
+    /// Forwarded to the Listen section: fired when a scale starts
+    /// so the shell stops the song and any phrase (v1.5.14).
+    var onPlayStart: () -> Void = {}
 
     @State private var notation: Notation
     @State private var isFavourite: Bool
@@ -23,11 +26,12 @@ struct RagaDetailView: View {
     private enum Notation: Hashable { case carnatic, hindustani }
 
     init(raga: Raga, library: any RagaLibrary, adapter: ScaleAdapter,
-         onPick: ((Raga) -> Void)?) {
+         onPick: ((Raga) -> Void)?, onPlayStart: @escaping () -> Void = {}) {
         self.raga = raga
         self.library = library
         self.adapter = adapter
         self.onPick = onPick
+        self.onPlayStart = onPlayStart
         self._notation = State(initialValue: raga.isHindustani ? .hindustani : .carnatic)
         self._isFavourite = State(initialValue: library.isFavourite(sourceId: raga.id))
     }
@@ -46,7 +50,8 @@ struct RagaDetailView: View {
                 }
                 scaleCard
                 RagaListenSection(raga: raga, adapter: adapter, player: adapter.player,
-                                  hindustaniLabels: notation == .hindustani)
+                                  hindustaniLabels: notation == .hindustani,
+                                  onPlayStart: onPlayStart)
                 alliedCard
                 lakshanaCard
             }
