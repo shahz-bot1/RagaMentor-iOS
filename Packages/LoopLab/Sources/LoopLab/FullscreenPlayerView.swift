@@ -203,7 +203,7 @@ struct FullscreenWaveformArea: View {
             }
             .background {
                 if let routing {
-                    WaveProbe(routing: routing, waveHeight: height)
+                    WaveProbe(routing: routing)
                 }
             }
     }
