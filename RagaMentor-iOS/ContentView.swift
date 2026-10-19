@@ -49,7 +49,11 @@ struct ContentView: View {
             .tabItem { Label("Compose", systemImage: "square.and.pencil") }
 
             RagaBrowserView(library: controller.ragaLibrary,
-                            sequencePlayer: sequencePlayer)
+                            sequencePlayer: sequencePlayer,
+                            onPlayStart: {
+                                controller.pause()
+                                controller.phraseAdapter.stop()
+                            })
                 .tabItem { Label("Ragas", systemImage: "music.note.house") }
 
             VarisaiView(onPlayStart: {
