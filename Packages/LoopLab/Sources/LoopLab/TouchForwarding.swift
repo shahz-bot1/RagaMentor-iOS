@@ -29,18 +29,21 @@ import UIKit
 /// wave behave exactly as before.
 final class TouchRouting {
     weak var scrollView: UIScrollView?
-    weak var waveRoot: UIView?
+    /// The wave probe view itself; the forwarding view derives
+    /// the wave container from it topologically (see
+    /// TouchForwardingView.waveRoot).
+    weak var waveProbe: UIView?
 }
 
-/// A zero-footprint probe view: resolves one reference for the
+/// A zero-footprint probe view: publishes one reference to the
 /// routing when it joins a window, then stays out of the way.
 final class ProbeUIView: UIView {
     enum Kind {
         /// Walk up to the first UIScrollView ancestor.
         case scroll
-        /// The wave container: the highest ancestor no taller
-        /// than the wave area itself.
-        case wave(CGFloat)
+        /// Publish the probe itself; the wave container is
+        /// derived from it by topology, not by frame guesses.
+        case wave
     }
 
     var routing: TouchRouting?
@@ -48,11 +51,6 @@ final class ProbeUIView: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if window != nil { resolve() }
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
         if window != nil { resolve() }
     }
 
@@ -68,15 +66,8 @@ final class ProbeUIView: UIView {
                 }
                 node = view.superview
             }
-        case .wave(let height):
-            var candidate: UIView?
-            var node = superview
-            while let view = node {
-                guard view.bounds.height <= height + 1 else { break }
-                candidate = view
-                node = view.superview
-            }
-            if let candidate { routing.waveRoot = candidate }
+        case .wave:
+            routing.waveProbe = self
         }
     }
 }
@@ -99,11 +90,10 @@ struct ScrollProbe: UIViewRepresentable {
 
 struct WaveProbe: UIViewRepresentable {
     let routing: TouchRouting
-    let waveHeight: CGFloat
 
     func makeUIView(context: Context) -> ProbeUIView {
         let view = ProbeUIView()
-        view.kind = .wave(waveHeight)
+        view.kind = .wave
         view.routing = routing
         view.isUserInteractionEnabled = false
         return view
@@ -111,7 +101,6 @@ struct WaveProbe: UIViewRepresentable {
 
     func updateUIView(_ uiView: ProbeUIView, context: Context) {
         uiView.routing = routing
-        uiView.kind = .wave(waveHeight)
     }
 }
 
@@ -143,9 +132,32 @@ struct TouchForwardingOverlay: UIViewRepresentable {
 final class TouchForwardingView: UIView {
     var routing: TouchRouting?
 
+    /// The waveform subtree's root, derived topologically:
+    /// climb from the wave probe until the parent also contains
+    /// the scroll view — the child on the wave side of that
+    /// divergence is the wave container. Frame- and
+    /// wrapper-agnostic: SwiftUI may interpose containers of any
+    /// size between the probe and the ZStack, and this still
+    /// lands on the right subtree. (The v1.5.0 first cut picked
+    /// the container by height and could stop at the probe's own
+    /// background box, which contains nothing interactive.)
+    var waveRoot: UIView? {
+        guard let probe = routing?.waveProbe,
+              let scrollView = routing?.scrollView else { return nil }
+        var node: UIView? = probe
+        while let current = node, let parent = current.superview {
+            if scrollView.isDescendant(of: parent),
+               !scrollView.isDescendant(of: current) {
+                return current
+            }
+            node = parent
+        }
+        return nil
+    }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard let scrollView = routing?.scrollView,
-              let waveRoot = routing?.waveRoot,
+              let waveRoot,
               scrollView.window != nil, waveRoot.window != nil else { return nil }
         // Forward only at rest at the top: once the content has
         // slid over the wave, the strip belongs to the content
