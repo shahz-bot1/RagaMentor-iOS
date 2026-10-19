@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.1",
-      "versionDate": "2026-10-19T08:10:00Z",
-      "versionDescription": "v1.5.1 \u2014 Supersedes v1.5.0 (whose test gate failed, so it never replaced the release): the waveform container for touch forwarding is now derived topologically from the probes, not picked by frame height, and the hit-test coverage is split into three named tests. The LoopLab editor push at the library stack root from v1.5.0 is unchanged.",
+      "version": "1.5.2",
+      "versionDate": "2026-10-19T08:20:00Z",
+      "versionDescription": "v1.5.2 \u2014 Waveform touch forwarding, third cut, driven by the hosting tests: the hit is now resolved through the window's own hit-testing (the path a real touch takes) with the scroll layer temporarily invisible, instead of descending into the wave container directly. The LoopLab editor push at the library stack root is unchanged.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.1",
-          "date": "2026-10-19T08:10:00Z",
+          "version": "1.5.2",
+          "date": "2026-10-19T08:20:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
