@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import RagaCore
 import LoopLab
 import AudioKit
 import PersistenceKit
@@ -16,6 +17,10 @@ struct ContentView: View {
     @StateObject private var sequencePlayer: SequencePlayer
 
     init() {
+        // The persisted note-blend calibration (v1.5.15): the
+        // Varisai card's Blend slider writes the percent; the
+        // shell applies it before anything can play.
+        NoteBlend.fraction = (UserDefaults.standard.object(forKey: "noteblend-percent") as? Double ?? 30) / 100
         let tone = HarmoniumToneEngine()
         let player = SequencePlayer(tone: tone)
         _sequencePlayer = StateObject(wrappedValue: player)
