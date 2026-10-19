@@ -450,7 +450,7 @@ struct VarisaiGridView: View {
         } else {
             HStack(spacing: 2) {
                 ForEach(group, id: \.index) { item in
-                    VarisaiTokenCell(
+                    SwaraTokenCell(
                         text: VarisaiToken.label(item.token, full: full),
                         isCurrent: item.index == current,
                         isLow: item.token.hasPrefix(",") && item.token != ",")
@@ -465,31 +465,6 @@ struct VarisaiGridView: View {
         }
     }
 }
-
-/// One notation token. Equatable, so SwiftUI skips re-rendering
-/// every cell whose highlight state did not change. Cells share
-/// their group equally (web: flex 1 1 0) at the web's 13.5 pt size.
-struct VarisaiTokenCell: View, Equatable {
-    let text: String
-    let isCurrent: Bool
-    let isLow: Bool
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 13.5, weight: .medium))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(isCurrent ? Studio.accent : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 6))
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(isLow && !isCurrent ? Studio.muted.opacity(0.4)
-                                                      : Color.clear,
-                                  style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-            )
-            .foregroundStyle(isCurrent ? .white : Studio.text)
-    }
-}
-
 
 /// Holds the lesson's adapter without the lesson view
 /// subscribing to it (see the lesson view's note). The adapter
