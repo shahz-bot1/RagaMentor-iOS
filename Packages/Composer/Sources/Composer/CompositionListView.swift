@@ -86,10 +86,14 @@ public struct CompositionListView: View {
         } message: {
             Text(importError ?? "")
         }
-        .navigationDestination(isPresented: Binding(
-            get: { editorSession != nil },
-            set: { if !$0 { closeEditor() } })) {
-            if let session = editorSession {
+        // The editor is a full-screen cover, not a stack push —
+        // the same mechanism as LoopLab (v1.5.7, both studios
+        // for consistency; the push form failed on device in
+        // LoopLab). Inside a cover the editor's own
+        // NavigationStack is the presentation's root, which is
+        // where a stack belongs; dismissal returns to this list
+        // untouched.
+        .fullScreenCover(item: $editorSession) { session in
             SwaraEditorView(
                 model: session.model,
                 title: name(of: session.id),
@@ -107,7 +111,6 @@ public struct CompositionListView: View {
                 deleteTitle: "Delete composition",
                 deleteMessage: "Delete this composition?",
                 onClose: { closeEditor() })
-            }
         }
     }
 
