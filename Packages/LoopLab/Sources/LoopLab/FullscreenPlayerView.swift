@@ -4,8 +4,6 @@ import UIKit
 import UniformTypeIdentifiers
 import RagaCore
 import PersistenceKit
-import SwaraEditor
-import RagaBrowser
 import DesignSystem
 
 // Song detail (PLAN §10): waveform on top, the transport, and a
@@ -18,13 +16,15 @@ import DesignSystem
 /// web fullscreen player's content, as a stack page).
 struct SongDetailView: View {
     let song: Song
+    /// Forward a built swara editor session UP to the library,
+    /// which owns the editor's navigation destination at the
+    /// stack root (see LibraryView — a destination registered
+    /// inside a pushed page does not push reliably).
+    var onEditSwaras: ((LoopsView.EditorSession) -> Void)? = nil
 
     @State private var tab: Tab = .loops
-    /// The swara editor presentation, owned HERE (not by
-    /// LoopsView): the navigation destination must hang off a
-    /// view that lives for the whole page, not tab content inside
-    /// a LazyVStack (see LoopsView.EditorSession).
-    @State private var editorSession: LoopsView.EditorSession?
+    /// Touch routing for the waveform forwarding (TouchForwarding).
+    @State private var touchRouting = TouchRouting()
 
     enum Tab: String, CaseIterable { case loops = "Loops", ab = "A–B", more = "More" }
 
@@ -38,7 +38,8 @@ struct SongDetailView: View {
             ZStack(alignment: .top) {
                 // The waveform does not scroll; the page slides
                 // over it.
-                FullscreenWaveformArea(song: song, height: waveHeight)
+                FullscreenWaveformArea(song: song, height: waveHeight,
+                                       routing: touchRouting)
 
                 ScrollView {
                     LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
@@ -47,7 +48,7 @@ struct SongDetailView: View {
                                 switch tab {
                                 case .loops:
                                     LoopsView(song: song) { tab = .ab }
-                                        onEditSwaras: { editorSession = $0 }
+                                        onEditSwaras: { onEditSwaras?($0) }
                                 case .ab:
                                     ABTabView(song: song)
                                 case .more:
@@ -61,35 +62,20 @@ struct SongDetailView: View {
                         }
                     }
                     .padding(.top, waveHeight)
+                    .background(ScrollProbe(routing: touchRouting))
                 }
 
                 // Touch forwarding (topmost): hands touches in
                 // the wave strip to the waveform while the scroll
                 // view rests at the top; passes everything else
-                // through to the scroll view (see the class).
-                TouchForwardingOverlay()
+                // through to the scroll view (see TouchForwarding).
+                TouchForwardingOverlay(routing: touchRouting)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(song.title)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $editorSession) { session in
-            SwaraEditorView(
-                model: session.model,
-                title: session.loop.name,
-                browseSheet: { model, dismiss in
-                    AnyView(RagaBrowserView(
-                        library: model.library, mode: .pick,
-                        sequencePlayer: model.player.player,
-                        onPick: { raga in
-                            model.applyBrowsedRaga(raga)
-                            dismiss()
-                        },
-                        onCancel: dismiss))
-                },
-                onClose: { editorSession = nil })
-        }
     }
 
     /// The playback section: transport + tabs. It starts below the
@@ -116,6 +102,9 @@ struct FullscreenWaveformArea: View {
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
     var height: CGFloat = 200
+    /// Touch routing (TouchForwarding): the probe below
+    /// publishes this area's container to the forwarding layer.
+    var routing: TouchRouting? = nil
 
     @State private var peaks: [Float] = []
     @State private var window = WaveformWindow(duration: 1)
@@ -210,6 +199,11 @@ struct FullscreenWaveformArea: View {
                 // playhead in view while playing.
                 if follow && controller.isPlaying {
                     window = window.following(controller.position)
+                }
+            }
+            .background {
+                if let routing {
+                    WaveProbe(routing: routing, waveHeight: height)
                 }
             }
     }
