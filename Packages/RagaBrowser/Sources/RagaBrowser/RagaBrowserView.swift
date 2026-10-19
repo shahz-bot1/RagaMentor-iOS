@@ -15,6 +15,11 @@ public struct RagaBrowserView: View {
     private let mode: Mode
     private let onPick: ((Raga) -> Void)?
     private let onCancel: (() -> Void)?
+    /// Fired when a scale starts, so the shell can stop the song
+    /// and any phrase (the Varisai/Tala onPlayStart pattern — the
+    /// focus registry alone cannot stop the song, which is never
+    /// registered; v1.5.14).
+    private let onPlayStart: () -> Void
 
     @StateObject private var adapter: ScaleAdapter
     @State private var section: Tab = .search
@@ -29,11 +34,13 @@ public struct RagaBrowserView: View {
     public init(library: any RagaLibrary, mode: Mode = .browse,
                 sequencePlayer: SequencePlayer,
                 onPick: ((Raga) -> Void)? = nil,
-                onCancel: (() -> Void)? = nil) {
+                onCancel: (() -> Void)? = nil,
+                onPlayStart: @escaping () -> Void = {}) {
         self.library = library
         self.mode = mode
         self.onPick = onPick
         self.onCancel = onCancel
+        self.onPlayStart = onPlayStart
         _adapter = StateObject(wrappedValue: ScaleAdapter(player: sequencePlayer))
     }
 
@@ -71,7 +78,8 @@ public struct RagaBrowserView: View {
             .navigationDestination(for: String.self) { id in
                 if let raga = resolve(id) {
                     RagaDetailView(raga: raga, library: library, adapter: adapter,
-                                   onPick: mode == .pick ? onPick : nil)
+                                   onPick: mode == .pick ? onPick : nil,
+                                   onPlayStart: onPlayStart)
                 }
             }
             .onAppear { favourites = library.favourites() }
