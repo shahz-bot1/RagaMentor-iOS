@@ -15,7 +15,6 @@ import AudioKit
 public final class ScaleAdapter: ObservableObject {
     /// The shared core; the Listen section observes this.
     public let player: SequencePlayer
-    private let beeper = TestBeep()
 
     public static let contextKey = "scale"
 
@@ -37,10 +36,6 @@ public final class ScaleAdapter: ObservableObject {
     public func stop() {
         if player.contextKey == Self.contextKey { player.stop() }
     }
-
-    /// The web's 880 Hz test beep, on its own engine (TestBeep) so
-    /// it never disturbs the harmonium pool.
-    public func beep() { beeper.beep() }
 
     // MARK: - Timeline (the adapter's contract; unit-tested)
 
