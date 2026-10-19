@@ -147,15 +147,14 @@ final class AudioKitTests: XCTestCase {
     }
 
     func testMasterEnvelopeHoldsLevelIntoTheNextNote() {
-        // The perceptual pin for dynamic blending (v1.5.13): when
-        // the next swara attacks one step (1 s) into a note, the
-        // outgoing note must still be near its sustain level —
-        // the old fixed exponential release had already dived
-        // to ~0.2 by then, which read as a pause between notes.
+        // The perceptual pin for the settled envelope (v1.5.16):
+        // when the next swara attacks one step (1 s) into a note,
+        // the outgoing note must still be near its sustain level —
+        // the old exponential release had already dived to ~0.2
+        // by then, which read as a pause between notes. The
+        // cosine release over the same 0.12 s span stays up.
         XCTAssertGreaterThanOrEqual(
             SustainRenderer.masterEnvelope(at: 1.0, duration: 1.075), 0.55)
-        // With the adapters' blended duration (1.30 at this step)
-        // the handoff is higher still.
         XCTAssertGreaterThanOrEqual(
             SustainRenderer.masterEnvelope(at: 1.0, duration: 1.30), 0.8)
         // And the release does end: by duration + tail it is done.
