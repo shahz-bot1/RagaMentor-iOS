@@ -79,6 +79,11 @@ public struct SwaraEditorView: View {
                 }
             }
         }
+        // A stack pop that bypasses Done (the back gesture)
+        // must also silence the editor's playback (v1.5.6:
+        // LoopLab pushes the editor on a path the host owns, so
+        // closing is no longer funnelled through onClose alone).
+        .onDisappear { model.stopPlayback() }
         .sheet(item: $model.picker) { _ in
             SwaraPickerSheet(model: model)
         }
