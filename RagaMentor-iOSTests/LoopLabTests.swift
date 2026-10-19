@@ -51,6 +51,7 @@ final class LoopLabTests: XCTestCase {
 @MainActor
 final class PlaybackFunnelTests: XCTestCase {
     private final class NullTone: ToneEngine {
+        var samplesReady = true
         func prepare() async {}
         func playNote(semitone: Int, atOffset offset: Double, duration: Double) {}
         func stopAll() {}
@@ -195,6 +196,7 @@ final class WaveformFittingTests: XCTestCase {
 @MainActor
 final class GroupFlowTests: XCTestCase {
     private final class NullTone: ToneEngine {
+        var samplesReady = true
         func prepare() async {}
         func playNote(semitone: Int, atOffset offset: Double, duration: Double) {}
         func stopAll() {}
