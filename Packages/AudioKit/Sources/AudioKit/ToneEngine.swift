@@ -82,7 +82,17 @@ public final class HarmoniumToneEngine: ToneEngine {
     }
 
     private func ensureEngine() {
-        if engineStarted { return }
+        // Self-healing (v1.5.17): an external interruption (another
+        // app taking the audio session) stops the engine and
+        // deactivates the session. The old code trusted a cached
+        // engineStarted flag and never looked again — every later
+        // note was scheduled onto a stopped engine, silent until
+        // the app restarted. The truth is engine.isRunning,
+        // checked on every call: a dead engine is restarted here,
+        // its players reset (their queued buffers died with the
+        // engine), and the keep-alive re-arms on the next note.
+        if engineStarted && engine.isRunning { return }
+        let wasStarted = engineStarted
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .default)
         try? session.setActive(true)
@@ -95,6 +105,13 @@ public final class HarmoniumToneEngine: ToneEngine {
                 engine.connect(player, to: engine.mainMixerNode, format: nodeFormat)
             }
             engine.connect(keepAlivePlayer, to: engine.mainMixerNode, format: nodeFormat)
+        }
+        if wasStarted {
+            for player in players { player.stop() }
+            nextPlayer = 0
+            keepAliveDeadline?.cancel()
+            keepAliveDeadline = nil
+            keepAliveRunning = false
         }
         engine.prepare()
         do {
