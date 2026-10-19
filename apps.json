@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.4",
-      "versionDate": "2026-10-19T09:10:00Z",
-      "versionDescription": "v1.5.4 \u2014 Waveform visibility fix: the scroll gate's hosted scroll stack painted an opaque background over the waveform (build 48: controls worked, wave hidden). The gate, its hosting view and the scroll view's content background are now transparent.",
+      "version": "1.5.5",
+      "versionDate": "2026-10-19T09:20:00Z",
+      "versionDescription": "v1.5.5 \u2014 Two fixes. (1) LoopLab Edit navigation: the library stack's path was typed to songs only, so the swara editor's push had nowhere to go and the stack fell back to the list; the path is now type-erased and the editor push lands. (2) Waveform visibility: the scroll gate's hosted stack no longer paints an opaque background over the waveform.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.4",
-          "date": "2026-10-19T09:10:00Z",
+          "version": "1.5.5",
+          "date": "2026-10-19T09:20:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
