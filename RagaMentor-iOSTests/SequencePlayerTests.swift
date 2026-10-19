@@ -317,6 +317,41 @@ final class SequencePlayerTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(tone.stopCount, 1)
     }
 
+    func testAdapterStateIsScopedToItsOwnContext() async {
+        // The session-scoping pin (v1.5.18): with a phrase pass
+        // playing on the shared core, the Varisai and scale
+        // adapters must report NOT playing and no current index —
+        // the Varisai lesson used to show Stop and highlight
+        // tokens by chip index, and the scale rows/piano lit up
+        // the same way.
+        let tone = FakeTone()
+        let player = await MainActor.run { SequencePlayer(tone: tone) }
+        let varisai = await MainActor.run { VarisaiAdapter(player: player) }
+        let scale = await MainActor.run { ScaleAdapter(player: player) }
+        await MainActor.run {
+            player.play(timeline: exampleTimeline(), policy: NoLoopPolicy(),
+                        contextKey: "editor:test")
+        }
+        _ = await poll(until: { tone.played.count >= 1 })
+        let v = await MainActor.run { (varisai.isPlaying, varisai.currentToken) }
+        XCTAssertFalse(v.0)
+        XCTAssertEqual(v.1, -1)
+        let s = await MainActor.run { (scale.isPlaying, scale.currentIndex) }
+        XCTAssertFalse(s.0)
+        XCTAssertEqual(s.1, -1)
+        // Varisai's own pass scopes IN.
+        let pattern = VarisaiPattern(
+            title: "T", sub: "", laya: nil, tala: nil,
+            notes: ["S", "R2"], dlines: [[["S", "R2"]]])
+        await MainActor.run {
+            varisai.play(pattern: pattern, saOffset: 0, tempo: 60,
+                         speed: 1, loop: false)
+        }
+        let own = await poll(until: { varisai.isPlaying })
+        XCTAssertTrue(own)
+        await MainActor.run { player.stop() }
+    }
+
     func testInterruptionStopsPlaybackAndStaysStopped() async {
         // Shahzin's ruling (v1.5.17): when another app takes the
         // audio session, sequence playback stops and stays
