@@ -320,7 +320,7 @@ struct VarisaiLessonView: View {
                 Slider(value: Binding(
                     get: { Double(tempo) },
                     set: { tempo = Int($0) }),
-                    in: 30...90, step: 10)
+                    in: 30...90, step: 5)
                     .tint(Studio.accent)
                 Text("\(tempo) BPM").font(.callout).monospacedDigit()
                     .foregroundStyle(Studio.text)
