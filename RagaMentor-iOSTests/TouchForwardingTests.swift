@@ -127,10 +127,18 @@ final class ScrollGateTests: XCTestCase {
         // Strip is 200; scrolled 100 -> visible band is y < 100.
         let visibleHit = window.hitTest(CGPoint(x: 195, y: 50), with: nil)
         XCTAssertNotNil(visibleHit, "no hit on the visible band")
-        XCTAssertFalse(visibleHit?.isDescendant(of: scrollView) ?? true,
+        XCTAssertFalse(visibleHit === scrollView
+                       || (visibleHit?.isDescendant(of: scrollView) ?? true),
                        "touch on the visible band was claimed by the scroll view")
-        let coveredHit = window.hitTest(CGPoint(x: 195, y: 150), with: nil)
-        XCTAssertTrue(coveredHit?.isDescendant(of: scrollView) ?? false,
+        // Covered band: probe where a row actually sits (row 1,
+        // content y 244-288, lands around screen y 200-250 at
+        // this scroll position for any harness inset). An
+        // earlier cut probed the scroll view's empty padding
+        // zone, whose hit is the scroll view itself — and
+        // isDescendant(of:) is strict, so it read as a miss.
+        let coveredHit = window.hitTest(CGPoint(x: 195, y: 225), with: nil)
+        XCTAssertTrue(coveredHit === scrollView
+                      || (coveredHit?.isDescendant(of: scrollView) ?? false),
                       "touch on the covered band did not reach the content")
     }
 
