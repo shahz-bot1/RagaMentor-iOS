@@ -156,22 +156,22 @@ final class RagaBrowserLayoutTests: XCTestCase {
         window.layoutIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
         window.layoutIfNeeded()
+        // Measure in WINDOW coordinates and respect ancestor
+        // clipping: a view wider than the screen only counts if
+        // no ancestor clips it to the screen (a List's section
+        // background bleeds 20 pt inside its own bounds, where
+        // the List clips it — invisible, not a defect). The
+        // rail's scroll content is exempt the same way.
         var frames: [(String, CGRect, Bool)] = []
-        func walk(_ v: UIView, _ ancestorHidden: Bool, _ inWideScroller: Bool) {
+        func walk(_ v: UIView, _ ancestorHidden: Bool, _ clipped: Bool) {
             let hidden = ancestorHidden || v.isHidden
-            // The rail's scroll content is allowed to be wide —
-            // it lives inside a horizontally scrolling view.
-            // Subtrees inside such a scroller are exempt; the
-            // page-level views are not.
-            var wide = inWideScroller
-            if let scroller = v as? UIScrollView,
-               scroller.contentSize.width > scroller.bounds.width + 1 {
-                wide = true
+            let rect = v.convert(v.bounds, to: window)
+            let nowClipped = clipped
+                || (v.clipsToBounds && rect.width <= 394 && rect.minX >= -1)
+            if !clipped {
+                frames.append((String(describing: type(of: v)), rect, hidden))
             }
-            if !wide {
-                frames.append((String(describing: type(of: v)), v.frame, hidden))
-            }
-            v.subviews.forEach { walk($0, hidden, wide) }
+            v.subviews.forEach { walk($0, hidden, nowClipped) }
         }
         walk(host.view, false, false)
         let over = frames.filter { $0.1.width > 394 && !$0.2 }
