@@ -102,7 +102,16 @@ public struct WaveformWindow: Equatable {
     /// Follow mode: shift the window the minimum amount so `time` is
     /// visible (used while playing in fullscreen, PLAN §9).
     public func following(_ time: Double) -> WaveformWindow {
-        if time >= start && time <= end { return self }
+        // A hair of tolerance (v1.5.20): a seek lands the engine
+        // a frame or two before the exact target (frame
+        // truncation), and the fitted window's start IS the loop
+        // start — without the tolerance, tapping the loop badge
+        // (restart at the fitted start) read as "playhead
+        // outside" and the window jumped 10% sideways. One
+        // position tick (0.05 s) of slack keeps the fitted view
+        // still; a genuinely outside playhead still pages.
+        let eps = 0.05
+        if time >= start - eps && time <= end + eps { return self }
         var w = self
         if time < start { w.start = max(0, time - length * 0.1) }
         else { w.start = min(max(0, duration - length), time - length * 0.1) }
