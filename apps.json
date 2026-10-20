@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.20",
-      "versionDate": "2026-10-20T16:45:00Z",
-      "versionDescription": "v1.5.20 \u2014 Loop notes are multiline, as on the web: the note field grows from 2 lines and saves when you leave it. And tapping the loop name on the waveform now holds the fitted loop view instead of displacing it.",
+      "version": "1.5.21",
+      "versionDate": "2026-10-20T17:50:00Z",
+      "versionDescription": "v1.5.21 \u2014 The fitted waveform view now HOLDS while its loop or group stays armed: follow no longer pages it sideways, on pill taps or badge taps. Also carries v1.5.20: multiline loop notes, as on the web.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.20",
-          "date": "2026-10-20T16:45:00Z",
+          "version": "1.5.21",
+          "date": "2026-10-20T17:50:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
