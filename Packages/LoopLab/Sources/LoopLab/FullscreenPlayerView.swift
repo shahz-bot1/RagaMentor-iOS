@@ -218,10 +218,14 @@ struct FullscreenWaveformArea: View {
         return String(format: "%d:%04.1f", minutes, seconds)
     }
 
-    /// The loop badge tap: restart the armed loop/group (web).
+    /// The loop badge tap: restart the armed loop/group (web),
+    /// and hold the fitted view of its range — the same view a
+    /// tap on the loop pill gives (v1.5.20, Shahzin's steer:
+    /// the badge must not displace the waveform).
     private func restartArmed() {
         guard let range = controller.armedLoopRange else { return }
         controller.seek(to: range.start)
+        window = window.fitting(from: range.start, to: range.end)
     }
 
     /// Waveform tap: hard seek; disarms the loop when the target is
