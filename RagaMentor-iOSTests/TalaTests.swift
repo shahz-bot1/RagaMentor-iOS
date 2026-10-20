@@ -120,3 +120,39 @@ final class TalaTests: XCTestCase {
         }
     }
 }
+
+import SwiftUI
+import UIKit
+import AudioKit
+
+/// TEMPORARY DIAGNOSTIC (v1.5.23 hunt): host the real Tala
+/// studio at phone width and report every VISIBLE subview
+/// wider than the screen — the device screenshot shows the
+/// whole scroll content laid out over-wide and centred.
+@MainActor
+final class TalaLayoutDiagnosticTests: XCTestCase {
+    func testTalaContentFitsScreenWidth() {
+        let host = UIHostingController(rootView:
+            TalaStudioView(onPlayStart: {}).environmentObject(StudioAudioFocus()))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.frame = window.bounds
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        window.layoutIfNeeded()
+        var frames: [(String, CGRect, Bool)] = []
+        func walk(_ v: UIView, _ ancestorHidden: Bool) {
+            let hidden = ancestorHidden || v.isHidden
+            frames.append((String(describing: type(of: v)), v.frame, hidden))
+            v.subviews.forEach { walk($0, hidden) }
+        }
+        walk(host.view, false)
+        let over = frames.filter { $0.1.width > 394 && !$0.2 }
+            .sorted { $0.1.width > $1.1.width }
+        let dump = over.prefix(14)
+            .map { "\($0.0) w=\(Int($0.1.width)) x=\(Int($0.1.minX))" }
+            .joined(separator: " | ")
+        XCTAssertTrue(over.isEmpty, "OVERWIDE(\(over.count)): \(dump)")
+    }
+}
