@@ -3,10 +3,15 @@ import RagaCore
 import AudioKit
 import DesignSystem
 
-/// The RagaBrowser (web raga/index.html): Search, Favourites,
-/// Melakartas and Hindustani over the compiled 87-raga catalog,
-/// with the detail pushed inside one navigation stack. In pick mode
-/// it is the live RagaPicker the swara editors present: a banner
+/// The RagaBrowser (web raga/index.html) over the compiled
+/// 87-raga catalog, with the detail pushed inside one navigation
+/// stack. Layout since v1.5.26 (his redesign — the old four-way
+/// segmented bar felt congested): a search pill on top, a
+/// scrolling chip rail for the three collections (Favourites,
+/// Melakartas, Hindustani), and the search-by-swaras card
+/// revealed while the search is engaged. Search is global over
+/// the whole catalog, not a fourth collection. In pick mode it
+/// is the live RagaPicker the swara editors present: a banner
 /// explains the flow and the detail gains "✓ Use this raga".
 public struct RagaBrowserView: View {
     public enum Mode { case browse, pick }
@@ -22,14 +27,49 @@ public struct RagaBrowserView: View {
     private let onPlayStart: () -> Void
 
     @StateObject private var adapter: ScaleAdapter
-    @State private var section: Tab = .search
+    @State private var collection: Collection = .favourites
     @State private var query = ""
     @State private var selectedClasses: Set<String> = []
     @State private var melSegment = 0
     @State private var openChakra: Int?
     @State private var favourites: [Raga] = []
+    @FocusState private var searchFocused: Bool
 
-    private enum Tab: Hashable { case search, favourites, melakartas, hindustani }
+    private enum Collection: Hashable, CaseIterable {
+        case favourites, melakartas, hindustani
+        var label: String {
+            switch self {
+            case .favourites: return "Favourites"
+            case .melakartas: return "Melakartas"
+            case .hindustani: return "Hindustani"
+            }
+        }
+    }
+
+    /// Filtering = the search owns the screen (typed text or at
+    /// least one swara class). Mere focus shows the swara card
+    /// but leaves the collection list in place.
+    private var isFiltering: Bool {
+        !query.isEmpty || !selectedClasses.isEmpty
+    }
+    private var searchEngaged: Bool { searchFocused || isFiltering }
+    private var results: [Raga] {
+        RagaCatalog.all.filter {
+            RagaSearch.matches($0, nameQuery: query,
+                               selectedClasses: selectedClasses)
+        }
+    }
+
+    private func exitSearch() {
+        query = ""
+        selectedClasses = []
+        searchFocused = false
+    }
+
+    private func selectCollection(_ picked: Collection) {
+        if isFiltering { exitSearch() }
+        collection = picked
+    }
 
     public init(library: any RagaLibrary, mode: Mode = .browse,
                 sequencePlayer: SequencePlayer,
@@ -57,13 +97,12 @@ public struct RagaBrowserView: View {
                             .strokeBorder(Studio.accent, lineWidth: 1.5))
                         .padding(.horizontal)
                 }
-                StudioSegmented(
-                    items: [(Tab.search, "Search"), (.favourites, "Favourites"),
-                            (.melakartas, "Melakartas"), (.hindustani, "Hindustani")],
-                    selection: $section)
-                    .padding(.horizontal)
+                searchBar
+                collectionRail
+                if searchEngaged { swaraCard }
                 content
             }
+            .animation(.easeInOut(duration: 0.2), value: searchEngaged)
             .padding(.top, 10)
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(mode == .pick ? "Pick a raga" : "Raga Browser")
@@ -91,26 +130,83 @@ public struct RagaBrowserView: View {
         RagaCatalog.all.first { $0.id == id } ?? library.raga(id: id)
     }
 
-    // MARK: - Sections
+    // MARK: - Search header (v1.5.26)
 
-    @ViewBuilder
-    private var content: some View {
-        switch section {
-        case .search: searchSection
-        case .favourites: favouritesSection
-        case .melakartas: melakartasSection
-        case .hindustani: hindustaniSection
+    /// The pill: magnifier + field + clear button, panel2 capsule;
+    /// accent ring while focused. Cancel appears beside it while
+    /// the search is engaged.
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Studio.muted)
+                TextField("Search ragas", text: $query)
+                    .textFieldStyle(.plain)
+                    .focused($searchFocused)
+                    .textInputAutocapitalization(.words)
+                    .autocorrectionDisabled()
+                    .submitLabel(.search)
+                if !query.isEmpty {
+                    Button {
+                        query = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(Studio.muted)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .background(Studio.panel2, in: Capsule())
+            .overlay(Capsule().strokeBorder(
+                searchFocused ? Studio.accent : Studio.border,
+                lineWidth: searchFocused ? 1.5 : 1))
+            if searchEngaged {
+                Button("Cancel") { exitSearch() }
+                    .foregroundStyle(Studio.accent)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    /// The collections as a horizontally scrolling chip rail.
+    /// Chips size to their words — the rail scrolls instead of
+    /// squeezing (the segmented bar's congestion). A trailing
+    /// fade hints the rail continues. While filtering, no chip
+    /// is selected: the search owns the screen, and tapping a
+    /// chip exits the search back to that collection.
+    private var collectionRail: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Collection.allCases, id: \.self) { item in
+                    StudioChip(item.label,
+                               selected: !isFiltering && collection == item) {
+                        selectCollection(item)
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+        .overlay(alignment: .trailing) {
+            LinearGradient(colors: [Studio.bg.opacity(0), Studio.bg],
+                           startPoint: .leading, endPoint: .trailing)
+                .frame(width: 28)
+                .allowsHitTesting(false)
         }
     }
 
-    private var searchSection: some View {
-        VStack(spacing: 10) {
-            TextField("Search by name", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .padding(.horizontal)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)],
-                      spacing: 8) {
-                ForEach(RagaSearch.classes, id: \.self) { cls in
+    /// The search-by-swaras card, revealed while the search is
+    /// engaged: the twelve collapsed classes as chips; results
+    /// must contain them all (RagaSearch).
+    private var swaraCard: some View {
+        StudioCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("SEARCH BY SWARAS")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Studio.muted)
+                FlowStack(RagaSearch.classes, spacing: 7, rowSpacing: 7) { cls in
                     StudioChip(cls, selected: selectedClasses.contains(cls)) {
                         if selectedClasses.contains(cls) {
                             selectedClasses.remove(cls)
@@ -119,32 +215,40 @@ public struct RagaBrowserView: View {
                         }
                     }
                 }
-            }
-            .padding(.horizontal)
-
-            if query.isEmpty && selectedClasses.isEmpty {
-                Spacer()
-                Text("Search by name, or tap swaras to find ragas that contain them all.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                Spacer()
-            } else {
-                let results = RagaCatalog.all.filter {
-                    RagaSearch.matches($0, nameQuery: query,
-                                       selectedClasses: selectedClasses)
-                }
-                List {
-                    Section("\(results.count) ragas") {
-                        ForEach(results, id: \.id) { raga in
-                            NavigationLink(value: raga.id) { rowLabel(raga) }
-                        }
-                    }
-                }
-                .studioList()
+                Text(isFiltering
+                     ? "Contain all selected · \(results.count) ragas"
+                     : "Find ragas that contain all the swaras you tap.")
+                    .font(.footnote)
+                    .foregroundStyle(Studio.muted)
             }
         }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Sections
+
+    @ViewBuilder
+    private var content: some View {
+        if isFiltering {
+            searchResults
+        } else {
+            switch collection {
+            case .favourites: favouritesSection
+            case .melakartas: melakartasSection
+            case .hindustani: hindustaniSection
+            }
+        }
+    }
+
+    private var searchResults: some View {
+        List {
+            Section("\(results.count) ragas") {
+                ForEach(results, id: \.id) { raga in
+                    NavigationLink(value: raga.id) { rowLabel(raga) }
+                }
+            }
+        }
+        .studioList()
     }
 
     private var favouritesSection: some View {
