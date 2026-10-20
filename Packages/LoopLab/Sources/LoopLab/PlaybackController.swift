@@ -766,7 +766,7 @@ public final class PlaybackController: ObservableObject {
 
     private func startPositionTimer() {
         stopPositionTimer()
-        positionTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.isPlaying else { return }
                 if let p = self.engine.currentPosition() {
@@ -782,6 +782,15 @@ public final class PlaybackController: ObservableObject {
                 }
             }
         }
+        // Added in .common mode, NOT scheduledTimer's default
+        // mode (v1.5.22): while the user scrolls, the run loop
+        // sits in the tracking mode and a default-mode timer
+        // never fires — the playhead and the time badge froze
+        // for the whole scroll, then jumped. .common covers
+        // both modes. The audio never paused; only this
+        // publishing did.
+        RunLoop.main.add(timer, forMode: .common)
+        positionTimer = timer
     }
 
     private func stopPositionTimer() {
