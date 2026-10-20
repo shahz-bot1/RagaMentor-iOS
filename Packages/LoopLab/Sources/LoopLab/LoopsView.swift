@@ -381,6 +381,7 @@ struct SelectedLoopBar: View {
     let loop: LoopRegion
     @State private var nameDraft = ""
     @State private var noteDraft = ""
+    @FocusState private var noteFocused: Bool
 
     var body: some View {
         StudioCard {
@@ -396,10 +397,26 @@ struct SelectedLoopBar: View {
                     }
                     .buttonStyle(.plain)
                 }
-                TextField("Note (key, swara cues…)", text: $noteDraft)
+                // Multiline, as on the web (v1.5.20): the web's
+                // editor is a 2-row growing textarea where Return
+                // inserts a newline and leaving the field saves.
+                // The vertical-axis field is the native match —
+                // it starts at 2 lines, grows to 6, then scrolls;
+                // the save fires on focus loss, trimmed, exactly
+                // like the web's blur handler.
+                TextField("Note (key, swara cues…)", text: $noteDraft, axis: .vertical)
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .onSubmit { controller.setLoopNote(loop, to: noteDraft, context: modelContext) }
+                    .lineLimit(2...6)
+                    .focused($noteFocused)
+                    .onChange(of: noteFocused) { _, focused in
+                        if !focused {
+                            controller.setLoopNote(
+                                loop,
+                                to: noteDraft.trimmingCharacters(in: .whitespacesAndNewlines),
+                                context: modelContext)
+                        }
+                    }
             }
         }
         .onAppear {
