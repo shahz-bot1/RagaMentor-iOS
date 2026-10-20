@@ -33,12 +33,29 @@ public struct FlowStack<Item: Identifiable, Content: View>: View {
         }
     }
 
+    /// True once the container width and every item's measured
+    /// size are in. Until then the stack renders NOTHING
+    /// (v1.5.23): the first pass used to lay all items out in
+    /// one unwrapped row, and when that row was wider than the
+    /// screen it stretched the whole page (Tala measured
+    /// 592 pt in a 393 pt screen) — after which every width
+    /// re-measurement read the poisoned width and the rows
+    /// never re-packed. A stable lock-in. Rendering nothing
+    /// for the first frame keeps the unwrapped row out of the
+    /// layout entirely; the backgrounds below still measure.
+    private var ready: Bool {
+        containerWidth > 0
+            && items.allSatisfy { sizes[AnyHashable($0.id)] != nil }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: rowSpacing) {
-            ForEach(rows.indices, id: \.self) { rowIndex in
-                HStack(spacing: spacing) {
-                    ForEach(rows[rowIndex]) { item in
-                        content(item)
+            if ready {
+                ForEach(rows.indices, id: \.self) { rowIndex in
+                    HStack(spacing: spacing) {
+                        ForEach(rows[rowIndex]) { item in
+                            content(item)
+                        }
                     }
                 }
             }
@@ -73,7 +90,7 @@ public struct FlowStack<Item: Identifiable, Content: View>: View {
     }
 
     private var rows: [[Item]] {
-        guard containerWidth > 0 else { return [items] }
+        guard ready else { return [] }
         var out: [[Item]] = []
         var row: [Item] = []
         var rowWidth: CGFloat = 0
