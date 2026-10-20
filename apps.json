@@ -7,15 +7,15 @@
       "name": "RagaMentor-iOS",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.23",
-      "versionDate": "2026-10-20T20:10:00Z",
-      "versionDescription": "v1.5.23 \u2014 Tala Studio fits the screen again: the chip rows (tala, jati, chapu) wrap inside their cards instead of stretching the page past both edges. Also carries v1.5.22 (scrolling no longer freezes the playhead/time) and v1.5.21 (waveform hold, multiline notes).",
+      "version": "1.5.24",
+      "versionDate": "2026-10-20T22:25:00Z",
+      "versionDescription": "v1.5.24 \u2014 New icon and launch screen: a gold disc with a tanpura silhouette, on the app's dark ground, with the RagaMentor wordmark under it. Carries all of v1.5.23 (Tala fit, scroll and waveform fixes).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.23",
-          "date": "2026-10-20T20:10:00Z",
+          "version": "1.5.24",
+          "date": "2026-10-20T22:25:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
