@@ -129,10 +129,15 @@ public final class TalaClock: ObservableObject {
         subIdx = 0
         nextFrame = clicks.currentFrame + Int64(0.08 * clicks.sampleRate)
         isPlaying = true
-        timer = Timer.scheduledTimer(withTimeInterval: 0.025, repeats: true) {
+        let scheduler = Timer(timeInterval: 0.025, repeats: true) {
             [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
+        // .common mode (v1.5.22): a default-mode timer stalls
+        // while the user scrolls (run-loop tracking mode), and
+        // stalled ticks would leave gaps in the click lookahead.
+        RunLoop.main.add(scheduler, forMode: .common)
+        timer = scheduler
     }
 
     public func stop() {
