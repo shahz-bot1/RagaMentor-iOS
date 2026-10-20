@@ -108,6 +108,23 @@ struct FullscreenWaveformArea: View {
     @State private var peaks: [Float] = []
     @State private var window = WaveformWindow(duration: 1)
     @State private var follow = true
+    /// The range the window was last fitted to by a selection or
+    /// the badge (v1.5.21). While that exact range stays armed,
+    /// follow holds the fitted view instead of paging it — the
+    /// two writers (fit, follow) no longer fight. Released by a
+    /// manual pan/zoom, the Fit button, disarming, a seek
+    /// outside the range, or a song change.
+    @State private var fittedRange: (start: Double, end: Double)?
+
+    /// The fitted range, while it is still the armed one.
+    private var activeHoldRange: (start: Double, end: Double)? {
+        guard controller.loopOn, let fittedRange,
+              let armed = controller.armedLoopRange,
+              armed.start == fittedRange.start,
+              armed.end == fittedRange.end
+        else { return nil }
+        return fittedRange
+    }
 
     /// The armed loop's name, else the armed group's (web badge).
     private var armedName: String? {
@@ -128,7 +145,8 @@ struct FullscreenWaveformArea: View {
                         selectedGroupID: controller.selectedGroupID),
                      window: $window,
                      zoomPanEnabled: true,
-                     onSeek: hardSeek)
+                     onSeek: hardSeek,
+                     onManualWindowChange: { fittedRange = nil })
             .frame(height: height)
             .overlay(alignment: .topTrailing) {
                 if let name = armedName {
@@ -166,6 +184,7 @@ struct FullscreenWaveformArea: View {
             .overlay(alignment: .bottomTrailing) {
                 Button {
                     window = WaveformWindow(duration: song.duration)
+                    fittedRange = nil
                 } label: {
                     Text("Fit")
                         .font(.system(size: 12, weight: .semibold))
@@ -191,13 +210,17 @@ struct FullscreenWaveformArea: View {
             }
             .task(id: song.id) {
                 window = WaveformWindow(duration: song.duration)
+                fittedRange = nil
                 peaks = await SongPeaks.peaks(for: song)
             }
             .onChange(of: controller.position) {
                 // Follow (the on-wave toggle, lower left): keep the
-                // playhead in view while playing.
+                // playhead in view while playing — except while a
+                // fitted loop/group stays armed, where the fitted
+                // view is held (v1.5.21).
                 if follow && controller.isPlaying {
-                    window = window.following(controller.position)
+                    window = window.following(controller.position,
+                                              holdRange: activeHoldRange)
                 }
             }
             .onChange(of: controller.zoomRequest) {
@@ -206,6 +229,7 @@ struct FullscreenWaveformArea: View {
                 // possible, centred.
                 if let request = controller.zoomRequest {
                     window = window.fitting(from: request.start, to: request.end)
+                    fittedRange = (request.start, request.end)
                 }
             }
     }
@@ -226,6 +250,7 @@ struct FullscreenWaveformArea: View {
         guard let range = controller.armedLoopRange else { return }
         controller.seek(to: range.start)
         window = window.fitting(from: range.start, to: range.end)
+        fittedRange = range
     }
 
     /// Waveform tap: hard seek; disarms the loop when the target is
@@ -234,6 +259,7 @@ struct FullscreenWaveformArea: View {
         if controller.loopOn, let range = controller.armedLoopRange,
            time < range.start || time > range.end {
             controller.toggleLoopOn()
+            fittedRange = nil
         }
         controller.seek(to: time)
         if !controller.isPlaying { controller.play() }
