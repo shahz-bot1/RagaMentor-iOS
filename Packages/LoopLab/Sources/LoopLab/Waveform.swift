@@ -99,6 +99,21 @@ public struct WaveformWindow: Equatable {
         return w
     }
 
+    /// Follow with an armed-range hold (v1.5.21): while a loop or
+    /// group is armed and this window was fitted to its range,
+    /// the window NEVER pages. The playhead lives inside the
+    /// range and wraps at the seam, so there is nothing to
+    /// follow to; any position reported outside it in that
+    /// state is scheduling-transition noise. Before this hold,
+    /// fit-on-select and follow were two writers fighting over
+    /// the window and the fitted view drifted sideways
+    /// intermittently — on badge taps and pill taps alike.
+    public func following(_ time: Double,
+                          holdRange: (start: Double, end: Double)?) -> WaveformWindow {
+        if holdRange != nil { return self }
+        return following(time)
+    }
+
     /// Follow mode: shift the window the minimum amount so `time` is
     /// visible (used while playing in fullscreen, PLAN §9).
     public func following(_ time: Double) -> WaveformWindow {
@@ -190,6 +205,9 @@ struct WaveformView: View {
     var seekEnabled: Bool = true
     var zoomPanEnabled: Bool = false
     var onSeek: (Double) -> Void
+    /// Fired when the USER pans or pinches the window (v1.5.21) —
+    /// the host uses it to release the fitted-range hold.
+    var onManualWindowChange: (() -> Void)? = nil
 
     @State private var lastMagnification: CGFloat = 1
     @State private var lastDragX: CGFloat? = nil
@@ -248,6 +266,7 @@ struct WaveformView: View {
                                 let dx = value.location.x - last
                                 let secondsPerPoint = window.length / max(width, 1)
                                 window = window.panned(by: -Double(dx) * secondsPerPoint)
+                                onManualWindowChange?()
                             }
                         }
                         lastDragX = value.location.x
@@ -269,6 +288,7 @@ struct WaveformView: View {
                         lastMagnification = scale
                         let focal = window.time(forX: width / 2, width: width)
                         window = window.zoomed(by: factor, around: focal)
+                        onManualWindowChange?()
                     }
                     .onEnded { _ in lastMagnification = 1 }
             )
