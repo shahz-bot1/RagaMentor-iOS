@@ -124,3 +124,61 @@ extension RagaBrowserTests {
         XCTAssertEqual(topBlack.left + topBlack.width, 100, accuracy: 0.6)
     }
 }
+
+import SwiftUI
+import UIKit
+import AudioKit
+import RagaBrowser
+import PersistenceKit
+
+/// Regression guard (v1.5.26): host the redesigned Raga Browser
+/// (search pill + scrolling chip rail) at phone width and
+/// assert no VISIBLE subview is wider than the screen — the
+/// rail must scroll, never stretch the page (the FlowStack
+/// lock-in class of bug).
+@MainActor
+final class RagaBrowserLayoutTests: XCTestCase {
+    private final class FakeTone: ToneEngine {
+        var samplesReady = true
+        func prepare() async {}
+        func playNote(semitone: Int, atOffset offset: Double, duration: Double) {}
+        func stopAll() {}
+    }
+
+    func testBrowserHeaderFitsScreenWidth() {
+        let host = UIHostingController(rootView:
+            RagaBrowserView(library: DefaultRagaLibrary(),
+                            sequencePlayer: SequencePlayer(tone: FakeTone())))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.frame = window.bounds
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        window.layoutIfNeeded()
+        var frames: [(String, CGRect, Bool)] = []
+        func walk(_ v: UIView, _ ancestorHidden: Bool, _ inWideScroller: Bool) {
+            let hidden = ancestorHidden || v.isHidden
+            // The rail's scroll content is allowed to be wide —
+            // it lives inside a horizontally scrolling view.
+            // Subtrees inside such a scroller are exempt; the
+            // page-level views are not.
+            var wide = inWideScroller
+            if let scroller = v as? UIScrollView,
+               scroller.contentSize.width > scroller.bounds.width + 1 {
+                wide = true
+            }
+            if !wide {
+                frames.append((String(describing: type(of: v)), v.frame, hidden))
+            }
+            v.subviews.forEach { walk($0, hidden, wide) }
+        }
+        walk(host.view, false, false)
+        let over = frames.filter { $0.1.width > 394 && !$0.2 }
+            .sorted { $0.1.width > $1.1.width }
+        let dump = over.prefix(14)
+            .map { "\($0.0) w=\(Int($0.1.width)) x=\(Int($0.1.minX))" }
+            .joined(separator: " | ")
+        XCTAssertTrue(over.isEmpty, "OVERWIDE(\(over.count)): \(dump)")
+    }
+}
