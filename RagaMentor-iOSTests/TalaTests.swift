@@ -125,12 +125,15 @@ import SwiftUI
 import UIKit
 import AudioKit
 
-/// TEMPORARY DIAGNOSTIC (v1.5.23 hunt): host the real Tala
-/// studio at phone width and report every VISIBLE subview
-/// wider than the screen — the device screenshot shows the
-/// whole scroll content laid out over-wide and centred.
+/// Regression guard (v1.5.23): host the real Tala studio at
+/// phone width and assert no VISIBLE subview is wider than
+/// the screen. The device bug: FlowStack's unwrapped first
+/// pass stretched the scroll content to 592 pt in a 393 pt
+/// screen and the chip rows never re-packed (centred,
+/// clipped at both edges). This test caught it with the
+/// content at exactly 592.
 @MainActor
-final class TalaLayoutDiagnosticTests: XCTestCase {
+final class TalaLayoutRegressionTests: XCTestCase {
     func testTalaContentFitsScreenWidth() {
         let host = UIHostingController(rootView:
             TalaStudioView(onPlayStart: {}).environmentObject(StudioAudioFocus()))
