@@ -382,3 +382,22 @@ final class WaveformFollowingTests: XCTestCase {
         XCTAssertEqual(w.following(45).start, 40, accuracy: 1e-9)
     }
 }
+
+/// Armed-range hold (v1.5.21): while a fitted loop/group stays
+/// armed, follow never moves the window — for playhead reports
+/// inside the range, at its seam, or wildly outside it
+/// (scheduling-transition noise). Without a hold, the classic
+/// behaviour is untouched.
+final class WaveformHoldTests: XCTestCase {
+    func testHoldNeverPages() {
+        let w = WaveformWindow(duration: 100).fitting(from: 40, to: 50)
+        let hold = (start: 40.0, end: 50.0)
+        for t in [0.0, 39.9, 40.0, 45.0, 49.999, 50.0, 50.4, 99.0] {
+            XCTAssertEqual(w.following(t, holdRange: hold).start, 40,
+                           accuracy: 1e-9, "t=\(t)")
+        }
+        // No hold: the same reports page as before.
+        XCTAssertEqual(w.following(0, holdRange: nil).start, 0, accuracy: 1e-9)
+        XCTAssertEqual(w.following(45, holdRange: nil).start, 40, accuracy: 1e-9)
+    }
+}
