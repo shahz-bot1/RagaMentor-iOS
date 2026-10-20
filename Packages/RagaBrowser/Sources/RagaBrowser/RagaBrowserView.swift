@@ -197,6 +197,13 @@ public struct RagaBrowserView: View {
         }
     }
 
+    /// FlowStack items must be Identifiable; the class names are
+    /// unique, so the name is its own id.
+    private struct SwaraClassItem: Identifiable {
+        let cls: String
+        var id: String { cls }
+    }
+
     /// The search-by-swaras card, revealed while the search is
     /// engaged: the twelve collapsed classes as chips; results
     /// must contain them all (RagaSearch).
@@ -206,12 +213,13 @@ public struct RagaBrowserView: View {
                 Text("SEARCH BY SWARAS")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Studio.muted)
-                FlowStack(RagaSearch.classes, spacing: 7, rowSpacing: 7) { cls in
-                    StudioChip(cls, selected: selectedClasses.contains(cls)) {
-                        if selectedClasses.contains(cls) {
-                            selectedClasses.remove(cls)
+                FlowStack(items: RagaSearch.classes.map(SwaraClassItem.init),
+                          spacing: 7, rowSpacing: 7) { item in
+                    StudioChip(item.cls, selected: selectedClasses.contains(item.cls)) {
+                        if selectedClasses.contains(item.cls) {
+                            selectedClasses.remove(item.cls)
                         } else {
-                            selectedClasses.insert(cls)
+                            selectedClasses.insert(item.cls)
                         }
                     }
                 }
