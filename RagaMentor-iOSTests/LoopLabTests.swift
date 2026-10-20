@@ -326,3 +326,59 @@ final class GroupFlowTests: XCTestCase {
                         loop(song, "C").id, loop(song, "D").id])
     }
 }
+
+/// Loop notes are multiline (v1.5.20, web parity): the storage
+/// layer must keep line breaks verbatim — the editor is a
+/// growing multiline field, and the web format carries the
+/// same breaks.
+final class LoopNoteTests: XCTestCase {
+    private final class NullTone: ToneEngine {
+        var samplesReady = true
+        func prepare() async {}
+        func playNote(semitone: Int, atOffset offset: Double, duration: Double) {}
+        func stopAll() {}
+    }
+
+    @MainActor
+    func testLoopNoteStoresMultilineVerbatim() throws {
+        let container = try ModelContainer(
+            for: Song.self, LoopRegion.self, LoopGroup.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let context = container.mainContext
+        let song = Song(title: "T", contentHash: "h",
+                        fileRelativePath: "Audio/x.wav", duration: 60,
+                        sampleRate: 44100)
+        let loop = LoopRegion(name: "L", start: 1, end: 5, song: song)
+        context.insert(song)
+        context.insert(loop)
+        try context.save()
+        let controller = PlaybackController(
+            sequencePlayer: SequencePlayer(tone: NullTone()))
+        controller.setLoopNote(loop,
+                               to: "key of D\nsa lands on beat 3\nwatch the G3",
+                               context: context)
+        let fetched = try context.fetch(FetchDescriptor<LoopRegion>())
+        XCTAssertEqual(fetched.first?.note,
+                       "key of D\nsa lands on beat 3\nwatch the G3")
+    }
+}
+
+/// Follow tolerance (v1.5.20): the fitted window's start is the
+/// loop start; a seek landing a frame early must not page the
+/// window (the badge-tap displacement), while a genuinely
+/// outside playhead still pages as before.
+final class WaveformFollowingTests: XCTestCase {
+    func testFollowingTolerance() {
+        let w = WaveformWindow(duration: 100).fitting(from: 40, to: 50)
+        XCTAssertEqual(w.start, 40, accuracy: 1e-9)
+        // A frame early, and a hair past the end: still.
+        XCTAssertEqual(w.following(39.999).start, 40, accuracy: 1e-9)
+        XCTAssertEqual(w.following(39.96).start, 40, accuracy: 1e-9)
+        XCTAssertEqual(w.following(50.04).start, 40, accuracy: 1e-9)
+        // Genuinely outside: pages to 10% in, as before.
+        XCTAssertEqual(w.following(39.9).start, 38.9, accuracy: 1e-9)
+        XCTAssertEqual(w.following(50.2).start, 49.2, accuracy: 1e-9)
+        // Comfortably inside: untouched.
+        XCTAssertEqual(w.following(45).start, 40, accuracy: 1e-9)
+    }
+}
