@@ -90,32 +90,42 @@ public struct PhraseChipsView: View {
     }
 }
 
-/// A PhraseChipsView that observes the phrase player ITSELF, so the
-/// per-chip highlight pulse re-renders only this strip — never the
-/// host screen around it (the audit's isolation rule: the host takes
-/// the player as a plain value and stops subscribing).
+/// The live chip strip, behind a PlaybackGate (v1.5.29 — his
+/// scoping rule: subscribe only when required). The strip used
+/// to observe the player itself, so any pass anywhere re-ran it;
+/// now the gate is the only observer and the strip re-renders
+/// only while its own context plays on a visible screen. The
+/// host takes the player as a plain value, as before.
 public struct LivePhraseChipsView: View {
-    @ObservedObject private var player: SequencePlayer
+    private let player: SequencePlayer
     public var chips: [Chip]
     public var contextKey: String
+    /// Whether the hosting screen is visible (the editor cover
+    /// passes true — it is the top screen while it lives; the
+    /// LoopLab detail passes its page visibility).
+    public var visible: Bool
     public var onTapChip: ((Int) -> Void)?
     public var onTapAdd: (() -> Void)?
 
     public init(player: SequencePlayer, chips: [Chip], contextKey: String,
+                visible: Bool = true,
                 onTapChip: ((Int) -> Void)? = nil, onTapAdd: (() -> Void)? = nil) {
         self.player = player
         self.chips = chips
         self.contextKey = contextKey
+        self.visible = visible
         self.onTapChip = onTapChip
         self.onTapAdd = onTapAdd
     }
 
     public var body: some View {
-        PhraseChipsView(
-            chips: chips,
-            currentIndex: player.isPlaying(contextKey: contextKey)
-                ? player.currentIndex : -1,
-            onTapChip: onTapChip,
-            onTapAdd: onTapAdd)
+        PlaybackGate(player: player, contextKey: contextKey,
+                     visible: visible) { _, index in
+            PhraseChipsView(
+                chips: chips,
+                currentIndex: index,
+                onTapChip: onTapChip,
+                onTapAdd: onTapAdd)
+        }
     }
 }
