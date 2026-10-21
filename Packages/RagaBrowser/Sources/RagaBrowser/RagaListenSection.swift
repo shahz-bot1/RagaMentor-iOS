@@ -3,17 +3,18 @@ import RagaCore
 import AudioKit
 import DesignSystem
 
-/// The Listen card + piano card for a raga, as one section. It is
-/// the detail page's only observer of the scale player, so the
-/// per-note highlight pulse re-renders this section alone — the
-/// scale, allied and lakshana cards stay still while a scale plays
-/// (the audit's isolation rule).
+/// The Listen card + piano card for a raga, as one section,
+/// behind a PlaybackGate (v1.5.29 — subscribe only when
+/// required): the gate is the section's only player observer,
+/// and the cards re-render only while a scale plays on the
+/// visible detail page — the scale, allied and lakshana cards
+/// stay still, as before.
 struct RagaListenSection: View {
     let raga: Raga
     let adapter: ScaleAdapter
-    /// The unified core the adapter drives; observed here so the
-    /// per-note highlight pulse re-renders this section alone.
-    @ObservedObject var player: SequencePlayer
+    /// The unified core the adapter drives (plain value; the
+    /// gate observes it).
+    let player: SequencePlayer
     /// Piano labels use the Hindustani mapping when the detail's
     /// notation toggle is Hindustani.
     var hindustaniLabels: Bool
@@ -22,6 +23,8 @@ struct RagaListenSection: View {
     /// (it is never registered), which is why a raga kept playing
     /// over a LoopLab song until v1.5.14.
     var onPlayStart: () -> Void = {}
+    /// The detail page's visibility, for the gate.
+    var visible: Bool = true
 
     @AppStorage("raga-sa") private var saOffset = 0
     @AppStorage("raga-tempo") private var tempo = 120
@@ -36,9 +39,12 @@ struct RagaListenSection: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
-            listenCard
-            pianoCard
+        PlaybackGate(player: player, contextKey: ScaleAdapter.contextKey,
+                     visible: visible) { live, index in
+            VStack(spacing: 14) {
+                listenCard(playing: live)
+                pianoCard(highlightIndex: index)
+            }
         }
         .onAppear {
             focusToken = audioFocus.register { adapter.stop() }
@@ -65,7 +71,7 @@ struct RagaListenSection: View {
         }
     }
 
-    private var listenCard: some View {
+    private func listenCard(playing: Bool) -> some View {
         StudioCard {
             VStack(alignment: .leading, spacing: 10) {
                 StudioSectionTitle("Listen · harmonium")
@@ -98,7 +104,7 @@ struct RagaListenSection: View {
                 Button {
                     if adapter.isPlaying { adapter.stop() } else { play(tempo) }
                 } label: {
-                    Text(adapter.isPlaying ? "■ Stop" : "▶ Play")
+                    Text(playing ? "■ Stop" : "▶ Play")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(StudioPrimaryButtonStyle())
@@ -106,7 +112,7 @@ struct RagaListenSection: View {
         }
     }
 
-    private var pianoCard: some View {
+    private func pianoCard(highlightIndex: Int) -> some View {
         StudioCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
@@ -119,11 +125,12 @@ struct RagaListenSection: View {
                 PianoView(
                     saPitchClass: saOffset,
                     labels: pianoLabels,
-                    // Scoped to the scale session (v1.5.18):
-                    // another studio's index is not a walk index.
-                    highlightRel: player.contextKey == ScaleAdapter.contextKey
-                        && player.currentIndex >= 0 && player.currentIndex < walk.count
-                        ? walk[player.currentIndex].semitone : nil)
+                    // The gate's scoped index (v1.5.29): live
+                    // only during this raga's own scale pass, so
+                    // another studio's index is never a walk
+                    // index here.
+                    highlightRel: highlightIndex >= 0 && highlightIndex < walk.count
+                        ? walk[highlightIndex].semitone : nil)
             }
         }
     }
