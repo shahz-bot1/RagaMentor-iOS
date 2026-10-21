@@ -68,6 +68,20 @@ struct LoopsView: View {
         .onAppear {
             controller.pendingLoopGroupID = nil
             pageVisible = true
+            // Restore the drill level to the armed context
+            // (v1.5.32): the page is recreated on re-entry while
+            // the selection survives in the controller, so land
+            // where the armed loop/group lives — inside the
+            // armed group, or inside the selected loop's parent.
+            if openGroupID == nil {
+                if let armedGroup = controller.selectedGroupID {
+                    openGroupID = armedGroup
+                } else if let loop = controller.selectedLoop,
+                          let parent = song.groups.first(
+                            where: { $0.memberIDs.contains(loop.id) }) {
+                    openGroupID = parent.id
+                }
+            }
         }
         .onDisappear { pageVisible = false }
         .sheet(item: $editingGroup) { group in
