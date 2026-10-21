@@ -97,9 +97,14 @@ struct SongDetailView: View {
     }
 }
 
-/// The waveform + window controls. The only fullscreen leaf that
-/// follows the playhead: it re-renders at the position rate so the
-/// playhead and window stay live, and nothing else does.
+/// The waveform + window controls. The live slice follows the
+/// playhead ONLY while this area is on screen and the song is
+/// playing (v1.5.29 — Shahzin's scoping rule: subscribe only
+/// when required). Paused, covered, another tab or backgrounded,
+/// the live leaf unmounts and a static slice renders from the
+/// plain position value; a swara pass or an interruption pauses
+/// the song through the funnel, which detaches the listener by
+/// construction.
 struct FullscreenWaveformArea: View {
     @EnvironmentObject private var controller: PlaybackController
     let song: Song
@@ -108,6 +113,22 @@ struct FullscreenWaveformArea: View {
     @State private var peaks: [Float] = []
     @State private var window = WaveformWindow(duration: 1)
     @State private var follow = true
+    /// On-screen state for the lifecycle gate.
+    @State private var visible = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// The playhead listener is mounted only while all three
+    /// hold: page visible, app in the foreground, song playing.
+    private var listening: Bool {
+        visible && scenePhase == .active && controller.isPlaying
+    }
+
+    private var regions: [WaveRegion] {
+        WaveformRegions.build(
+            song: song,
+            selectedLoopID: controller.selectedLoopID,
+            selectedGroupID: controller.selectedGroupID)
+    }
     /// The range the window was last fitted to by a selection or
     /// the badge (v1.5.21). While that exact range stays armed,
     /// follow holds the fitted view instead of paging it — the
@@ -136,19 +157,28 @@ struct FullscreenWaveformArea: View {
     }
 
     var body: some View {
-        LiveWaveform(playhead: controller.playhead,
-                     peaks: peaks,
-                     duration: song.duration,
-                     regions: WaveformRegions.build(
-                        song: song,
-                        selectedLoopID: controller.selectedLoopID,
-                        selectedGroupID: controller.selectedGroupID),
-                     window: $window,
-                     follow: follow,
-                     isPlaying: controller.isPlaying,
-                     holdRange: activeHoldRange,
-                     onSeek: hardSeek,
-                     onManualWindowChange: { fittedRange = nil })
+        Group {
+            if listening {
+                LiveWaveform(playhead: controller.playhead,
+                             peaks: peaks,
+                             duration: song.duration,
+                             regions: regions,
+                             window: $window,
+                             follow: follow,
+                             isPlaying: controller.isPlaying,
+                             holdRange: activeHoldRange,
+                             onSeek: hardSeek,
+                             onManualWindowChange: { fittedRange = nil })
+            } else {
+                StaticWaveform(peaks: peaks,
+                               duration: song.duration,
+                               regions: regions,
+                               window: $window,
+                               position: controller.position,
+                               onSeek: hardSeek,
+                               onManualWindowChange: { fittedRange = nil })
+            }
+        }
             .frame(height: height)
             .overlay(alignment: .topTrailing) {
                 if let name = armedName {
@@ -213,6 +243,8 @@ struct FullscreenWaveformArea: View {
                     fittedRange = (request.start, request.end)
                 }
             }
+            .onAppear { visible = true }
+            .onDisappear { visible = false }
     }
 
     /// The time badge format: m:ss.t (web fmt).
@@ -279,15 +311,7 @@ private struct LiveWaveform: View {
             PlayheadLine(window: window, position: playhead.position)
         }
         .overlay(alignment: .bottom) {
-            Text("\(FullscreenWaveformArea.fmtTenths(playhead.position)) / \(FullscreenWaveformArea.fmtTenths(duration))")
-                .font(.system(size: 12))
-                .monospacedDigit()
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
-                            in: Capsule())
-                .foregroundStyle(.white)
-                .padding(.bottom, 8)
+            WaveformTimeBadge(position: playhead.position, duration: duration)
         }
         .onChange(of: playhead.position) {
             // Follow (the on-wave toggle, lower left): keep the
@@ -298,6 +322,56 @@ private struct LiveWaveform: View {
                 window = window.following(playhead.position,
                                           holdRange: holdRange)
             }
+        }
+    }
+}
+
+/// The "m:ss.t / m:ss.t" badge both waveform slices share.
+private struct WaveformTimeBadge: View {
+    let position: Double
+    let duration: Double
+
+    var body: some View {
+        Text("\(FullscreenWaveformArea.fmtTenths(position)) / \(FullscreenWaveformArea.fmtTenths(duration))")
+            .font(.system(size: 12))
+            .monospacedDigit()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
+                        in: Capsule())
+            .foregroundStyle(.white)
+            .padding(.bottom, 8)
+    }
+}
+
+/// The still slice (v1.5.29): the same canvas, playhead line and
+/// badge, rendered from the PLAIN position value — no clock
+/// subscription at all. Mounted whenever the live slice is not
+/// (paused, page covered, another tab, app backgrounded). The
+/// area re-renders it on controller events — a seek publishes
+/// one action event — so the still playhead stays correct.
+private struct StaticWaveform: View {
+    let peaks: [Float]
+    let duration: Double
+    let regions: [WaveRegion]
+    @Binding var window: WaveformWindow
+    let position: Double
+    let onSeek: (Double) -> Void
+    let onManualWindowChange: () -> Void
+
+    var body: some View {
+        ZStack {
+            WaveformView(peaks: peaks,
+                         duration: duration,
+                         regions: regions,
+                         window: $window,
+                         zoomPanEnabled: true,
+                         onSeek: onSeek,
+                         onManualWindowChange: onManualWindowChange)
+            PlayheadLine(window: window, position: position)
+        }
+        .overlay(alignment: .bottom) {
+            WaveformTimeBadge(position: position, duration: duration)
         }
     }
 }
