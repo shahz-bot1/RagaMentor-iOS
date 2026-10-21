@@ -1,5 +1,7 @@
 import XCTest
 import Combine
+import SwiftUI
+import UIKit
 import AVFoundation
 import RagaCore
 import AudioKit
@@ -445,5 +447,108 @@ extension SequencePlayerTests {
                        "the ticker published \(fired)× in 0.4 s of steady play — a per-tick published value is back")
         _ = cancellable
         await MainActor.run { player.stop() }
+    }
+}
+
+extension SequencePlayerTests {
+    /// Flush pending SwiftUI updates, hosting-test style.
+    @MainActor
+    private func pumpGate(_ window: UIWindow,
+                          until condition: () -> Bool,
+                          timeout: Double = 3.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            window.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+            window.layoutIfNeeded()
+            if condition() { return true }
+        }
+        return condition()
+    }
+
+    /// The gate lifecycle (v1.5.29 — subscribe only when
+    /// required): the gate's content sees live state ONLY while
+    /// its own context plays on a visible screen — not when
+    /// idle, not during another studio's pass, and not when its
+    /// screen is hidden. The probe records what the gate's
+    /// content closure was last built with.
+    func testPlaybackGateLifecycle() async {
+        final class Probe {
+            var live: Bool?
+            var index: Int = -999
+        }
+        let tone = FakeTone()
+        let player = await MainActor.run { SequencePlayer(tone: tone) }
+        let probe = Probe()
+        let hiddenProbe = Probe()
+        let window = await MainActor.run { () -> UIWindow in
+            let w = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+            if let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene }).first {
+                w.windowScene = scene
+            }
+            let gate = PlaybackGate(player: player, contextKey: "test",
+                                    visible: true) { live, index in
+                probe.live = live
+                probe.index = index
+                return Color.clear.frame(width: 10, height: 10)
+            }
+            let hidden = PlaybackGate(player: player, contextKey: "test",
+                                      visible: false) { live, index in
+                hiddenProbe.live = live
+                hiddenProbe.index = index
+                return Color.clear.frame(width: 10, height: 10)
+            }
+            let host = UIHostingController(rootView: AnyView(
+                VStack { gate; hidden }))
+            w.rootViewController = host
+            w.makeKeyAndVisible()
+            return w
+        }
+
+        // Idle: static.
+        var ok = await MainActor.run {
+            pumpGate(window, until: { probe.live == false && probe.index == -1 })
+        }
+        XCTAssertTrue(ok, "idle gate must render static")
+
+        // A FOREIGN pass plays: still static, both gates.
+        await MainActor.run {
+            player.play(timeline: exampleTimeline(), policy: NoLoopPolicy(),
+                        contextKey: "other")
+        }
+        let foreignPlaying = await poll(until: { player.state == .playing })
+        XCTAssertTrue(foreignPlaying)
+        ok = await MainActor.run {
+            pumpGate(window, until: { false }, timeout: 0.6)
+        }
+        _ = ok
+        var snapshot = await MainActor.run { (probe.live, probe.index, hiddenProbe.live) }
+        XCTAssertEqual(snapshot.0, false, "foreign pass must not go live")
+        XCTAssertEqual(snapshot.1, -1)
+        XCTAssertEqual(snapshot.2, false)
+        await MainActor.run { player.stop() }
+        _ = await poll(until: { player.state == .idle })
+
+        // The gate's OWN pass: live, with the running index; the
+        // hidden gate stays static throughout.
+        await MainActor.run {
+            player.play(timeline: exampleTimeline(), policy: NoLoopPolicy(),
+                        contextKey: "test")
+        }
+        ok = await MainActor.run {
+            pumpGate(window, until: { probe.live == true })
+        }
+        XCTAssertTrue(ok, "own pass on a visible screen must go live")
+        snapshot = await MainActor.run { (probe.live, probe.index, hiddenProbe.live) }
+        XCTAssertGreaterThanOrEqual(snapshot.1, -1)
+        XCTAssertEqual(snapshot.2, false, "a hidden screen must stay unsubscribed")
+
+        // Stop: back to static.
+        await MainActor.run { player.stop() }
+        ok = await MainActor.run {
+            pumpGate(window, until: { probe.live == false && probe.index == -1 })
+        }
+        XCTAssertTrue(ok, "stopping must return the gate to static")
     }
 }
