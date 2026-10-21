@@ -18,6 +18,9 @@ struct SwarasSectionView: View {
     /// chip pulse.
     let player: PhraseAdapter
     let song: Song
+    /// The detail page's visibility, forwarded to the chip
+    /// strip's gate (v1.5.29: subscribe only when required).
+    var visible: Bool = true
     var onEdit: (LoopRegion) -> Void
 
     var body: some View {
@@ -61,7 +64,8 @@ struct SwarasSectionView: View {
     private func phraseBody(loop: LoopRegion, phrase: Phrase) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             LivePhraseChipsView(player: player.player, chips: phrase.chips,
-                                contextKey: controller.sectionKey(for: loop))
+                                contextKey: controller.sectionKey(for: loop),
+                                visible: visible)
             HStack {
                 Text("Tempo").foregroundStyle(.secondary)
                 Slider(value: Binding(
