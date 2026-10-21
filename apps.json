@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.33",
-      "versionDate": "2026-10-21T21:46:00Z",
-      "versionDescription": "v1.5.33 \u2014 Swara picker octave tabs now put the dot on the letter, like the rest of the app: low is S with the dot under it, high is S with the dot over it. The old labels used a dot beside the letter.",
+      "version": "1.5.34",
+      "versionDate": "2026-10-21T21:56:00Z",
+      "versionDescription": "v1.5.34 \u2014 Titles: the LoopLab song list is now titled LoopLab Studio (was RagaMentor), and Raga Browser, Varisai Studio and Tala Studio use large titles like LoopLab and Compose, for consistency across the five tabs.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.33",
-          "date": "2026-10-21T21:46:00Z",
+          "version": "1.5.34",
+          "date": "2026-10-21T21:56:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
