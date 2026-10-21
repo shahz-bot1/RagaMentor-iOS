@@ -349,6 +349,12 @@ public final class PlaybackController: ObservableObject {
         if !isPlaying { engine.pause() }
         savePosition()
         updateNowPlayingInfo()
+        // An ACTION publishes once (v1.5.29): the still waveform
+        // slice renders from the plain position value and must
+        // refresh after a skip or a tap-seek while paused. The
+        // position TIMER never comes through here — it assigns
+        // `position` directly — so ticks stay silent (v1.5.27).
+        objectWillChange.send()
     }
 
     public func skip(by delta: Double) {
