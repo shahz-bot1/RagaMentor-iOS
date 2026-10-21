@@ -275,3 +275,63 @@ extension AudioKitTests {
                                     "expected several clean wraps, got \(wraps)")
     }
 }
+
+extension AudioKitTests {
+    private func waitUntil(_ seconds: Double = 2, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.02))
+        }
+        return condition()
+    }
+
+    /// The output gate (v1.5.35): transport actions drive it —
+    /// pause and a paused seek end gated (the TimePitch tail is
+    /// silenced), play opens it. The ramp lands within ~10 ms;
+    /// these assert the states and the settled volumes.
+    func testGateFollowsTransport() throws {
+        let url = try makeSineFile(segments: [(440, 1.0)])
+        defer { try? FileManager.default.removeItem(at: url) }
+        let engine = AudioEngine()
+        try engine.load(url: url)
+
+        engine.play(from: 0)
+        XCTAssertTrue(engine.gateOpen)
+        engine.pause()
+        XCTAssertFalse(engine.gateOpen, "pause must close the gate")
+        XCTAssertTrue(waitUntil { engine.gateVolume == 0 },
+                      "the gate volume must settle at 0 after pause")
+
+        engine.play(from: 0)
+        XCTAssertTrue(engine.gateOpen, "play must open the gate")
+        XCTAssertTrue(waitUntil { engine.gateVolume == 1 },
+                      "the gate volume must settle at 1 after play")
+
+        engine.pause()
+        _ = waitUntil { engine.gateVolume == 0 }
+        engine.seek(to: 0.3)
+        XCTAssertFalse(engine.gateOpen,
+                       "a seek while paused must end with the gate closed")
+        engine.stop()
+    }
+
+    /// The offline render pulls through the gate: it must force
+    /// the gate open while rendering (a paused engine must not
+    /// render silence) and restore the closed gate afterwards.
+    func testOfflineRenderIgnoresClosedGate() throws {
+        let url = try makeSineFile(segments: [(440, 1.0)])
+        defer { try? FileManager.default.removeItem(at: url) }
+        let engine = AudioEngine()
+        try engine.load(url: url)
+        engine.play(from: 0)
+        engine.pause()
+        XCTAssertFalse(engine.gateOpen)
+
+        let out = try XCTUnwrap(engine.renderOffline(from: 0, frames: 22050))
+        XCTAssertGreaterThan(rms(out, from: 0, count: 22050), 0.1,
+                             "the render must not be silenced by the closed gate")
+        XCTAssertFalse(engine.gateOpen,
+                       "the render must restore the prior gate state")
+    }
+}
