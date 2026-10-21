@@ -190,6 +190,23 @@ public final class PlaybackController: ObservableObject {
         zoomRequest = ZoomRequest(id: zoomRequestCount, start: start, end: end)
     }
 
+    /// Re-issue the zoom request for the armed loop/group, if
+    /// any (v1.5.32). The song detail page calls this when it
+    /// (re)appears: playback and the selection live here and
+    /// survive the page, but the page's fitted window does
+    /// not — without the replay the page returned at full-song
+    /// zoom and the armed loop's highlight shrank to a sliver
+    /// (his report). The waveform area applies the request
+    /// through the same onChange path a fresh selection uses,
+    /// which also restores the fitted-range hold. Gated on the
+    /// song so a fresh push of a different song — whose area
+    /// can appear before open() runs — never fits to the
+    /// previous song's range.
+    public func replayArmedZoom(for songID: UUID) {
+        guard currentSong?.id == songID, let range = armedLoopRange else { return }
+        requestZoom(from: range.start, to: range.end)
+    }
+
     private var remoteCommandsInstalled = false
 
     /// Lock-screen / Control Centre / headphone controls: play,
@@ -276,6 +293,9 @@ public final class PlaybackController: ObservableObject {
             selectedLoopID = loop.id
             loopOn = true
             engine.setLoop(start: loop.start, end: loop.end)
+            // Fit the waveform to the restored loop, as a fresh
+            // selection would (v1.5.32).
+            requestZoom(from: loop.start, to: loop.end)
         } else {
             selectedLoopID = nil
             loopOn = false
