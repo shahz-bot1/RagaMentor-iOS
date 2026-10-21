@@ -136,15 +136,17 @@ struct FullscreenWaveformArea: View {
     }
 
     var body: some View {
-        WaveformView(peaks: peaks,
+        LiveWaveform(playhead: controller.playhead,
+                     peaks: peaks,
                      duration: song.duration,
-                     position: controller.position,
                      regions: WaveformRegions.build(
                         song: song,
                         selectedLoopID: controller.selectedLoopID,
                         selectedGroupID: controller.selectedGroupID),
                      window: $window,
-                     zoomPanEnabled: true,
+                     follow: follow,
+                     isPlaying: controller.isPlaying,
+                     holdRange: activeHoldRange,
                      onSeek: hardSeek,
                      onManualWindowChange: { fittedRange = nil })
             .frame(height: height)
@@ -197,31 +199,10 @@ struct FullscreenWaveformArea: View {
                 .buttonStyle(.plain)
                 .padding(8)
             }
-            .overlay(alignment: .bottom) {
-                Text("\(Self.fmtTenths(controller.position)) / \(Self.fmtTenths(song.duration))")
-                    .font(.system(size: 12))
-                    .monospacedDigit()
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
-                                in: Capsule())
-                    .foregroundStyle(.white)
-                    .padding(.bottom, 8)
-            }
             .task(id: song.id) {
                 window = WaveformWindow(duration: song.duration)
                 fittedRange = nil
                 peaks = await SongPeaks.peaks(for: song)
-            }
-            .onChange(of: controller.position) {
-                // Follow (the on-wave toggle, lower left): keep the
-                // playhead in view while playing — except while a
-                // fitted loop/group stays armed, where the fitted
-                // view is held (v1.5.21).
-                if follow && controller.isPlaying {
-                    window = window.following(controller.position,
-                                              holdRange: activeHoldRange)
-                }
             }
             .onChange(of: controller.zoomRequest) {
                 // Fit-on-select (v1.5.12): a loop or group was
@@ -266,6 +247,61 @@ struct FullscreenWaveformArea: View {
     }
 }
 
+/// The tick-driven slice of the waveform area (v1.5.27): the
+/// ONLY view that observes the playhead clock, so the ~20 Hz
+/// position stream re-renders this leaf alone — the peaks canvas
+/// inside WaveformView keeps still inputs (peaks / window /
+/// regions) and is not redrawn per tick, and the page around it
+/// never sees the stream at all. Before the split, the shared
+/// controller published position and every subscriber rebuilt
+/// per tick, which made scrolling during playback stutter.
+private struct LiveWaveform: View {
+    @ObservedObject var playhead: PlayheadClock
+    let peaks: [Float]
+    let duration: Double
+    let regions: [WaveRegion]
+    @Binding var window: WaveformWindow
+    let follow: Bool
+    let isPlaying: Bool
+    let holdRange: (start: Double, end: Double)?
+    let onSeek: (Double) -> Void
+    let onManualWindowChange: () -> Void
+
+    var body: some View {
+        ZStack {
+            WaveformView(peaks: peaks,
+                         duration: duration,
+                         regions: regions,
+                         window: $window,
+                         zoomPanEnabled: true,
+                         onSeek: onSeek,
+                         onManualWindowChange: onManualWindowChange)
+            PlayheadLine(window: window, position: playhead.position)
+        }
+        .overlay(alignment: .bottom) {
+            Text("\(FullscreenWaveformArea.fmtTenths(playhead.position)) / \(FullscreenWaveformArea.fmtTenths(duration))")
+                .font(.system(size: 12))
+                .monospacedDigit()
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(red: 0.078, green: 0.102, blue: 0.133).opacity(0.72),
+                            in: Capsule())
+                .foregroundStyle(.white)
+                .padding(.bottom, 8)
+        }
+        .onChange(of: playhead.position) {
+            // Follow (the on-wave toggle, lower left): keep the
+            // playhead in view while playing — except while a
+            // fitted loop/group stays armed, where the fitted
+            // view is held (v1.5.21).
+            if follow && isPlaying {
+                window = window.following(playhead.position,
+                                          holdRange: holdRange)
+            }
+        }
+    }
+}
+
 /// The persistent mini-transport (skip, play/pause, time, speed).
 struct FullscreenTransport: View {
     @EnvironmentObject private var controller: PlaybackController
@@ -293,6 +329,22 @@ struct FullscreenTransport: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 6)
+    }
+}
+
+/// The A–B Split button: its enabled state tracks the live
+/// playhead (Split is valid only while the playhead sits inside
+/// the loop), so it alone observes the playhead clock (v1.5.27)
+/// and the rest of the A–B tab stays off the 20 Hz stream.
+private struct SplitButton: View {
+    @ObservedObject var playhead: PlayheadClock
+    let loop: LoopRegion
+    let action: () -> Void
+
+    var body: some View {
+        Button("Split", action: action)
+            .disabled(!LoopRules.canSplit(loopStart: loop.start, loopEnd: loop.end,
+                                           at: playhead.position))
     }
 }
 
@@ -334,13 +386,9 @@ struct ABTabView: View {
                                 .foregroundStyle(controller.loopOn ? Studio.accent : .primary)
                         }
                         Spacer()
-                        Button {
+                        SplitButton(playhead: controller.playhead, loop: loop) {
                             controller.splitLoop(loop, context: modelContext)
-                        } label: {
-                            Text("Split")
                         }
-                        .disabled(!LoopRules.canSplit(loopStart: loop.start, loopEnd: loop.end,
-                                                       at: controller.position))
                     }
                 }
             }
