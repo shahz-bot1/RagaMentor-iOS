@@ -446,7 +446,7 @@ final class PlayheadClockTests: XCTestCase {
         func stopAll() {}
     }
 
-    func testSeekPublishesOnTheClockNotTheController() throws {
+    func testSeekMirrorsToClockWithOneActionEvent() throws {
         let context = ModelContext(container)
         let song = Song(title: "Playhead", contentHash: "playhead",
                         fileRelativePath: "Audio/playhead-test.wav",
@@ -458,10 +458,10 @@ final class PlayheadClockTests: XCTestCase {
         controller.open(song)
         XCTAssertNotNil(controller.currentSong)
 
-        var controllerPublished = false
+        var controllerPublishes = 0
         var clockPublished = false
         controller.objectWillChange
-            .sink { controllerPublished = true }
+            .sink { controllerPublishes += 1 }
             .store(in: &cancellables)
         controller.playhead.objectWillChange
             .sink { clockPublished = true }
@@ -473,8 +473,13 @@ final class PlayheadClockTests: XCTestCase {
         XCTAssertEqual(controller.playhead.position, 0.5, accuracy: 1e-9,
                        "the clock must mirror every position change")
         XCTAssertTrue(clockPublished, "the clock must publish the tick")
-        XCTAssertFalse(controllerPublished,
-                       "a position change must NOT publish on the controller — that is the jank")
+        // v1.5.29: a seek is an ACTION — it publishes exactly
+        // once, so the still waveform slice (which renders from
+        // the plain position) refreshes after a skip while
+        // paused. The per-tick path assigns position directly and
+        // never publishes — that silence is the scroll fix.
+        XCTAssertEqual(controllerPublishes, 1,
+                       "a seek must publish exactly one action event")
     }
 }
 
