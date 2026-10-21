@@ -41,7 +41,9 @@ public struct TalaStudioView: View {
             }
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle("Tala Studio")
-            .navigationBarTitleDisplayMode(.inline)
+            // Large title, matching the other studio homes
+            // (v1.5.34 — his consistency pass).
+            .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 focusToken = clock.attachFocus(audioFocus)
             }
