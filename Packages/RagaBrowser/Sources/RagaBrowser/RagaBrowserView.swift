@@ -106,7 +106,9 @@ public struct RagaBrowserView: View {
             .padding(.top, 10)
             .background(Studio.bg.ignoresSafeArea())
             .navigationTitle(mode == .pick ? "Pick a raga" : "Raga Browser")
-            .navigationBarTitleDisplayMode(.inline)
+            // Large title, matching the other studio homes
+            // (v1.5.34 — his consistency pass).
+            .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 if mode == .pick, let onCancel {
                     ToolbarItem(placement: .cancellationAction) {
