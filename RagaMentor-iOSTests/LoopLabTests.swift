@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 import SwiftData
 import AVFoundation
 import LoopLab
@@ -399,5 +400,117 @@ final class WaveformHoldTests: XCTestCase {
         // No hold: the same reports page as before.
         XCTAssertEqual(w.following(0, holdRange: nil).start, 0, accuracy: 1e-9)
         XCTAssertEqual(w.following(45, holdRange: nil).start, 40, accuracy: 1e-9)
+    }
+}
+
+// MARK: - Playhead clock split (v1.5.27)
+
+/// The scroll-jank fix's mechanism, pinned: position changes
+/// publish on the playhead clock ONLY — the controller's own
+/// objectWillChange must stay silent, or every view holding
+/// the controller (the loops list, the transport) rebuilds at
+/// 20 Hz again.
+@MainActor
+final class PlayheadClockTests: XCTestCase {
+    private var container: ModelContainer!
+    private var audioURL: URL!
+    private var cancellables: [AnyCancellable] = []
+
+    override func setUp() async throws {
+        container = try ModelContainer(
+            for: Song.self, LoopRegion.self, LoopGroup.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let base = FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = base.appendingPathComponent("Audio", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: dir, withIntermediateDirectories: true)
+        audioURL = dir.appendingPathComponent("playhead-test.wav")
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+        let frames = AVAudioFrameCount(44100)
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let file = try AVAudioFile(forWriting: audioURL, settings: format.settings)
+        try file.write(from: buffer)
+    }
+
+    override func tearDown() {
+        cancellables = []
+        if let audioURL { try? FileManager.default.removeItem(at: audioURL) }
+    }
+
+    private final class NullTone: ToneEngine {
+        var samplesReady = true
+        func prepare() async {}
+        func playNote(semitone: Int, atOffset offset: Double, duration: Double) {}
+        func stopAll() {}
+    }
+
+    func testSeekPublishesOnTheClockNotTheController() throws {
+        let context = ModelContext(container)
+        let song = Song(title: "Playhead", contentHash: "playhead",
+                        fileRelativePath: "Audio/playhead-test.wav",
+                        duration: 1, sampleRate: 44100, loops: [])
+        context.insert(song)
+        try context.save()
+        let controller = PlaybackController(
+            sequencePlayer: SequencePlayer(tone: NullTone()))
+        controller.open(song)
+        XCTAssertNotNil(controller.currentSong)
+
+        var controllerPublished = false
+        var clockPublished = false
+        controller.objectWillChange
+            .sink { controllerPublished = true }
+            .store(in: &cancellables)
+        controller.playhead.objectWillChange
+            .sink { clockPublished = true }
+            .store(in: &cancellables)
+
+        controller.seek(to: 0.5)
+
+        XCTAssertEqual(controller.position, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(controller.playhead.position, 0.5, accuracy: 1e-9,
+                       "the clock must mirror every position change")
+        XCTAssertTrue(clockPublished, "the clock must publish the tick")
+        XCTAssertFalse(controllerPublished,
+                       "a position change must NOT publish on the controller — that is the jank")
+    }
+}
+
+// MARK: - Waveform bar aggregation (v1.5.27)
+
+final class WaveformBarsTests: XCTestCase {
+    func testUnderCapIsIdentity() {
+        let peaks: [Float] = [0.1, 0.9, 0.3, 0.5]
+        let bars = WaveformBars.aggregate(peaks: peaks, first: 0, last: 3, maxBars: 48)
+        XCTAssertEqual(bars.count, 4)
+        XCTAssertEqual(bars.map(\.peak), peaks)
+        XCTAssertTrue(bars.allSatisfy { $0.span == 1 })
+        XCTAssertEqual(bars.map(\.bucket), [0, 1, 2, 3])
+    }
+
+    func testOverCapAggregatesByMax() {
+        let peaks = (0..<6000).map { Float($0 % 97) / 97 }
+        let bars = WaveformBars.aggregate(peaks: peaks, first: 0, last: 5999, maxBars: 262)
+        XCTAssertLessThanOrEqual(bars.count, 262)
+        XCTAssertEqual(bars.reduce(0) { $0 + $1.span }, 6000,
+                       "spans must cover the whole visible range")
+        XCTAssertEqual(bars.map(\.peak).max(), peaks.max(),
+                       "the tallest peak survives — the silhouette is preserved")
+        // Every bar's peak is the max of its own run.
+        for bar in bars {
+            let run = peaks[bar.bucket..<(bar.bucket + bar.span)]
+            XCTAssertEqual(bar.peak, run.max())
+        }
+    }
+
+    func testSubrangeAndInvalid() {
+        let peaks: [Float] = [0.2, 0.4, 0.6, 0.8, 1.0]
+        let bars = WaveformBars.aggregate(peaks: peaks, first: 1, last: 3, maxBars: 2)
+        XCTAssertEqual(bars.reduce(0) { $0 + $1.span }, 3)
+        XCTAssertEqual(bars.first?.bucket, 1)
+        XCTAssertTrue(WaveformBars.aggregate(peaks: peaks, first: 3, last: 1, maxBars: 4).isEmpty)
+        XCTAssertTrue(WaveformBars.aggregate(peaks: [], first: 0, last: 0, maxBars: 4).isEmpty)
     }
 }
