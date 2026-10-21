@@ -227,6 +227,31 @@ public enum WaveformBars {
         }
         return bars
     }
+
+    /// The bars' rects in canvas points (v1.5.30 — the width
+    /// fix). Each bar's width is its TRUE slot: span × the
+    /// per-bucket point width, filled at 0.72 of the slot.
+    ///
+    /// The bug this replaces: the per-bucket width was clamped
+    /// to at least 1 pt — harmless pre-aggregation, when a bar
+    /// was one bucket — but multiplied by the span it made
+    /// every aggregated bar ~15 pt wide at full-song zoom
+    /// while the bars stand ~1 pt apart. Eleven max-height
+    /// bars stacked at every x and the wave rendered as a
+    /// solid white mass (his screenshot, 2026-10-21).
+    public static func rects(peaks: [Float], first: Int, last: Int,
+                             width: Double, height: Double,
+                             maxBars: Int) -> [CGRect] {
+        let bucketWidth = width / Double(last - first + 1)
+        return aggregate(peaks: peaks, first: first, last: last,
+                         maxBars: maxBars).map { bar in
+            let slot = bucketWidth * Double(bar.span)
+            let h = max(1, Double(bar.peak) * height * 0.92)
+            return CGRect(x: Double(bar.bucket - first) * bucketWidth,
+                          y: (height - h) / 2,
+                          width: slot * 0.72, height: h)
+        }
+    }
 }
 
 /// The playhead as its own layer (v1.5.27): a 1.5 pt accent
@@ -296,19 +321,15 @@ struct WaveformView: View {
                     let first = max(0, Int(window.start * bucketSpan))
                     let last = min(peaks.count - 1, Int(window.end * bucketSpan))
                     if last >= first {
-                        let barWidth = max(1, width / Double(last - first + 1))
                         let maxBars = max(48, Int(width / 1.5))
-                        for bar in WaveformBars.aggregate(peaks: peaks,
-                                                          first: first, last: last,
-                                                          maxBars: maxBars) {
-                            let t = Double(bar.bucket) / bucketSpan
-                            let x = window.x(forTime: t, width: width)
-                            let h = max(1, Double(bar.peak) * height * 0.92)
-                            let w = barWidth * Double(bar.span)
-                            let rect = CGRect(x: x, y: (height - h) / 2,
-                                              width: w * 0.72, height: h)
-                            context.fill(Path(roundedRect: rect, cornerRadius: min(barWidth * 0.3, w * 0.36)),
-                                         with: .color(.secondary.opacity(0.75)))
+                        for rect in WaveformBars.rects(
+                            peaks: peaks, first: first, last: last,
+                            width: width, height: height,
+                            maxBars: maxBars) {
+                            context.fill(
+                                Path(roundedRect: rect,
+                                     cornerRadius: min(1.5, rect.width * 0.36)),
+                                with: .color(.secondary.opacity(0.75)))
                         }
                     }
                 }
