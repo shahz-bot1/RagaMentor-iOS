@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.26",
-      "versionDate": "2026-10-20T23:10:00Z",
-      "versionDescription": "v1.5.26 \u2014 Raga Browser reimagined: a search pill on top, the three collections as a scrolling chip rail, and the search-by-swaras card revealed while you search. The congested four-way segmented bar is gone. App name shows as RagaMentor.",
+      "version": "1.5.27",
+      "versionDate": "2026-10-21T09:45:00Z",
+      "versionDescription": "v1.5.27 \u2014 Scrolling the song page while a song plays is smooth again: the playhead stream no longer rebuilds the loops list and the waveform peaks are drawn once, not twenty times a second. The Raga Browser lists also sit at the standard spacing under the pills now.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.26",
-          "date": "2026-10-20T23:10:00Z",
+          "version": "1.5.27",
+          "date": "2026-10-21T09:45:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
