@@ -181,4 +181,45 @@ final class RagaBrowserLayoutTests: XCTestCase {
             .joined(separator: " | ")
         XCTAssertTrue(over.isEmpty, "OVERWIDE(\(over.count)): \(dump)")
     }
+
+    /// His spacing report (2026-10-21): the gap between the chip
+    /// rail and the first list cell must be the standard header
+    /// spacing (~10 pt), not the ~41 pt the list's own top
+    /// content margin stacked on. Measured in window points.
+    func testRailToFirstRowGapIsStandard() {
+        let host = UIHostingController(rootView:
+            RagaBrowserView(library: DefaultRagaLibrary(),
+                            sequencePlayer: SequencePlayer(tone: FakeTone())))
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        host.view.frame = window.bounds
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        window.layoutIfNeeded()
+
+        var railBottom: CGFloat?
+        var firstCellTop: CGFloat?
+        func walk(_ v: UIView) {
+            let rect = v.convert(v.bounds, to: window)
+            if let scroller = v as? UIScrollView,
+               scroller.contentSize.width > scroller.bounds.width + 1,
+               scroller.bounds.height < 80 {
+                railBottom = max(railBottom ?? 0, rect.maxY)
+            }
+            if String(describing: type(of: v)).contains("Cell"),
+               rect.width > 200, rect.minY > 150 {
+                firstCellTop = min(firstCellTop ?? .greatestFiniteMagnitude, rect.minY)
+            }
+            v.subviews.forEach(walk)
+        }
+        walk(host.view)
+        guard let railBottom, let firstCellTop else {
+            XCTFail("rail or first cell not found (rail=\(String(describing: railBottom)), cell=\(String(describing: firstCellTop)))")
+            return
+        }
+        let gap = firstCellTop - railBottom
+        XCTAssertTrue(gap >= 0 && gap <= 18,
+                      "rail-to-cell gap is \(gap) pt — the standard is ~10")
+    }
 }
