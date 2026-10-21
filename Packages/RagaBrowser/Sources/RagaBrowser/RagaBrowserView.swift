@@ -256,7 +256,7 @@ public struct RagaBrowserView: View {
                 }
             }
         }
-        .studioList()
+        .browserList()
     }
 
     private var favouritesSection: some View {
@@ -270,7 +270,7 @@ public struct RagaBrowserView: View {
                 NavigationLink(value: raga.id) { rowLabel(raga) }
             }
         }
-        .studioList()
+        .browserList()
     }
 
     private var melakartasSection: some View {
@@ -293,7 +293,7 @@ public struct RagaBrowserView: View {
                     }
                 }
             }
-            .studioList()
+            .browserList()
         }
     }
 
@@ -356,7 +356,7 @@ public struct RagaBrowserView: View {
                 }
             }
         }
-        .studioList()
+        .browserList()
     }
 
     private var thaatGroups: [(thaat: String, ragas: [Raga])] {
@@ -384,5 +384,20 @@ public struct RagaBrowserView: View {
         if let parent = raga.parentMelakarta { return "Janya of \(parent) · \(raga.jati ?? "")" }
         if let thaat = raga.thaat { return "Hindustani · Thaat \(thaat)" }
         return raga.jati ?? ""
+    }
+}
+
+private extension View {
+    /// The browser's lists sit under the pill + rail header (and
+    /// Melakartas' list under its own segmented control). The
+    /// default list style adds its own ~31 pt top content
+    /// margin, which stacked on the header's standard 10 pt
+    /// spacing and read as a hole above the first cell (his
+    /// report, 2026-10-21; lists WITH a section header, like
+    /// Hindustani's, looked fine because the header fills the
+    /// margin). Zeroing the list's top margin makes the header
+    /// spacing the only gap.
+    func browserList() -> some View {
+        studioList().contentMargins(.top, 0, for: .scrollContent)
     }
 }
