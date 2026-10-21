@@ -172,7 +172,16 @@ public final class SequencePlayer: ObservableObject {
     @Published public private(set) var state: SequenceState = .idle
     @Published public private(set) var currentIndex: Int = -1
     @Published public private(set) var contextKey: String?
-    @Published public private(set) var elapsed: Double = 0
+    /// Seconds into the pass — internal bookkeeping ONLY, and
+    /// deliberately NOT @Published (v1.5.28): the ticker writes
+    /// it every 20 ms, and as a published value it rebuilt every
+    /// player observer (the raga detail page, the Varisai lesson
+    /// page, the Compose / swara phrase chips) fifty times a
+    /// second during any pass, although no view reads it — his
+    /// scroll-jank reports from Compose and swara playback. The
+    /// published surface stays state / currentIndex / contextKey
+    /// / passDuration: real events, at note rate or below.
+    public private(set) var elapsed: Double = 0
     @Published public private(set) var passDuration: Double = 0
 
     public var isPlaying: Bool { state == .playing }
