@@ -33,8 +33,9 @@ struct LoopsView: View {
     @State private var openGroupID: UUID?
     /// Page visibility for the chip strip's gate (v1.5.29:
     /// subscribe only when required — the strip listens only
-    /// while this page is on screen).
+    /// while this page is on screen and the app is foreground).
     @State private var pageVisible = false
+    @Environment(\.scenePhase) private var scenePhase
     @State private var editingGroup: LoopGroup?
     /// True while the group sheet serves a just-created group
     /// (the web's new-group checklist: level-constrained
@@ -51,7 +52,7 @@ struct LoopsView: View {
                 }
                 StudioCard {
                     SwarasSectionView(player: controller.phraseAdapter, song: song,
-                                      visible: pageVisible) { loop in
+                                      visible: pageVisible && scenePhase == .active) { loop in
                         // Build the model ONCE, here in the action — never
                         // inside a presentation closure (v0.8.0 bug) —
                         // and hand the session to the host, which owns
