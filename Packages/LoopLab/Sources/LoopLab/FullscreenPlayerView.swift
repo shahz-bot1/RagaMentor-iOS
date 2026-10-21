@@ -243,7 +243,13 @@ struct FullscreenWaveformArea: View {
                     fittedRange = (request.start, request.end)
                 }
             }
-            .onAppear { visible = true }
+            .onAppear {
+                visible = true
+                // Restore the armed view on (re)entry (v1.5.32):
+                // the loop/group kept playing while the page was
+                // away — come back fitted to it.
+                controller.replayArmedZoom(for: song.id)
+            }
             .onDisappear { visible = false }
     }
 
