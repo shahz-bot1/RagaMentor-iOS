@@ -12,19 +12,23 @@ import SwiftUI
 ///
 /// The gate is the only observer. Its body is one scoped check;
 /// it hands the content closure the scoped state — (live,
-/// currentIndex) — where live additionally requires the host's
-/// visibility flag and an active scene. While not live, the
-/// content renders from the plain (-1) index and, its inputs
-/// unchanged, SwiftUI diffing leaves it untouched no matter what
-/// plays elsewhere. When its own pass starts, the gate's next
-/// publish flips it live and the highlights flow.
+/// currentIndex). While not live, the content renders from the
+/// plain (-1) index and, its inputs unchanged, SwiftUI diffing
+/// leaves it untouched no matter what plays elsewhere. When its
+/// own pass starts, the gate's next publish flips it live and
+/// the highlights flow.
+///
+/// Visibility is the HOST's call, not the gate's: hosts fold
+/// their appear state AND the scene phase into the one flag
+/// (a backgrounded app's screens are not visible). The gate
+/// owns only the playback condition — splitting it this way
+/// also keeps the gate testable in a bare hosting window,
+/// where no scene is active.
 public struct PlaybackGate<Content: View>: View {
     @ObservedObject private var player: SequencePlayer
     private let contextKey: String
     private let visible: Bool
     private let content: (Bool, Int) -> Content
-
-    @Environment(\.scenePhase) private var scenePhase
 
     public init(player: SequencePlayer, contextKey: String,
                 visible: Bool = true,
@@ -35,10 +39,10 @@ public struct PlaybackGate<Content: View>: View {
         self.content = content
     }
 
-    /// Live = visible screen, foreground app, own pass playing.
+    /// Live = host says the screen is visible (foreground and
+    /// on screen), and a pass for this context is playing.
     private var live: Bool {
-        visible && scenePhase == .active
-            && player.isPlaying(contextKey: contextKey)
+        visible && player.isPlaying(contextKey: contextKey)
     }
 
     public var body: some View {
