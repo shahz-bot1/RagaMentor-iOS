@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.28",
-      "versionDate": "2026-10-21T09:50:00Z",
-      "versionDescription": "v1.5.28 \u2014 Scrolling stays smooth during every kind of playback: the song page no longer rebuilds for the playhead, and the shared phrase player no longer broadcasts a fifty-times-a-second tick that rebuilt the Compose and swara screens. The Raga Browser lists also sit at the standard spacing under the pills.",
+      "version": "1.5.29",
+      "versionDate": "2026-10-21T09:55:00Z",
+      "versionDescription": "v1.5.29 \u2014 Lifecycle-scoped playback: screens now listen to playback only while they are visible and their own playback is live. The waveform, the swara chip strip, the Varisai grid and the raga page all go quiet when covered, tabbed away from, backgrounded, or when another studio plays \u2014 and scrolling stays smooth during every kind of playback.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.28",
-          "date": "2026-10-21T09:50:00Z",
+          "version": "1.5.29",
+          "date": "2026-10-21T09:55:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
