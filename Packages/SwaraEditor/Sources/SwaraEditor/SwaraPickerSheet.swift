@@ -47,7 +47,14 @@ public struct SwaraPickerSheet: View {
             }
 
             StudioSegmented(
-                items: [(-1, "low (˙S)"), (0, "middle"), (1, "high (S˙)")],
+                // Octave dots ON the letter, via the shared
+                // SwaraLabel helper the chips use (v1.5.33): the
+                // literals here used to carry a spacing dot
+                // (U+02D9) beside the S — upper-left for low,
+                // upper-right for high.
+                items: [(-1, "low (\(SwaraLabel.noteLabel(st: "S", oct: -1)))"),
+                        (0, "middle"),
+                        (1, "high (\(SwaraLabel.noteLabel(st: "S", oct: 1)))")],
                 selection: Binding(
                     get: { picker.octave }, set: { model.pickerSetOctave($0) }))
 
