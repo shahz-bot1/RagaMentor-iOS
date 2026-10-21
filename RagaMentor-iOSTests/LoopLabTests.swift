@@ -518,4 +518,38 @@ final class WaveformBarsTests: XCTestCase {
         XCTAssertTrue(WaveformBars.aggregate(peaks: peaks, first: 3, last: 1, maxBars: 4).isEmpty)
         XCTAssertTrue(WaveformBars.aggregate(peaks: [], first: 0, last: 0, maxBars: 4).isEmpty)
     }
+
+    /// The width regression (v1.5.30): at full-song zoom a bar's
+    /// rect must never exceed its true slot (span × the
+    /// per-bucket point width). The clamped-width version drew
+    /// ~15 pt bars ~1 pt apart and the wave became a solid
+    /// mass. Heights stay the run max × height × 0.92.
+    func testRectWidthsNeverExceedTheirSlot() {
+        let peaks = [Float](repeating: 0.9, count: 6000)
+        let rects = WaveformBars.rects(peaks: peaks, first: 0, last: 5999,
+                                       width: 393, height: 286, maxBars: 262)
+        XCTAssertLessThanOrEqual(rects.count, 262)
+        let slot = 393.0 / 6000.0 * 23  // stride at this cap is 23
+        for rect in rects {
+            XCTAssertLessThanOrEqual(Double(rect.width), slot,
+                                     "a bar wider than its slot stacks into a solid mass")
+            XCTAssertEqual(Double(rect.height), 0.9 * 286 * 0.92, accuracy: 0.01)
+        }
+        // Bars tile from the left edge without overlap.
+        for (a, b) in zip(rects, rects.dropFirst()) {
+            XCTAssertGreaterThanOrEqual(Double(b.minX), Double(a.minX) + Double(a.width) - 0.01)
+        }
+    }
+
+    /// Deep zoom (stride 1): rect widths match the per-bucket
+    /// geometry exactly — width × 0.72 per bucket.
+    func testRectsAtDeepZoom() {
+        let peaks: [Float] = [0.5, 1.0, 0.25]
+        let rects = WaveformBars.rects(peaks: peaks, first: 0, last: 2,
+                                       width: 300, height: 100, maxBars: 262)
+        XCTAssertEqual(rects.count, 3)
+        XCTAssertEqual(Double(rects[0].width), 100 * 0.72, accuracy: 0.01)
+        XCTAssertEqual(Double(rects[1].height), 1.0 * 100 * 0.92, accuracy: 0.01)
+        XCTAssertEqual(Double(rects[2].minX), 200, accuracy: 0.01)
+    }
 }
