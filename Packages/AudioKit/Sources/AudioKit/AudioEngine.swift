@@ -3,7 +3,8 @@ import AVFoundation
 import RagaCore
 
 // Audio engine per PLAN §7.
-// Graph: AVAudioPlayerNode -> AVAudioUnitTimePitch -> mainMixer -> output.
+// Graph: AVAudioPlayerNode -> AVAudioUnitTimePitch -> gate mixer
+// -> mainMixer -> output (the gate is v1.5.35, see gateMixer).
 // M1: full-file playback, seek, live rate change, position reporting.
 // M2: gapless segment looping (PLAN §7) — since v1.5.31 the loop
 // passes are kept queued several deep and each completion tops
@@ -14,6 +15,39 @@ public final class AudioEngine: FilePlaybackEngine {
     private let engine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
     private let timePitch = AVAudioUnitTimePitch()
+    /// The output gate (v1.5.35): a mixer of our own between
+    /// TimePitch and the main mixer. TimePitch holds a window
+    /// of audio inside it; when the player pauses or restarts,
+    /// that window keeps sounding, stretched — at 0.25x the
+    /// tail runs ~4x longer than at 1x (his report: play/pause
+    /// and the loop-name restart felt badly delayed at slow
+    /// speeds). Transport actions slam this gate shut in ~10 ms
+    /// so the tail never reaches the speaker; play opens it as
+    /// the new schedule starts. The start prime itself is the
+    /// vocoder's floor and stays.
+    private let gateMixer = AVAudioMixerNode()
+    /// Whether the gate is (heading) open. Set synchronously by
+    /// every transport action; the volume ramp follows it.
+    public private(set) var gateOpen = true
+    private var gateToken = 0
+
+    /// The gate's current output volume (ramps between 0 and 1).
+    public var gateVolume: Float { gateMixer.outputVolume }
+
+    private func setGate(open: Bool) {
+        gateOpen = open
+        gateToken += 1
+        let token = gateToken
+        let steps: [(delay: Double, volume: Float)] = open
+            ? [(0, 0.4), (0.004, 0.75), (0.008, 1.0)]
+            : [(0, 0.55), (0.003, 0.25), (0.006, 0.08), (0.009, 0.0)]
+        for step in steps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + step.delay) { [weak self] in
+                guard let self, self.gateToken == token else { return }
+                self.gateMixer.outputVolume = step.volume
+            }
+        }
+    }
 
     public private(set) var loadedFile: AVAudioFile?
     /// Frame offset where the current schedule started (file mode).
@@ -53,6 +87,7 @@ public final class AudioEngine: FilePlaybackEngine {
     public init() {
         engine.attach(playerNode)
         engine.attach(timePitch)
+        engine.attach(gateMixer)
         timePitch.pitch = 0 // pitch locked (PLAN §3 decision 3)
         rate = 1.0
     }
@@ -72,8 +107,10 @@ public final class AudioEngine: FilePlaybackEngine {
         clearLoop()
         engine.disconnectNodeOutput(playerNode)
         engine.disconnectNodeOutput(timePitch)
+        engine.disconnectNodeOutput(gateMixer)
         engine.connect(playerNode, to: timePitch, format: file.processingFormat)
-        engine.connect(timePitch, to: engine.mainMixerNode, format: file.processingFormat)
+        engine.connect(timePitch, to: gateMixer, format: file.processingFormat)
+        engine.connect(gateMixer, to: engine.mainMixerNode, format: file.processingFormat)
         loadedFile = file
         scheduleStartFrame = 0
     }
@@ -119,6 +156,7 @@ public final class AudioEngine: FilePlaybackEngine {
         guard loadedFile != nil else { return }
         ensureEngineRunning()
         schedule(from: seconds)
+        setGate(open: true)
         playerNode.play()
     }
 
@@ -213,16 +251,21 @@ public final class AudioEngine: FilePlaybackEngine {
     }
 
     public func pause() {
+        // Gate first: the vocoder tail is silenced before the
+        // node even stops, so pause lands instantly at any rate.
+        setGate(open: false)
         playerNode.pause()
     }
 
     public func resume() {
         ensureEngineRunning()
+        setGate(open: true)
         playerNode.play()
     }
 
     public func stop() {
         generation += 1
+        setGate(open: false)
         playerNode.stop()
         scheduleStartFrame = 0
     }
@@ -230,7 +273,12 @@ public final class AudioEngine: FilePlaybackEngine {
     public func seek(to seconds: Double) {
         let wasPlaying = playerNode.isPlaying
         play(from: seconds)
-        if !wasPlaying { playerNode.pause() }
+        if !wasPlaying {
+            playerNode.pause()
+            // play(from:) opened the gate; a paused seek must
+            // end gated, or the seek's primed audio leaks.
+            setGate(open: false)
+        }
     }
 
     /// Current playhead position in seconds, from the render clock
@@ -263,13 +311,23 @@ public final class AudioEngine: FilePlaybackEngine {
         guard let file = loadedFile else { return nil }
         let wasRunning = engine.isRunning
         if wasRunning { engine.stop() }
+        // The render pulls through the gate: force it open, or a
+        // paused engine renders silence (v1.5.35). The prior gate
+        // state is restored on the way out.
+        let priorGateOpen = gateOpen
         stop()
+        gateToken += 1
+        gateOpen = true
+        gateMixer.outputVolume = 1
         try engine.enableManualRenderingMode(.offline,
                                              format: file.processingFormat,
                                              maximumFrameCount: 8192)
         defer {
             playerNode.stop()
             engine.disableManualRenderingMode()
+            gateToken += 1
+            gateOpen = priorGateOpen
+            gateMixer.outputVolume = priorGateOpen ? 1 : 0
         }
         // In loop mode, queue enough passes up front to cover the request
         // (completion re-scheduling does not work in manual rendering).
