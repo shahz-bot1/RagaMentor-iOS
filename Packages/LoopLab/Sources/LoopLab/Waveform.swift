@@ -193,10 +193,66 @@ enum WaveformRegions {
     }
 }
 
+/// Max-preserving peak aggregation for the canvas (v1.5.27):
+/// at full-song zoom ~6,000 buckets fall in the window — far
+/// more bars than the width has points. Aggregating runs of
+/// buckets into one bar per ~1.5 pt, keeping the run's MAXIMUM,
+/// draws the identical silhouette (a run's tallest peak reaches
+/// the same height) with a few hundred fills instead of a few
+/// thousand. At deep zoom the stride is 1 and nothing changes.
+enum WaveformBars {
+    struct Bar: Equatable {
+        /// First bucket of the run.
+        let bucket: Int
+        /// The run's maximum peak.
+        let peak: Float
+        /// How many buckets the run covers.
+        let span: Int
+    }
+
+    static func aggregate(peaks: [Float], first: Int, last: Int,
+                          maxBars: Int) -> [Bar] {
+        guard !peaks.isEmpty, last >= first, maxBars > 0,
+              first >= 0, last < peaks.count else { return [] }
+        let count = last - first + 1
+        let stride = max(1, (count + maxBars - 1) / maxBars)
+        var bars: [Bar] = []
+        var b = first
+        while b <= last {
+            let end = min(b + stride, last + 1)
+            var peak: Float = 0
+            for i in b..<end { peak = max(peak, peaks[i]) }
+            bars.append(Bar(bucket: b, peak: peak, span: end - b))
+            b = end
+        }
+        return bars
+    }
+}
+
+/// The playhead as its own layer (v1.5.27): a 1.5 pt accent
+/// line over the peaks canvas. It used to be drawn INSIDE the
+/// canvas, so every position tick (~20 Hz) redrew all the
+/// peaks and regions just to move the line; as a separate
+/// layer it costs one offset update per tick.
+struct PlayheadLine: View {
+    let window: WaveformWindow
+    let position: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            Rectangle()
+                .fill(Color.accentColor)
+                .frame(width: 1.5)
+                .offset(x: window.x(forTime: position,
+                                    width: Double(geo.size.width)) - 0.75)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 struct WaveformView: View {
     let peaks: [Float]
     let duration: Double
-    let position: Double
     var loopStart: Double? = nil
     var loopEnd: Double? = nil
     /// Coloured spans (group bands + loop regions) under the peaks.
@@ -232,28 +288,30 @@ struct WaveformView: View {
                     context.fill(Path(CGRect(x: x1, y: 0, width: max(1, x2 - x1), height: height)),
                                  with: .color(.accentColor.opacity(0.18)))
                 }
-                // Bars for the visible bucket range
+                // Bars for the visible bucket range, aggregated
+                // to at most one bar per ~1.5 pt (max-preserving;
+                // identical silhouette, a fraction of the fills).
                 if !peaks.isEmpty && duration > 0 {
                     let bucketSpan = Double(peaks.count) / duration
                     let first = max(0, Int(window.start * bucketSpan))
                     let last = min(peaks.count - 1, Int(window.end * bucketSpan))
                     if last >= first {
                         let barWidth = max(1, width / Double(last - first + 1))
-                        for b in first...last {
-                            let t = Double(b) / bucketSpan
+                        let maxBars = max(48, Int(width / 1.5))
+                        for bar in WaveformBars.aggregate(peaks: peaks,
+                                                          first: first, last: last,
+                                                          maxBars: maxBars) {
+                            let t = Double(bar.bucket) / bucketSpan
                             let x = window.x(forTime: t, width: width)
-                            let h = max(1, Double(peaks[b]) * height * 0.92)
+                            let h = max(1, Double(bar.peak) * height * 0.92)
+                            let w = barWidth * Double(bar.span)
                             let rect = CGRect(x: x, y: (height - h) / 2,
-                                              width: barWidth * 0.72, height: h)
-                            context.fill(Path(roundedRect: rect, cornerRadius: barWidth * 0.3),
+                                              width: w * 0.72, height: h)
+                            context.fill(Path(roundedRect: rect, cornerRadius: min(barWidth * 0.3, w * 0.36)),
                                          with: .color(.secondary.opacity(0.75)))
                         }
                     }
                 }
-                // Playhead
-                let px = window.x(forTime: position, width: width)
-                context.fill(Path(CGRect(x: px - 0.75, y: 0, width: 1.5, height: height)),
-                             with: .color(.accentColor))
             }
             .contentShape(Rectangle())
             .gesture(
