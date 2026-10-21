@@ -200,18 +200,18 @@ enum WaveformRegions {
 /// draws the identical silhouette (a run's tallest peak reaches
 /// the same height) with a few hundred fills instead of a few
 /// thousand. At deep zoom the stride is 1 and nothing changes.
-enum WaveformBars {
-    struct Bar: Equatable {
+public enum WaveformBars {
+    public struct Bar: Equatable {
         /// First bucket of the run.
-        let bucket: Int
+        public let bucket: Int
         /// The run's maximum peak.
-        let peak: Float
+        public let peak: Float
         /// How many buckets the run covers.
-        let span: Int
+        public let span: Int
     }
 
-    static func aggregate(peaks: [Float], first: Int, last: Int,
-                          maxBars: Int) -> [Bar] {
+    public static func aggregate(peaks: [Float], first: Int, last: Int,
+                                 maxBars: Int) -> [Bar] {
         guard !peaks.isEmpty, last >= first, maxBars > 0,
               first >= 0, last < peaks.count else { return [] }
         let count = last - first + 1
