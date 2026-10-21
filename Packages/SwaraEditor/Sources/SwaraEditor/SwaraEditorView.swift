@@ -13,10 +13,14 @@ import UIKit
 /// phrase as it was when the editor opened.
 public struct SwaraEditorView: View {
     @ObservedObject public var model: SwaraEditorModel
-    /// The player as a plain value: the chip strip observes it in a
-    /// leaf (LivePhraseChipsView), so this screen no longer
-    /// re-renders on every chip pulse.
+    /// The player as a plain value: the chip strip listens
+    /// through a PlaybackGate (LivePhraseChipsView), so this
+    /// screen no longer re-renders on every chip pulse.
     private let player: PhraseAdapter
+    /// The gate's visibility: the editor is the top screen
+    /// while it lives, so only the scene phase gates it
+    /// (v1.5.29 — subscribe only when required).
+    @Environment(\.scenePhase) private var scenePhase
     public var title: String
     public var onBrowseRaga: (() -> Void)?
     public var onClose: () -> Void
@@ -247,6 +251,7 @@ public struct SwaraEditorView: View {
                 player: player.player,
                 chips: model.phrase.chips,
                 contextKey: model.contextKey,
+                visible: scenePhase == .active,
                 onTapChip: { model.openEditPicker(index: $0) },
                 onTapAdd: { model.openAppendPicker() })
             HStack {
