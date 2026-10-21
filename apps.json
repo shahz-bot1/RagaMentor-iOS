@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.30",
-      "versionDate": "2026-10-21T18:10:00Z",
-      "versionDescription": "v1.5.30 \u2014 Waveform fix: the aggregated bars were drawn far wider than their slots, so the wave rendered as a solid block at full-song zoom. Bars now take their true slot widths and the wave shape is back.",
+      "version": "1.5.31",
+      "versionDate": "2026-10-21T19:55:00Z",
+      "versionDescription": "v1.5.31 \u2014 Loop timing fix: loop passes are now kept queued three deep on the player, so repetitions play sample-exactly back to back. A late scheduling callback can no longer leave a gap at the seam, and the playhead stays locked to the audible loop over any number of repeats.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.30",
-          "date": "2026-10-21T18:10:00Z",
+          "version": "1.5.31",
+          "date": "2026-10-21T19:55:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
