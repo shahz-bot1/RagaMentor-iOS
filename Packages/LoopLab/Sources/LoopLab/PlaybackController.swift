@@ -13,13 +13,36 @@ import UIKit
 
 // LoopLab feature (PARITY-PLAN §3.1): the playback view model.
 // Single source of truth for playback state (PLAN §5): transport,
-// speed, current song, playhead position (~20 Hz publish).
+// speed, current song, playhead position.
+
+/// The playhead's own publish stream (~20 Hz while playing),
+/// split off the controller (v1.5.27, his scroll-jank report):
+/// when `position` was a controller @Published, EVERY view
+/// holding the controller — the loops list, the selected-loop
+/// card, the transport — rebuilt its body on every tick,
+/// although none of them reads the position. The loops list is
+/// the scroll content of the detail page, so scrolling during
+/// playback stuttered. Now only the waveform leaf observes this
+/// clock; the controller keeps `position` as a plain value and
+/// mirrors it here.
+public final class PlayheadClock: ObservableObject {
+    @Published public private(set) var position: Double = 0
+    public init() {}
+    public func update(_ newPosition: Double) { position = newPosition }
+}
 
 @MainActor
 public final class PlaybackController: ObservableObject {
     @Published public private(set) var currentSong: Song?
     @Published public private(set) var isPlaying = false
-    @Published public private(set) var position: Double = 0
+    /// The playhead position as a plain value (always current —
+    /// actions read it at tap time). Views that must MOVE with
+    /// it observe `playhead` instead; see PlayheadClock.
+    public private(set) var position: Double = 0 {
+        didSet { playhead.update(position) }
+    }
+    /// The 20 Hz playhead stream for the waveform leaf.
+    public let playhead = PlayheadClock()
     @Published public var speed: Float = 1.0 {
         didSet {
             engine.rate = speed
