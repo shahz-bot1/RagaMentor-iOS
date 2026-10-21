@@ -232,3 +232,41 @@ final class AudioKitTests: XCTestCase {
         XCTAssertEqual(Double(rendered.frameLength) / 8000, 1.2, accuracy: 0.01)
     }
 }
+
+extension AudioKitTests {
+    /// The realtime loop queue (v1.5.31): a 0.4 s loop played
+    /// for ~2.2 s of wall time must keep wrapping inside its
+    /// segment — the reported position never escapes, never
+    /// stalls, and wraps repeatedly. Seam sample-exactness is
+    /// by construction (queued segments play back to back);
+    /// this guards the mechanics: the queue stays alive and
+    /// the modulo position stays glued to the segment.
+    func testRealtimeLoopStaysInSegmentAndWraps() async throws {
+        let url = try makeSineFile(segments: [(440, 1.0)])
+        defer { try? FileManager.default.removeItem(at: url) }
+        let engine = AudioEngine()
+        try engine.load(url: url)
+        engine.setLoop(start: 0.2, end: 0.6)
+        engine.play(from: 0.2)
+        defer { engine.stop() }
+
+        var samples: [Double] = []
+        let deadline = Date().addingTimeInterval(2.2)
+        while Date() < deadline {
+            if let p = engine.currentPosition() { samples.append(p) }
+            try await Task.sleep(nanoseconds: 40_000_000)
+        }
+        XCTAssertGreaterThan(samples.count, 30,
+                             "position must keep reporting during loop playback")
+        for p in samples {
+            XCTAssertTrue(p >= 0.19 && p <= 0.61,
+                          "position escaped the loop segment: \(p)")
+        }
+        var wraps = 0
+        for (a, b) in zip(samples, samples.dropFirst()) where a - b > 0.2 {
+            wraps += 1
+        }
+        XCTAssertGreaterThanOrEqual(wraps, 3,
+                                    "expected several clean wraps, got \(wraps)")
+    }
+}
