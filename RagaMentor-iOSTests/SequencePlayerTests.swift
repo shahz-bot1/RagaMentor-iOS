@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 import AVFoundation
 import RagaCore
 import AudioKit
@@ -409,5 +410,40 @@ final class SequencePlayerTests: XCTestCase {
             object: AVAudioSession.sharedInstance())
         let stopped = await poll(until: { player.state == .idle })
         XCTAssertTrue(stopped)
+    }
+}
+
+extension SequencePlayerTests {
+    /// The elapsed-publish guard (v1.5.28): while a pass plays
+    /// with a STABLE highlight index, the player must publish
+    /// nothing at all. `elapsed` used to be @Published and the
+    /// 20 ms ticker fired it ~50×/s, rebuilding every player
+    /// observer — the Compose / swara scroll jank.
+    func testTickerPublishesNothingWhileIndexIsStable() async {
+        let tone = FakeTone()
+        let player = await MainActor.run { SequencePlayer(tone: tone) }
+        let timeline = Timeline(
+            notes: [TimelineNote(semitone: 0, start: 0, duration: 3.5, highlight: 0)],
+            passDuration: 3.5, highlightCount: 1,
+            highlightStarts: [0], leadIn: 0.1)
+        await MainActor.run {
+            player.play(timeline: timeline, policy: NoLoopPolicy(),
+                        contextKey: "test")
+        }
+        let playing = await poll(until: {
+            player.state == .playing && player.currentIndex == 0
+        })
+        XCTAssertTrue(playing, "the pass never reached steady play")
+
+        var publishCount = 0
+        let cancellable = await MainActor.run { () -> AnyCancellable in
+            player.objectWillChange.sink { publishCount += 1 }
+        }
+        try? await Task.sleep(nanoseconds: 400_000_000)
+        let fired = await MainActor.run { publishCount }
+        XCTAssertEqual(fired, 0,
+                       "the ticker published \(fired)× in 0.4 s of steady play — a per-tick published value is back")
+        _ = cancellable
+        await MainActor.run { player.stop() }
     }
 }
