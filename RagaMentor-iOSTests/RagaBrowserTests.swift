@@ -202,9 +202,12 @@ final class RagaBrowserLayoutTests: XCTestCase {
         var firstCellTop: CGFloat?
         func walk(_ v: UIView) {
             let rect = v.convert(v.bounds, to: window)
+            // The rail is the header's only short, wide scroll
+            // view. Do NOT require content overflow: with three
+            // short chips the content can fit its bounds exactly
+            // (the first version of this finder missed it so).
             if let scroller = v as? UIScrollView,
-               scroller.contentSize.width > scroller.bounds.width + 1,
-               scroller.bounds.height < 80 {
+               scroller.bounds.height < 80, scroller.bounds.width > 200 {
                 railBottom = max(railBottom ?? 0, rect.maxY)
             }
             if String(describing: type(of: v)).contains("Cell"),
