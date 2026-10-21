@@ -5,8 +5,10 @@ import RagaCore
 // Audio engine per PLAN §7.
 // Graph: AVAudioPlayerNode -> AVAudioUnitTimePitch -> mainMixer -> output.
 // M1: full-file playback, seek, live rate change, position reporting.
-// M2: gapless segment looping — the loop segment is re-scheduled from its
-// .dataPlayedBack completion while loop mode stays on (PLAN §7).
+// M2: gapless segment looping (PLAN §7) — since v1.5.31 the loop
+// passes are kept queued several deep and each completion tops
+// the queue up, instead of one pass being scheduled from the
+// previous pass's completion (see scheduleLoopSegment).
 
 public final class AudioEngine: FilePlaybackEngine {
     private let engine = AVAudioEngine()
@@ -30,6 +32,10 @@ public final class AudioEngine: FilePlaybackEngine {
     /// Bumped on every stop/mode change so stale segment completions
     /// never reschedule (LoopMath.shouldReschedule).
     private var generation = 0
+    /// Loop passes kept queued on the node in realtime playback
+    /// (v1.5.31). Three deep means a completion must arrive more
+    /// than two whole passes late before the queue could starve.
+    private static let loopPassQueueDepth = 3
 
     private var sessionConfigured = false
 
@@ -141,7 +147,12 @@ public final class AudioEngine: FilePlaybackEngine {
                     scheduleSegmentPass(startFrame: loopStartFrame)
                 }
             } else {
+                // Fill the realtime queue to depth: the entry
+                // pass plus full passes queued behind it.
                 scheduleLoopSegment(generation: generation, firstPass: true)
+                for _ in 1..<Self.loopPassQueueDepth {
+                    scheduleLoopSegment(generation: generation)
+                }
             }
         } else {
             let startFrame = TimeMath.frames(forSeconds: max(0, seconds), sampleRate: sampleRate)
@@ -168,9 +179,20 @@ public final class AudioEngine: FilePlaybackEngine {
                                    at: nil)
     }
 
-    /// Schedule one pass of the loop segment; its completion schedules the
-    /// next pass while loop mode and generation still match (gapless).
-    /// The first pass may start mid-segment (loopEntryFrame).
+    /// Schedule one pass of the loop segment, keeping the
+    /// realtime queue loopPassQueueDepth deep (v1.5.31): the
+    /// initial fill queues that many passes, and each pass's
+    /// completion schedules exactly one replacement, so the
+    /// depth is invariant while the loop runs. Queued segments
+    /// play sample-exactly back to back, so a seam can no longer
+    /// gap when a completion lands late — the failure this
+    /// replaces, where the next pass was scheduled only after
+    /// the previous one ended: the sample clock kept counting
+    /// through the gap while the audio restarted late, and the
+    /// playhead (modulo position over the clock) drifted
+    /// further from the audible loop at every late seam (his
+    /// report, 2026-10-21). The first pass may start
+    /// mid-segment (loopEntryFrame).
     private func scheduleLoopSegment(generation gen: Int, firstPass: Bool = false) {
         guard let file = loadedFile, loopFrameCount > 0 else { return }
         let startFrame = firstPass ? loopEntryFrame : loopStartFrame
