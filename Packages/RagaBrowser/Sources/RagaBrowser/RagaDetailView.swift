@@ -25,6 +25,12 @@ struct RagaDetailView: View {
     /// Page visibility for the playback gates (v1.5.29:
     /// subscribe only when required).
     @State private var pageVisible = false
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// What the gates receive: on screen AND foreground.
+    private var gateVisible: Bool {
+        pageVisible && scenePhase == .active
+    }
 
     private enum Notation: Hashable { case carnatic, hindustani }
 
@@ -55,7 +61,7 @@ struct RagaDetailView: View {
                 RagaListenSection(raga: raga, adapter: adapter, player: adapter.player,
                                   hindustaniLabels: notation == .hindustani,
                                   onPlayStart: onPlayStart,
-                                  visible: pageVisible)
+                                  visible: gateVisible)
                 alliedCard
                 lakshanaCard
             }
@@ -95,7 +101,7 @@ struct RagaDetailView: View {
                 RagaSwaraRows(player: adapter.player,
                               aro: raga.aro.map(display),
                               ava: raga.ava.map(display),
-                              visible: pageVisible)
+                              visible: gateVisible)
             }
         }
     }
