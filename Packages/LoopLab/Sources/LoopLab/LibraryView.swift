@@ -74,7 +74,7 @@ public struct LibraryView: View {
                 }
             }
         }
-        .navigationTitle("RagaMentor")
+        .navigationTitle("LoopLab Studio")
         .navigationDestination(for: Song.self) { song in
             SongDetailView(song: song, onEditSwaras: { editorSession = $0 })
                 .onAppear {
