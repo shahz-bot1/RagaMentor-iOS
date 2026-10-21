@@ -22,6 +22,9 @@ struct RagaDetailView: View {
 
     @State private var notation: Notation
     @State private var isFavourite: Bool
+    /// Page visibility for the playback gates (v1.5.29:
+    /// subscribe only when required).
+    @State private var pageVisible = false
 
     private enum Notation: Hashable { case carnatic, hindustani }
 
@@ -51,7 +54,8 @@ struct RagaDetailView: View {
                 scaleCard
                 RagaListenSection(raga: raga, adapter: adapter, player: adapter.player,
                                   hindustaniLabels: notation == .hindustani,
-                                  onPlayStart: onPlayStart)
+                                  onPlayStart: onPlayStart,
+                                  visible: pageVisible)
                 alliedCard
                 lakshanaCard
             }
@@ -60,6 +64,8 @@ struct RagaDetailView: View {
         .background(Studio.bg.ignoresSafeArea())
         .navigationTitle(raga.name)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { pageVisible = true }
+        .onDisappear { pageVisible = false }
     }
 
     // MARK: - Cards
@@ -88,7 +94,8 @@ struct RagaDetailView: View {
                                 selection: $notation)
                 RagaSwaraRows(player: adapter.player,
                               aro: raga.aro.map(display),
-                              ava: raga.ava.map(display))
+                              ava: raga.ava.map(display),
+                              visible: pageVisible)
             }
         }
     }
@@ -173,29 +180,29 @@ private struct StudioChipLabel: View {
 
 /// The scale as two Varisai-style group rows — one group per
 /// direction, each swara its own cell (v1.5.9, the web raga
-/// page's highlighted swara rows in the Varisai form). A leaf:
-/// it alone observes the player, so the detail page does not
-/// re-render per note — the Listen section's isolation rule,
-/// applied to the scale card. The rows map 1:1 onto the
-/// playback walk (arohana cells are walk indices
-/// 0..<aro.count, avarohana cells follow), the same index the
-/// piano highlight uses, so cell and piano light together.
+/// page's highlighted swara rows in the Varisai form). Behind a
+/// PlaybackGate (v1.5.29 — subscribe only when required): the
+/// rows re-render only while a scale plays on this visible
+/// page. The rows map 1:1 onto the playback walk (arohana
+/// cells are walk indices 0..<aro.count, avarohana cells
+/// follow), the same index the piano highlight uses, so cell
+/// and piano light together.
 private struct RagaSwaraRows: View {
-    @ObservedObject var player: SequencePlayer
+    let player: SequencePlayer
     let aro: [String]
     let ava: [String]
+    var visible: Bool = true
 
     var body: some View {
-        // Scoped to the scale session (v1.5.18): another studio's
-        // pass must not highlight these rows.
-        let current = player.contextKey == ScaleAdapter.contextKey
-            ? player.currentIndex : -1
-        return VStack(alignment: .leading, spacing: 6) {
-            rowLabel("Arohana · ascending")
-            SwaraGroupRow(labels: aro, currentIndex: current)
-            rowLabel("Avarohana · descending")
-                .padding(.top, 4)
-            SwaraGroupRow(labels: ava, currentIndex: current - aro.count)
+        PlaybackGate(player: player, contextKey: ScaleAdapter.contextKey,
+                     visible: visible) { _, current in
+            VStack(alignment: .leading, spacing: 6) {
+                rowLabel("Arohana · ascending")
+                SwaraGroupRow(labels: aro, currentIndex: current)
+                rowLabel("Avarohana · descending")
+                    .padding(.top, 4)
+                SwaraGroupRow(labels: ava, currentIndex: current - aro.count)
+            }
         }
     }
 
