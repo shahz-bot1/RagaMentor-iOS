@@ -42,6 +42,8 @@ struct VarisaiLessonView: View {
     /// margins), so the scroll content can clear it. The estimate
     /// is replaced by the real height on first layout.
     @State private var cardHeight: CGFloat = 225
+    /// Page visibility for the grid's gate (v1.5.29).
+    @State private var pageVisible = false
     /// Cross-studio audio focus registration (P6).
     @EnvironmentObject private var audioFocus: StudioAudioFocus
     @State private var focusToken: UUID?
@@ -61,8 +63,13 @@ struct VarisaiLessonView: View {
                     patternRow
                     metaLine
                     layaSection
-                    VarisaiGridView(player: adapter.player, lines: indexedLines,
-                                    full: labels == "full")
+                    PlaybackGate(player: adapter.player,
+                                 contextKey: VarisaiAdapter.contextKey,
+                                 visible: pageVisible) { _, index in
+                        VarisaiGridView(lines: indexedLines,
+                                        full: labels == "full",
+                                        current: index)
+                    }
                 }
                 .padding(16)
                 // Clear the floating playback card: the swaras
@@ -78,10 +85,12 @@ struct VarisaiLessonView: View {
         .onAppear {
             focusToken = audioFocus.register { adapter.stop() }
             rebuildLines()
+            pageVisible = true
         }
         .onDisappear {
             adapter.stop()
             if let focusToken { audioFocus.unregister(focusToken) }
+            pageVisible = false
         }
         .onChange(of: loopOn) { _, newValue in
             // The policy reads the toggle live at the loop seam.
@@ -354,26 +363,25 @@ struct VarisaiLessonView: View {
     }
 }
 
-/// The notation grid, isolated from the lesson screen: it alone
-/// observes the player's per-token highlight, so a highlight tick
-/// re-renders only the grid — the header's pattern menu and the
-/// controls stay untouched while playing (they used to rebuild on
-/// every tick, which starved the highlight and flickered the menu).
+/// The notation grid: a pure function of its lines and the
+/// current token index. It used to observe the player itself;
+/// the PlaybackGate at the call site owns that subscription now
+/// (v1.5.29 — subscribe only when required), so the grid
+/// re-renders only while its own lesson plays on this visible
+/// screen — the header's pattern menu and the controls stay
+/// untouched while playing, as before.
 ///
 /// Layout is the web's flex model exactly: each line fills the
 /// container width; a group takes a share proportional to its
 /// token count, so EVERY token cell on a line has the same width —
 /// (container − gaps) / tokens in the line.
 struct VarisaiGridView: View {
-    @ObservedObject var player: SequencePlayer
     let lines: [[[(token: String, index: Int)]]]
     let full: Bool
+    /// The highlighted token index, -1 when no pass is live.
+    let current: Int
 
     var body: some View {
-        // Scoped to this studio's session (v1.5.18): another
-        // studio's pass must not highlight these tokens.
-        let current = player.isPlaying(contextKey: VarisaiAdapter.contextKey)
-            ? player.currentIndex : -1
         VStack(alignment: .leading, spacing: 10) {
             ForEach(lines.indices, id: \.self) { lineIndex in
                 lineView(lines[lineIndex], current: current)
