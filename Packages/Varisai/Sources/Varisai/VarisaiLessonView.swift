@@ -44,6 +44,7 @@ struct VarisaiLessonView: View {
     @State private var cardHeight: CGFloat = 225
     /// Page visibility for the grid's gate (v1.5.29).
     @State private var pageVisible = false
+    @Environment(\.scenePhase) private var scenePhase
     /// Cross-studio audio focus registration (P6).
     @EnvironmentObject private var audioFocus: StudioAudioFocus
     @State private var focusToken: UUID?
@@ -65,7 +66,7 @@ struct VarisaiLessonView: View {
                     layaSection
                     PlaybackGate(player: adapter.player,
                                  contextKey: VarisaiAdapter.contextKey,
-                                 visible: pageVisible) { _, index in
+                                 visible: pageVisible && scenePhase == .active) { _, index in
                         VarisaiGridView(lines: indexedLines,
                                         full: labels == "full",
                                         current: index)
