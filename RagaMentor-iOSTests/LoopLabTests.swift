@@ -157,6 +157,80 @@ final class PlaybackFunnelTests: XCTestCase {
         XCTAssertEqual(controller.zoomRequest?.start, 0.1)
         XCTAssertEqual(controller.zoomRequest?.end, 0.8)
     }
+
+    // MARK: Loop-state restore on page re-entry (v1.5.32)
+    //
+    // Playback and the selection live in the controller and
+    // survive the song page; the page's fitted window does not.
+    // On re-entry the page asks for a replay of the armed
+    // range's zoom so it comes back fitted to the still-playing
+    // loop/group (his report).
+
+    func testReplayArmedZoomReissuesForArmedLoop() throws {
+        let (controller, song, loop) = try makeScene()
+        controller.selectLoop(loop, context: ModelContext(container))
+        let first = try XCTUnwrap(controller.zoomRequest)
+        controller.replayArmedZoom(for: song.id)
+        let replayed = try XCTUnwrap(controller.zoomRequest)
+        XCTAssertNotEqual(replayed.id, first.id,
+                          "the replay must be a fresh request")
+        XCTAssertEqual(replayed.start, 0.1)
+        XCTAssertEqual(replayed.end, 0.8)
+    }
+
+    func testReplayArmedZoomReissuesForArmedGroup() throws {
+        let (controller, song, loop) = try makeScene()
+        let context = ModelContext(container)
+        let group = LoopGroup(name: "Group 1", memberIDs: [loop.id], song: song)
+        song.groups = [group]
+        context.insert(group)
+        try context.save()
+        controller.selectGroup(group, context: context)
+        let first = try XCTUnwrap(controller.zoomRequest)
+        controller.replayArmedZoom(for: song.id)
+        let replayed = try XCTUnwrap(controller.zoomRequest)
+        XCTAssertNotEqual(replayed.id, first.id)
+        XCTAssertEqual(replayed.start, 0.1)
+        XCTAssertEqual(replayed.end, 0.8)
+    }
+
+    func testReplayArmedZoomNoOpsWithoutArmedSelection() throws {
+        let (controller, song, loop) = try makeScene()
+        // Nothing selected yet: no request at all.
+        XCTAssertNil(controller.zoomRequest)
+        controller.replayArmedZoom(for: song.id)
+        XCTAssertNil(controller.zoomRequest)
+        // Armed, then disarmed: the replay must not resurrect
+        // a fit for a selection that is gone.
+        controller.selectLoop(loop, context: ModelContext(container))
+        let armed = try XCTUnwrap(controller.zoomRequest)
+        controller.clearLoopSelection()
+        controller.replayArmedZoom(for: song.id)
+        XCTAssertEqual(controller.zoomRequest?.id, armed.id)
+    }
+
+    func testReplayArmedZoomIgnoresOtherSongs() throws {
+        let (controller, _, loop) = try makeScene()
+        controller.selectLoop(loop, context: ModelContext(container))
+        let armed = try XCTUnwrap(controller.zoomRequest)
+        controller.replayArmedZoom(for: UUID())
+        XCTAssertEqual(controller.zoomRequest?.id, armed.id,
+                       "a different song's page must not fit to this range")
+    }
+
+    func testOpenZoomsToRememberedLoop() throws {
+        let (controller, song, loop) = try makeScene()
+        controller.selectLoop(loop, context: ModelContext(container))
+        // A fresh controller opening the same song restores the
+        // remembered loop AND fits the waveform to it.
+        let reopened = PlaybackController(
+            sequencePlayer: SequencePlayer(tone: NullTone()))
+        reopened.open(song)
+        XCTAssertEqual(reopened.selectedLoopID, loop.id)
+        XCTAssertTrue(reopened.loopOn)
+        XCTAssertEqual(reopened.zoomRequest?.start, 0.1)
+        XCTAssertEqual(reopened.zoomRequest?.end, 0.8)
+    }
 }
 
 // MARK: - Waveform fit-on-select (v1.5.12)
