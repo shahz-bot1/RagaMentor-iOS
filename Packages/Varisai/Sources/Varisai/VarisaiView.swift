@@ -37,7 +37,9 @@ public struct VarisaiView: View {
             }
             .studioList()
             .navigationTitle("Varisai Studio")
-            .navigationBarTitleDisplayMode(.inline)
+            // Large title, matching the other studio homes
+            // (v1.5.34 — his consistency pass).
+            .navigationBarTitleDisplayMode(.large)
         }
     }
 }
