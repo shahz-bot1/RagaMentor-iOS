@@ -31,6 +31,10 @@ struct LoopsView: View {
     /// The group currently drilled into (web's fsGroupView); nil =
     /// the top level.
     @State private var openGroupID: UUID?
+    /// Page visibility for the chip strip's gate (v1.5.29:
+    /// subscribe only when required — the strip listens only
+    /// while this page is on screen).
+    @State private var pageVisible = false
     @State private var editingGroup: LoopGroup?
     /// True while the group sheet serves a just-created group
     /// (the web's new-group checklist: level-constrained
@@ -46,7 +50,8 @@ struct LoopsView: View {
                     SelectedLoopBar(song: song, loop: loop)
                 }
                 StudioCard {
-                    SwarasSectionView(player: controller.phraseAdapter, song: song) { loop in
+                    SwarasSectionView(player: controller.phraseAdapter, song: song,
+                                      visible: pageVisible) { loop in
                         // Build the model ONCE, here in the action — never
                         // inside a presentation closure (v0.8.0 bug) —
                         // and hand the session to the host, which owns
@@ -59,7 +64,11 @@ struct LoopsView: View {
         .padding(16)
         // Returning to this tab without creating a loop drops a
         // stale join target (createLoop consumes a live one).
-        .onAppear { controller.pendingLoopGroupID = nil }
+        .onAppear {
+            controller.pendingLoopGroupID = nil
+            pageVisible = true
+        }
+        .onDisappear { pageVisible = false }
         .sheet(item: $editingGroup) { group in
             GroupEditorView(song: song, group: group, isNewGroup: editingIsNew)
                 .environmentObject(controller)
