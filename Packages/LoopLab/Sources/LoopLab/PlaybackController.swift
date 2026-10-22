@@ -626,6 +626,19 @@ public final class PlaybackController: ObservableObject {
                                 song: song)
         song.loops.append(second)
         resortLoops(song)
+        // The second piece stays at the original's level: when
+        // the loop belongs to a group, the new piece joins the
+        // same group (his report: splits from inside a group
+        // landed at the outermost level). Membership sorts by
+        // span, so it lands right after the original.
+        var data = groupData(song)
+        var membershipChanged = false
+        for i in data.indices where data[i].memberIDs.contains(loop.id) {
+            data[i].memberIDs = GroupOps.sortedMemberIDs(
+                data[i].memberIDs + [second.id], groups: data, spans: spans(song))
+            membershipChanged = true
+        }
+        if membershipChanged { applyGroupData(data, to: song, context: context) }
         if selectedLoopID == loop.id && loopOn {
             engine.setLoop(start: loop.start, end: loop.end)
         }
