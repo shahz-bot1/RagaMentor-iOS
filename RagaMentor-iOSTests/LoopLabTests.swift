@@ -158,6 +158,47 @@ final class PlaybackFunnelTests: XCTestCase {
         XCTAssertEqual(controller.zoomRequest?.end, 0.8)
     }
 
+    // MARK: Split keeps the original's level (his report)
+    //
+    // Splitting a loop from inside a group put the new piece at
+    // the outermost level. The second piece must join the
+    // original's group, right after it; a top-level split must
+    // stay ungrouped.
+
+    func testSplitInsideGroupKeepsSecondPieceInGroup() throws {
+        let (controller, song, loop) = try makeScene()
+        let context = ModelContext(container)
+        let group = LoopGroup(name: "Group 1", memberIDs: [loop.id], song: song)
+        song.groups = [group]
+        context.insert(group)
+        try context.save()
+
+        controller.seek(to: 0.45)
+        XCTAssertTrue(waitFor { abs(controller.position - 0.45) < 0.05 },
+                      "the playhead did not reach the split point")
+        controller.splitLoop(loop, context: context)
+
+        XCTAssertEqual(song.loops.count, 2)
+        let second = try XCTUnwrap(song.loops.first { $0.id != loop.id })
+        let members = controller.groupData(song).first { $0.id == group.id }?.memberIDs
+        XCTAssertEqual(members, [loop.id, second.id],
+                       "the split piece must stay in the group, after the original")
+        XCTAssertEqual(loop.end, 0.45, accuracy: 0.05)
+        XCTAssertEqual(second.start, loop.end)
+    }
+
+    func testSplitAtTopLevelStaysUngrouped() throws {
+        let (controller, song, loop) = try makeScene()
+        let context = ModelContext(container)
+        controller.seek(to: 0.45)
+        XCTAssertTrue(waitFor { abs(controller.position - 0.45) < 0.05 },
+                      "the playhead did not reach the split point")
+        controller.splitLoop(loop, context: context)
+        XCTAssertEqual(song.loops.count, 2)
+        XCTAssertTrue(controller.groupData(song).isEmpty,
+                      "a top-level split must not invent a group")
+    }
+
     // MARK: Loop-state restore on page re-entry (v1.5.32)
     //
     // Playback and the selection live in the controller and
