@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.35",
-      "versionDate": "2026-10-21T22:40:00Z",
-      "versionDescription": "v1.5.35 \u2014 Transport response at slow speeds: an output gate now sits after the pitch unit. Pause, stop and restart mute the output within ~10 ms, so the stretched tail the pitch unit holds no longer plays on after you tap \u2014 pause and the loop-name restart feel instant even at 0.25x.",
+      "version": "1.5.36",
+      "versionDate": "2026-10-22T09:15:00Z",
+      "versionDescription": "v1.5.36 \u2014 Splitting a loop from inside a group now keeps the new piece in that group, beside the original loop, instead of dropping it at the outermost level. Splits at the top level stay ungrouped, as before.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.35",
-          "date": "2026-10-21T22:40:00Z",
+          "version": "1.5.36",
+          "date": "2026-10-22T09:15:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
