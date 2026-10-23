@@ -152,6 +152,26 @@ struct LoopsView: View {
         song.groups.contains { $0.memberIDs.contains(group.id) }
     }
 
+    /// The group that lists the open group as a member, if any.
+    private var parentOfOpenGroup: LoopGroup? {
+        guard let group = openGroup,
+              let parentID = GroupOps.parentMap(groups: controller.groupData(song))[group.id]
+        else { return nil }
+        return song.groups.first { $0.id == parentID }
+    }
+
+    /// Back steps UP one level (his report: it jumped straight
+    /// to the outermost level from any depth): from a subgroup
+    /// to its parent group, and only from a top-level group to
+    /// All. The chip names where it lands.
+    private func stepUpOneLevel() {
+        openGroupID = parentOfOpenGroup?.id
+    }
+
+    private var backTitle: String {
+        parentOfOpenGroup.map { "‹ \($0.name)" } ?? "‹ All"
+    }
+
     private enum ChipItem: Identifiable {
         case back
         case tree(TreeItem)
@@ -195,7 +215,7 @@ struct LoopsView: View {
             FlowStack(items: items, spacing: 8, rowSpacing: 8) { item in
                 switch item {
                 case .back:
-                    chipButton(title: "‹ All", dashed: false) { openGroupID = nil }
+                    chipButton(title: backTitle, dashed: false) { stepUpOneLevel() }
                 case .tree(.loop(let loop)):
                     loopChip(loop)
                 case .tree(.group(let group)):
