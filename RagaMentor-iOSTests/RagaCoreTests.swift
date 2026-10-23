@@ -138,6 +138,26 @@ final class RagaCoreTests: XCTestCase {
                                              playedFrames: 250, sampleRate: sr))
     }
 
+    /// The drill Back step (v1.5.37): the loops page steps up
+    /// through parentMap — a subgroup's step-up target is its
+    /// containing group; a top-level group has no parent, so
+    /// Back from there lands on All.
+    func testParentMapGivesTheStepUpParent() {
+        let l1 = UUID(), l2 = UUID()
+        let outer = UUID(), inner = UUID()
+        let groups = [
+            GroupData(id: outer, memberIDs: [l1, inner]),
+            GroupData(id: inner, memberIDs: [l2]),
+        ]
+        let parents = GroupOps.parentMap(groups: groups)
+        XCTAssertEqual(parents[inner], outer,
+                       "Back from a subgroup must land on its parent group")
+        XCTAssertNil(parents[outer],
+                     "a top-level group has no parent: Back lands on All")
+        XCTAssertEqual(parents[l1], outer)
+        XCTAssertEqual(parents[l2], inner)
+    }
+
     func testGroupOpsDescendantsAndEmpty() {
         let l1 = UUID(), l2 = UUID(), l3 = UUID()
         let g1 = UUID(), g2 = UUID(), g3 = UUID()
