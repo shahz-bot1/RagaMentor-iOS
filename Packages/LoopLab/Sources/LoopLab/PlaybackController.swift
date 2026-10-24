@@ -203,8 +203,20 @@ public final class PlaybackController: ObservableObject {
     /// can appear before open() runs — never fits to the
     /// previous song's range.
     public func replayArmedZoom(for songID: UUID) {
-        guard currentSong?.id == songID, let range = armedLoopRange else { return }
+        guard let range = armedRange(for: songID) else { return }
         requestZoom(from: range.start, to: range.end)
+    }
+
+    /// The armed loop/group range to fit for a page showing
+    /// `songID` — nil when that song is not the current one or
+    /// nothing is armed. The waveform area reads this directly
+    /// when it (re)appears (v1.5.40): the zoom-request
+    /// round-trip raced the area's appearance reset and the
+    /// restored fit was lost on device, so the area now lands
+    /// fitted from this value, deterministically.
+    public func armedRange(for songID: UUID) -> (start: Double, end: Double)? {
+        guard currentSong?.id == songID else { return nil }
+        return armedLoopRange
     }
 
     private var remoteCommandsInstalled = false
