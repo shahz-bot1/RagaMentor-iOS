@@ -14,7 +14,11 @@ public struct LibraryView: View {
     public init() {}
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var controller: PlaybackController
-    @Query(sort: \Song.dateAdded, order: .reverse) private var songs: [Song]
+    // Last-updated first (v1.5.39): a song rises when its
+    // content is edited; dateAdded breaks ties, so untouched
+    // songs keep the old newest-added-first order.
+    @Query(sort: [SortDescriptor(\Song.updatedAt, order: .reverse),
+                  SortDescriptor(\Song.dateAdded, order: .reverse)]) private var songs: [Song]
     @State private var showImporter = false
     @State private var showSettings = false
     /// The navigation path: songs only. The swara editor is NOT
