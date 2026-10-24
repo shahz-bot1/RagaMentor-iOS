@@ -15,6 +15,14 @@ public final class Song {
     public var duration: Double
     public var sampleRate: Double
     public var dateAdded: Date
+    /// When the song's CONTENT last changed — a loop, group,
+    /// phrase, note, title or raga edit (v1.5.39). The library
+    /// sorts by it, newest first. Playback bookkeeping
+    /// (lastPosition, lastLoopID) never moves it. Rows from
+    /// before v1.5.39 migrate to the distant past and keep
+    /// their dateAdded order (the sort's tiebreak) until their
+    /// first edit.
+    public var updatedAt: Date = Date.distantPast
     public var lastPosition: Double
     public var lastLoopID: UUID?
     /// Per-song raga memory: the raga last used for this song's swara
@@ -30,6 +38,7 @@ public final class Song {
          duration: Double,
          sampleRate: Double,
          dateAdded: Date = Date(),
+         updatedAt: Date? = nil,
          lastPosition: Double = 0,
          lastLoopID: UUID? = nil,
          swRagaId: String? = nil,
@@ -42,6 +51,7 @@ public final class Song {
         self.duration = duration
         self.sampleRate = sampleRate
         self.dateAdded = dateAdded
+        self.updatedAt = updatedAt ?? dateAdded
         self.lastPosition = lastPosition
         self.lastLoopID = lastLoopID
         self.swRagaId = swRagaId
