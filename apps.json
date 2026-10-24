@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.37",
-      "versionDate": "2026-10-23T10:40:00Z",
-      "versionDescription": "v1.5.37 \u2014 In the loops list, the back chip now steps up one level: from inside a subgroup it returns to that group\u2019s parent (and names it), instead of jumping straight to the outermost level. From a top-level group it still goes to All.",
+      "version": "1.5.38",
+      "versionDate": "2026-10-23T16:21:00Z",
+      "versionDescription": "v1.5.38 \u2014 The group editor (Add loops / New group) now speaks the app\u2019s pill language instead of a system checklist: members are wrapping pills like the loops page \u2014 accent fill and a tick when chosen, the loop\u2019s range and current group kept as small text inside the pill, group candidates with their colour dot and count. The name field is a rounded panel field, and every rule (empty new group removes itself, Save arms the group) is unchanged.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.37",
-          "date": "2026-10-23T10:40:00Z",
+          "version": "1.5.38",
+          "date": "2026-10-23T16:21:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
