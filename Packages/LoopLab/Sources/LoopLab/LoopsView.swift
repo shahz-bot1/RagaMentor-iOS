@@ -455,10 +455,34 @@ struct SelectedLoopBar: View {
                     .focused($noteFocused)
                     .onChange(of: noteFocused) { _, focused in
                         if !focused {
-                            controller.setLoopNote(
-                                loop,
-                                to: noteDraft.trimmingCharacters(in: .whitespacesAndNewlines),
-                                context: modelContext)
+                            // Commit on focus loss (the web's
+                            // blur save) — but only a real change
+                            // writes, so a Cancel or a mere
+                            // tap-through never rewrites the note
+                            // (or re-stamps the song, v1.5.39).
+                            let trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed != loop.note {
+                                controller.setLoopNote(loop, to: trimmed,
+                                                       context: modelContext)
+                            }
+                        }
+                    }
+                    // The multiline keyboard has no return key
+                    // to finish with (his report): Done commits
+                    // via the focus-loss save above; Cancel puts
+                    // the saved note back before unfocusing, so
+                    // the save writes nothing.
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            if noteFocused {
+                                Button("Cancel") {
+                                    noteDraft = loop.note
+                                    noteFocused = false
+                                }
+                                Spacer()
+                                Button("Done") { noteFocused = false }
+                                    .fontWeight(.semibold)
+                            }
                         }
                     }
             }
