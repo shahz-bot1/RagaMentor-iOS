@@ -23,6 +23,10 @@ struct SongDetailView: View {
     var onEditSwaras: ((LoopsView.EditorSession) -> Void)? = nil
 
     @State private var tab: Tab = .loops
+    /// The note editor's floating-bar channel (v1.5.41): the
+    /// loops tab's note field registers here while it has focus;
+    /// this page renders the bar in its bottom inset.
+    @State private var noteSession = NoteEditSession()
 
     enum Tab: String, CaseIterable { case loops = "Loops", ab = "A–B", more = "More" }
 
@@ -51,7 +55,7 @@ struct SongDetailView: View {
                                 Group {
                                     switch tab {
                                     case .loops:
-                                        LoopsView(song: song) { tab = .ab }
+                                        LoopsView(song: song, noteSession: noteSession) { tab = .ab }
                                             onEditSwaras: { onEditSwaras?($0) }
                                     case .ab:
                                         ABTabView(song: song)
@@ -72,6 +76,25 @@ struct SongDetailView: View {
                     // default would cover the waveform behind
                     // it (v1.5.4).
                     .scrollContentBackground(.hidden)
+                    // Dragging the page puts the keyboard away
+                    // (v1.5.41): the note field's blur save
+                    // commits, like every other focus loss.
+                    .scrollDismissesKeyboard(.interactively)
+                }
+                // The note editor's floating action bar
+                // (v1.5.41): an app-drawn rounded container in
+                // the bottom inset, riding the keyboard, shown
+                // only while a loop note is being edited. It
+                // replaces the system keyboard accessory, whose
+                // square full-width container clashes with the
+                // keyboard's rounded floating slab (his report).
+                // The inset hangs off the ZStack — inside the
+                // geometry reader — so the waveform's measured
+                // height never jumps when the bar comes and goes.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if noteSession.isEditing {
+                        NoteEditBar(session: noteSession)
+                    }
                 }
             }
         }
@@ -94,6 +117,39 @@ struct SongDetailView: View {
         }
         .padding(.top, 10)
         .background(Studio.bg)
+    }
+}
+
+/// The floating Cancel/Done container shown above the keyboard
+/// while a loop note is edited (v1.5.41, his design): a rounded
+/// panel in the app's colours, inset like the keyboard's own
+/// floating slab. The actions arrive from the note field through
+/// the session — Done unfocuses (the field's blur save commits);
+/// Cancel restores the saved note first, so nothing writes.
+private struct NoteEditBar: View {
+    let session: NoteEditSession
+
+    var body: some View {
+        HStack {
+            Button("Cancel") { session.cancel?() }
+                .foregroundStyle(Studio.accent)
+            Spacer()
+            Button("Done") { session.done?() }
+                .fontWeight(.semibold)
+                .foregroundStyle(Studio.accent)
+        }
+        .font(.body)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(Studio.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Studio.border, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.35), radius: 12, x: 0, y: 4)
+        .padding(.horizontal, 12)
+        .padding(.top, 6)
+        .padding(.bottom, 10)
     }
 }
 
