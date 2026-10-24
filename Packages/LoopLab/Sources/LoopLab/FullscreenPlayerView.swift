@@ -569,7 +569,7 @@ struct MoreTabView: View {
                     StudioSectionTitle("Song")
                     TextField("Song title", text: Binding(
                         get: { song.title },
-                        set: { song.title = $0 }))
+                        set: { song.title = $0; song.updatedAt = Date() }))
                         .textFieldStyle(.roundedBorder)
                 }
             }
