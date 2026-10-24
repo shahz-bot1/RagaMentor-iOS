@@ -233,6 +233,16 @@ struct FullscreenWaveformArea: View {
                 window = WaveformWindow(duration: song.duration)
                 fittedRange = nil
                 peaks = await SongPeaks.peaks(for: song)
+                // Land fitted to the armed loop/group
+                // (v1.5.40): applied here, after the reset and
+                // inside the same task, so no ordering can lose
+                // it — the onAppear zoom replay raced this
+                // reset and the page came back at full-song
+                // zoom on device (his report).
+                if let range = controller.armedRange(for: song.id) {
+                    window = window.fitting(from: range.start, to: range.end)
+                    fittedRange = range
+                }
             }
             .onChange(of: controller.zoomRequest) {
                 // Fit-on-select (v1.5.12): a loop or group was
