@@ -19,6 +19,9 @@ struct LoopsView: View {
     /// other studios.
     @EnvironmentObject private var audioFocus: StudioAudioFocus
     let song: Song
+    /// The note editor's floating-bar channel, owned by the song
+    /// detail, which renders the bar (v1.5.41).
+    var noteSession: NoteEditSession = NoteEditSession()
     /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
     /// only the fullscreen host can switch tabs.
     var onRequestAB: (() -> Void)? = nil
@@ -48,7 +51,7 @@ struct LoopsView: View {
         VStack(spacing: 14) {
                 loopsChips
                 if let loop = controller.selectedLoop {
-                    SelectedLoopBar(song: song, loop: loop)
+                    SelectedLoopBar(song: song, noteSession: noteSession, loop: loop)
                 }
                 StudioCard {
                     SwarasSectionView(player: controller.phraseAdapter, song: song,
@@ -412,6 +415,23 @@ struct BackupDocument: Transferable {
     }
 }
 
+/// The floating note-edit bar's channel (v1.5.41): the note field
+/// lives deep in the page's scroll content, while its Cancel/Done
+/// bar must sit in the page's bottom safe-area inset, riding the
+/// keyboard. The song detail hosts the bar, reads `isEditing` and
+/// calls the actions the field registers while it has focus. The
+/// system's keyboard accessory container is a square full-width
+/// strip that clashes with the keyboard's rounded floating slab
+/// (his report), so the buttons moved into an app-drawn floating
+/// container instead.
+@MainActor
+@Observable
+final class NoteEditSession {
+    var isEditing = false
+    var cancel: (() -> Void)?
+    var done: (() -> Void)?
+}
+
 /// The selected loop's bar (web #fsSelRow + #fsNote): the name
 /// field with a delete button, and the note line under it. Edge
 /// editing lives on the A–B tab, as on web.
@@ -422,6 +442,9 @@ struct SelectedLoopBar: View {
     /// Jump to the A–B tab (the web's dashed ＋ New loop chip);
     /// only the fullscreen host can switch tabs.
     var onRequestAB: (() -> Void)? = nil
+    /// The floating-bar channel (v1.5.41): this field registers
+    /// its Cancel/Done here while it has focus.
+    var noteSession: NoteEditSession = NoteEditSession()
     let loop: LoopRegion
     @State private var nameDraft = ""
     @State private var noteDraft = ""
@@ -454,35 +477,24 @@ struct SelectedLoopBar: View {
                     .lineLimit(2...6)
                     .focused($noteFocused)
                     .onChange(of: noteFocused) { _, focused in
-                        if !focused {
-                            // Commit on focus loss (the web's
-                            // blur save) — but only a real change
-                            // writes, so a Cancel or a mere
-                            // tap-through never rewrites the note
-                            // (or re-stamps the song, v1.5.39).
-                            let trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmed != loop.note {
-                                controller.setLoopNote(loop, to: trimmed,
-                                                       context: modelContext)
+                        if focused {
+                            // Register with the page's floating
+                            // bar (v1.5.41): Done unfocuses and the
+                            // blur save below commits; Cancel puts
+                            // the saved note back BEFORE
+                            // unfocusing, so the save writes
+                            // nothing.
+                            noteSession.isEditing = true
+                            noteSession.cancel = {
+                                noteDraft = loop.note
+                                noteFocused = false
                             }
-                        }
-                    }
-                    // The multiline keyboard has no return key
-                    // to finish with (his report): Done commits
-                    // via the focus-loss save above; Cancel puts
-                    // the saved note back before unfocusing, so
-                    // the save writes nothing.
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            if noteFocused {
-                                Button("Cancel") {
-                                    noteDraft = loop.note
-                                    noteFocused = false
-                                }
-                                Spacer()
-                                Button("Done") { noteFocused = false }
-                                    .fontWeight(.semibold)
-                            }
+                            noteSession.done = { noteFocused = false }
+                        } else {
+                            noteSession.isEditing = false
+                            noteSession.cancel = nil
+                            noteSession.done = nil
+                            commitNote()
                         }
                     }
             }
@@ -494,6 +506,28 @@ struct SelectedLoopBar: View {
         .onChange(of: loop.id) {
             nameDraft = loop.name
             noteDraft = loop.note
+        }
+        .onDisappear {
+            // Leaving mid-edit (a tab switch, the loop deleted):
+            // a removed field may never fire its focus-loss
+            // handler, so commit here rather than lose the text,
+            // and lower the floating bar.
+            if noteFocused { commitNote() }
+            noteSession.isEditing = false
+            noteSession.cancel = nil
+            noteSession.done = nil
+        }
+    }
+
+    /// The web's blur save: trimmed, and only a real change
+    /// writes — a Cancel or a mere tap-through never rewrites
+    /// the note (or re-stamps the song, v1.5.39). A deleted loop
+    /// (modelContext gone) has nothing to save into.
+    private func commitNote() {
+        guard loop.modelContext != nil else { return }
+        let trimmed = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed != loop.note {
+            controller.setLoopNote(loop, to: trimmed, context: modelContext)
         }
     }
 }
