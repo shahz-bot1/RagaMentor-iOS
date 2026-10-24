@@ -444,6 +444,13 @@ public final class PlaybackController: ObservableObject {
     /// a creation.
     public var pendingLoopGroupID: UUID?
 
+    /// Stamp a content change (v1.5.39): the library orders by
+    /// Song.updatedAt, newest first. Only the editing
+    /// operations call this — playback, selection and position
+    /// memory never do, so merely listening never reorders
+    /// the list.
+    private func touch(_ song: Song) { song.updatedAt = Date() }
+
     /// Create a loop from two marks: normalises (auto-swap when B <= A,
     /// with a haptic — PLAN §12), names it, selects and arms it.
     @discardableResult
@@ -465,6 +472,7 @@ public final class PlaybackController: ObservableObject {
             }
         }
         selectLoop(loop, context: context, autoplay: isPlaying)
+        touch(song)
         try? context.save()
         return loop
     }
@@ -569,11 +577,13 @@ public final class PlaybackController: ObservableObject {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         loop.name = trimmed
+        if let song = loop.song { touch(song) }
         try? context.save()
     }
 
     public func setLoopNote(_ loop: LoopRegion, to note: String, context: ModelContext) {
         loop.note = note
+        if let song = loop.song { touch(song) }
         try? context.save()
     }
 
@@ -589,6 +599,7 @@ public final class PlaybackController: ObservableObject {
         if selectedLoopID == loop.id && loopOn {
             engine.setLoop(start: loop.start, end: loop.end)
         }
+        touch(song)
         try? context.save()
     }
 
@@ -608,6 +619,7 @@ public final class PlaybackController: ObservableObject {
         if selectedLoopID == loop.id && loopOn {
             engine.setLoop(start: loop.start, end: loop.end)
         }
+        touch(song)
         try? context.save()
     }
 
@@ -642,6 +654,7 @@ public final class PlaybackController: ObservableObject {
         if selectedLoopID == loop.id && loopOn {
             engine.setLoop(start: loop.start, end: loop.end)
         }
+        touch(song)
         try? context.save()
     }
 
@@ -662,6 +675,7 @@ public final class PlaybackController: ObservableObject {
             engine.setLoop(start: nil, end: nil)
         }
         resortLoops(song)
+        touch(song)
         try? context.save()
     }
 
@@ -781,6 +795,7 @@ public final class PlaybackController: ObservableObject {
         }
         applyGroupData(data, to: song, context: context)
         pruneEmptyGroups(song: song, context: context, keep: group.id)
+        touch(song)
         try? context.save()
     }
 
@@ -791,6 +806,7 @@ public final class PlaybackController: ObservableObject {
         context.delete(group)
         applyGroupData(data, to: song, context: context)
         pruneEmptyGroups(song: song, context: context)
+        touch(song)
         try? context.save()
     }
 
@@ -798,6 +814,7 @@ public final class PlaybackController: ObservableObject {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         group.name = trimmed
+        if let song = group.song { touch(song) }
         try? context.save()
     }
 
@@ -921,6 +938,7 @@ public final class PlaybackController: ObservableObject {
                                   song: song)
             song.groups.append(group)
         }
+        touch(song)
         try? context.save()
         return true
     }
@@ -939,6 +957,7 @@ public final class PlaybackController: ObservableObject {
 
     public func savePhrase(_ phrase: Phrase, for loop: LoopRegion, context: ModelContext) {
         loop.swarasJSON = phrase.jsonString()
+        if let song = loop.song { touch(song) }
         try? context.save()
         objectWillChange.send()
     }
@@ -949,6 +968,7 @@ public final class PlaybackController: ObservableObject {
             phraseAdapter.stop()
         }
         loop.swarasJSON = nil
+        if let song = loop.song { touch(song) }
         try? context.save()
         objectWillChange.send()
     }
@@ -956,6 +976,7 @@ public final class PlaybackController: ObservableObject {
     /// Per-song raga memory (web swNoteSongRaga).
     public func noteSongRaga(_ id: String?, context: ModelContext) {
         currentSong?.swRagaId = id
+        if let song = currentSong { touch(song) }
         try? context.save()
     }
 
