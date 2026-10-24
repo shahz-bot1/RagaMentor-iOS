@@ -158,6 +158,52 @@ final class PlaybackFunnelTests: XCTestCase {
         XCTAssertEqual(controller.zoomRequest?.end, 0.8)
     }
 
+    // MARK: Last-updated order (v1.5.39)
+    //
+    // The library sorts by Song.updatedAt. Content edits stamp
+    // it; playback, selection and position memory must not —
+    // merely listening never reorders the list.
+
+    func testContentEditsBumpUpdatedAt() throws {
+        let (controller, song, loop) = try makeScene()
+        let context = ModelContext(container)
+        let epoch = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertEqual(song.updatedAt, song.dateAdded,
+                       "a fresh song's stamp starts at its add date")
+
+        song.updatedAt = epoch
+        controller.renameLoop(loop, to: "Renamed", context: context)
+        XCTAssertGreaterThan(song.updatedAt, epoch,
+                             "a loop rename must stamp the song")
+
+        song.updatedAt = epoch
+        controller.setLoopNote(loop, to: "watch the turn", context: context)
+        XCTAssertGreaterThan(song.updatedAt, epoch,
+                             "a note edit must stamp the song")
+
+        let group = LoopGroup(name: "Group 1", memberIDs: [], song: song)
+        song.groups = [group]
+        context.insert(group)
+        try context.save()
+        song.updatedAt = epoch
+        controller.setGroupMembers(group, memberIDs: [loop.id], context: context)
+        XCTAssertGreaterThan(song.updatedAt, epoch,
+                             "a membership edit must stamp the song")
+    }
+
+    func testPlaybackAndSelectionDoNotBumpUpdatedAt() throws {
+        let (controller, song, _) = try makeScene()
+        let epoch = Date(timeIntervalSince1970: 1_000_000)
+        song.updatedAt = epoch
+        controller.selectLoop(try XCTUnwrap(song.loops.first),
+                              context: ModelContext(container))
+        controller.seek(to: 0.2)
+        controller.savePosition()
+        controller.clearLoopSelection()
+        XCTAssertEqual(song.updatedAt, epoch,
+                       "listening, selecting and position memory must not stamp the song")
+    }
+
     // MARK: Split keeps the original's level (his report)
     //
     // Splitting a loop from inside a group put the new piece at
