@@ -253,6 +253,24 @@ final class PlaybackFunnelTests: XCTestCase {
     // range's zoom so it comes back fitted to the still-playing
     // loop/group (his report).
 
+    /// The appearance fit reads armedRange(for:) directly
+    /// (v1.5.40): the armed range for the current song, nil for
+    /// any other song or when nothing is armed.
+    func testArmedRangeGatesOnSongAndSelection() throws {
+        let (controller, song, loop) = try makeScene()
+        XCTAssertNil(controller.armedRange(for: song.id),
+                     "nothing armed yet")
+        controller.selectLoop(loop, context: ModelContext(container))
+        let range = try XCTUnwrap(controller.armedRange(for: song.id))
+        XCTAssertEqual(range.start, 0.1)
+        XCTAssertEqual(range.end, 0.8)
+        XCTAssertNil(controller.armedRange(for: UUID()),
+                     "another song's page must not fit to this range")
+        controller.clearLoopSelection()
+        XCTAssertNil(controller.armedRange(for: song.id),
+                     "a cleared selection leaves nothing to fit")
+    }
+
     func testReplayArmedZoomReissuesForArmedLoop() throws {
         let (controller, song, loop) = try makeScene()
         controller.selectLoop(loop, context: ModelContext(container))
