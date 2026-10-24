@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.40",
-      "versionDate": "2026-10-24T09:25:00Z",
-      "versionDescription": "v1.5.40 \u2014 Two fixes. Returning to a song whose loop is playing now reliably lands zoomed into that loop, as if you had just selected it (the restore could be lost before). The loop note editor gains a keyboard bar with Cancel and Done, so a note can be finished or abandoned without hunting for a way to dismiss the keyboard; an unchanged note no longer rewrites itself.",
+      "version": "1.5.41",
+      "versionDate": "2026-10-24T10:10:00Z",
+      "versionDescription": "v1.5.41 \u2014 The loop note editor's Cancel and Done move out of the system keyboard accessory bar \u2014 its square container clashed with the keyboard's rounded edges \u2014 into a floating bar in the app's own colours that rides just above the keyboard while you edit. Done saves, Cancel restores the saved note, and dragging the page now puts the keyboard away too (which also saves).",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.40",
-          "date": "2026-10-24T09:25:00Z",
+          "version": "1.5.41",
+          "date": "2026-10-24T10:10:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
