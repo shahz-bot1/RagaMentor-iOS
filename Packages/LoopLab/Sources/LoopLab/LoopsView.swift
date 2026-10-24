@@ -497,42 +497,50 @@ struct GroupEditorView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("Name") {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    // The sheet speaks the app's chip language,
+                    // not a system form (his pick, v1.5.38): the
+                    // name is a rounded panel field, the members
+                    // are the loops page's pills.
                     TextField("Group name", text: $nameDraft)
-                }
-                Section("Members") {
-                    ForEach(candidates, id: \.id) { candidate in
-                        Button {
-                            if checked.contains(candidate.id) { checked.remove(candidate.id) }
-                            else { checked.insert(candidate.id) }
-                        } label: {
-                            HStack {
-                                Image(systemName: checked.contains(candidate.id) ? "checkmark.square.fill" : "square")
-                                Text(candidate.label)
-                                    .foregroundStyle(.primary)
-                                Spacer()
-                                Text(candidate.detail)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(Studio.text)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Studio.panel2, in: Capsule())
+                        .overlay(Capsule().strokeBorder(Studio.border, lineWidth: 1))
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        StudioSectionTitle("Members")
+                        if candidates.isEmpty {
+                            Text("Nothing available to add.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            FlowStack(items: candidates, spacing: 8, rowSpacing: 8) { candidate in
+                                candidatePill(candidate)
                             }
                         }
                     }
-                    if candidates.isEmpty {
-                        Text("Nothing available to add.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                if !isNewGroup {
-                    Section {
+
+                    if !isNewGroup {
                         Button(role: .destructive) {
                             controller.deleteGroup(group, context: modelContext)
                             dismiss()
-                        } label: { Label("Delete group (children move up)", systemImage: "trash") }
+                        } label: {
+                            Text("Delete group (children move up)")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Studio.color(dark: "#fb7185", light: "#d92d20"))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
                     }
                 }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .background(Studio.bg)
             .navigationTitle("Group")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -583,30 +591,75 @@ struct GroupEditorView: View {
         }
     }
 
+    /// One member candidate as a pill — the loops page's chip
+    /// anatomy (panel fill + border unchosen, solid accent
+    /// chosen) with a tick on chosen pills and the row's small
+    /// print kept inside: a loop's range (plus "· in <group>"
+    /// when picking it would move it) or a group's count.
+    private func candidatePill(_ candidate: Candidate) -> some View {
+        let chosen = checked.contains(candidate.id)
+        return Button {
+            if chosen { checked.remove(candidate.id) }
+            else { checked.insert(candidate.id) }
+        } label: {
+            HStack(spacing: 7) {
+                if chosen {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                if candidate.isGroup, let hex = candidate.colorHex {
+                    Circle().fill(Color(hex: hex)).frame(width: 9, height: 9)
+                }
+                Text(candidate.label)
+                if !candidate.detail.isEmpty {
+                    Text(candidate.detail)
+                        .font(.system(size: 11))
+                        .foregroundStyle(chosen ? .white.opacity(0.75) : Studio.muted)
+                }
+            }
+            .font(.system(size: 13.5, weight: chosen ? .semibold : .regular))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(chosen ? Studio.accent : Studio.panel2, in: Capsule())
+            .overlay(Capsule().strokeBorder(Studio.border, lineWidth: chosen ? 0 : 1))
+            .foregroundStyle(chosen ? .white : Studio.text)
+        }
+        .buttonStyle(.plain)
+    }
+
     private struct Candidate: Identifiable {
         let id: UUID
         let label: String
+        /// The pill's small print: a loop's range (plus its
+        /// current group when picking would move it), or a
+        /// group's member count.
         let detail: String
+        let isGroup: Bool
+        let colorHex: String?
     }
 
     /// Candidates: the controller's level rules (the web's,
     /// v1.5.12) decide which items are offered; this maps them
-    /// to rows — loops with their range (plus the current group
-    /// as a tag when checking would move the loop), groups with
-    /// a ▸ marker.
+    /// to pills — loops with their range (plus the current group
+    /// as a tag when picking would move the loop), groups with
+    /// their colour and member count.
     private var candidates: [Candidate] {
         let ids = controller.checklistCandidateIDs(for: group, isNew: isNewGroup)
         let parent = GroupOps.parentMap(groups: controller.groupData(song))
         let groupsByID = Dictionary(uniqueKeysWithValues: song.groups.map { ($0.id, $0) })
         return ids.map { id in
             if let loop = song.loops.first(where: { $0.id == id }) {
-                var detail = "\(LibraryView.formatDuration(loop.start)) – \(LibraryView.formatDuration(loop.end))"
+                var detail = "\(LibraryView.formatDuration(loop.start))–\(LibraryView.formatDuration(loop.end))"
                 if let pid = parent[id], pid != group.id, let owner = groupsByID[pid] {
-                    detail += " · \(owner.name)"
+                    detail += " · in \(owner.name)"
                 }
-                return Candidate(id: id, label: loop.name, detail: detail)
+                return Candidate(id: id, label: loop.name, detail: detail,
+                                 isGroup: false, colorHex: nil)
             }
-            return Candidate(id: id, label: "▸ \(groupsByID[id]?.name ?? "Group")", detail: "group")
+            let candidateGroup = groupsByID[id]
+            return Candidate(id: id, label: candidateGroup?.name ?? "Group",
+                             detail: "\(candidateGroup?.memberIDs.count ?? 0)",
+                             isGroup: true, colorHex: candidateGroup?.colorHex)
         }
     }
 }
