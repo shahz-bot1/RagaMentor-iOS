@@ -7,15 +7,15 @@
       "name": "RagaMentor",
       "bundleIdentifier": "uk.co.shahz.ragamentor",
       "developerName": "Shahzin",
-      "version": "1.5.39",
-      "versionDate": "2026-10-23T17:55:00Z",
-      "versionDescription": "v1.5.39 \u2014 The song list now sorts by last updated: edit a song\u2019s loops, groups, phrases, notes, title or raga and it rises to the top. Just playing a song does not move it. Songs you have not edited yet keep their added order until their first edit.",
+      "version": "1.5.40",
+      "versionDate": "2026-10-24T09:25:00Z",
+      "versionDescription": "v1.5.40 \u2014 Two fixes. Returning to a song whose loop is playing now reliably lands zoomed into that loop, as if you had just selected it (the restore could be lost before). The loop note editor gains a keyboard bar with Cancel and Done, so a note can be finished or abandoned without hunting for a way to dismiss the keyboard; an unchanged note no longer rewrites itself.",
       "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa",
       "localizedDescription": "RagaMentor native: LoopLab \u2014 slow down songs, keep pitch, loop sections. Built by GitHub Actions + fastlane on every push to main.",
       "versions": [
         {
-          "version": "1.5.39",
-          "date": "2026-10-23T17:55:00Z",
+          "version": "1.5.40",
+          "date": "2026-10-24T09:25:00Z",
           "localizedDescription": "Phrases migrate to the shared SequencePlayer (P-C).",
           "downloadURL": "https://github.com/shahz-bot1/RagaMentor-iOS/releases/download/latest/RagaMentor-iOS-unsigned.ipa"
         }
